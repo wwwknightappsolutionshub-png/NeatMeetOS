@@ -40,7 +40,7 @@ return new class extends Migration
             $table->uuid('id')->primary();
             $table->foreignUuid('tenant_id')->constrained('tenants')->cascadeOnDelete();
             $table->foreignUuid('client_id')->constrained('clients')->cascadeOnDelete();
-            $table->foreignUuid('author_user_id')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignId('author_user_id')->nullable()->constrained('users')->nullOnDelete();
             $table->string('direction', 20);
             $table->string('channel', 20)->default('in_app');
             $table->string('subject')->nullable();
