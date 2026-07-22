@@ -47,6 +47,7 @@ export interface SignupLeadResponse {
   status: 'created' | 'resent' | 'existing';
   message: string;
   login_url: string;
+  temporary_password?: string | null;
 }
 
 export async function captureSignupLead(payload: {

@@ -42,7 +42,7 @@ class TenantSignupService
      * Marketing lead capture: provisional user + temp password email (no tenant yet).
      *
      * @param  array{name: string, email: string, referral_code?: string|null, website?: string|null}  $data
-     * @return array{status: string, message: string, login_url: string}
+     * @return array{status: string, message: string, login_url: string, temporary_password?: string|null}
      */
     public function captureLead(array $data): array
     {
@@ -91,16 +91,20 @@ class TenantSignupService
                 'signup_meta' => $meta,
             ])->save();
 
-            $this->mail->sendWelcomeTrial($existing, $plainPassword);
+            $mailSent = $this->sendWelcomeTrialSafely($existing, $plainPassword);
             $this->audit->log('tenant.signup.lead_resent', $existing, null, [
                 'email' => $email,
                 'has_referral' => $referralCode !== '',
+                'mail_sent' => $mailSent,
             ], $existing);
 
             return [
                 'status' => 'resent',
-                'message' => 'We sent a fresh temporary password to your email.',
+                'message' => $mailSent
+                    ? 'We sent a fresh temporary password to your email.'
+                    : 'Your trial account is ready. Sign in with the temporary password from support if email delivery is delayed.',
                 'login_url' => $loginUrl,
+                'temporary_password' => $mailSent ? null : $plainPassword,
             ];
         }
 
@@ -117,17 +121,35 @@ class TenantSignupService
             ]),
         ]);
 
-        $this->mail->sendWelcomeTrial($user, $plainPassword);
+        $mailSent = $this->sendWelcomeTrialSafely($user, $plainPassword);
         $this->audit->log('tenant.signup.lead_captured', $user, null, [
             'email' => $email,
             'has_referral' => $referralCode !== '',
+            'mail_sent' => $mailSent,
         ], $user);
 
         return [
             'status' => 'created',
-            'message' => 'Check your email for your temporary password and login link.',
+            'message' => $mailSent
+                ? 'Check your email for your temporary password and login link.'
+                : 'Your trial account is ready. Use the temporary password shown to sign in.',
             'login_url' => $loginUrl,
+            // Only returned when SMTP fails so the funnel is not blocked in production.
+            'temporary_password' => $mailSent ? null : $plainPassword,
         ];
+    }
+
+    private function sendWelcomeTrialSafely(User $user, string $plainPassword): bool
+    {
+        try {
+            $this->mail->sendWelcomeTrial($user, $plainPassword);
+
+            return true;
+        } catch (\Throwable $e) {
+            report($e);
+
+            return false;
+        }
     }
 
     /**

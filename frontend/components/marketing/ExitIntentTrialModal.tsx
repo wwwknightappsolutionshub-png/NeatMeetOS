@@ -38,6 +38,7 @@ export function ExitIntentTrialModal({
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [loginUrl, setLoginUrl] = useState<string | null>(null);
+  const [tempPassword, setTempPassword] = useState<string | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -46,6 +47,7 @@ export function ExitIntentTrialModal({
       setError(null);
       setMessage(null);
       setLoginUrl(null);
+      setTempPassword(null);
     }
   }, [open, source]);
 
@@ -65,6 +67,7 @@ export function ExitIntentTrialModal({
       });
       setMessage(result.message);
       setLoginUrl(result.login_url);
+      setTempPassword(result.temporary_password ?? null);
       setStep('done');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not start your trial');
@@ -231,12 +234,23 @@ export function ExitIntentTrialModal({
                 id="trial-modal-title"
                 className="mt-2 text-xl font-semibold text-stone-900"
               >
-                Check your inbox
+                {tempPassword ? 'Your trial is ready' : 'Check your inbox'}
               </h2>
               <p className="mt-2 text-sm leading-relaxed text-stone-600">
                 {message ||
                   'We’ve sent your NeatMeet OS login details. Use them to finish Creating Your Workspace.'}
               </p>
+              {tempPassword ? (
+                <div className="mt-4 rounded-lg border border-[#2f5a45]/25 bg-white px-3 py-3 text-sm text-stone-800">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">
+                    Temporary password
+                  </p>
+                  <p className="mt-1 font-mono text-base font-semibold tracking-wide">{tempPassword}</p>
+                  <p className="mt-2 text-xs text-stone-500">
+                    Copy this now — email delivery is delayed. Change it after workspace setup.
+                  </p>
+                </div>
+              ) : null}
               <div className="mt-6 flex flex-col gap-2 sm:flex-row">
                 {loginUrl ? (
                   <a
