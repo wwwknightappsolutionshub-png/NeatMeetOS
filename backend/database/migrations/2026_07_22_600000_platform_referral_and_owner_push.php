@@ -50,7 +50,8 @@ return new class extends Migration
         Schema::create('tenant_owner_push_subscriptions', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->foreignUuid('tenant_id')->constrained('tenants')->cascadeOnDelete();
-            $table->foreignUuid('user_id')->constrained('users')->cascadeOnDelete();
+            // users.id is bigint (Laravel default), not uuid
+            $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
             $table->text('endpoint');
             $table->string('endpoint_hash', 64);
             $table->text('p256dh')->nullable();
