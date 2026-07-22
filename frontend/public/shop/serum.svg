@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="800" viewBox="0 0 640 800" role="img" aria-label="Smoothing serum">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#e8eef8"/>
+      <stop offset="100%" stop-color="#c5d2ea"/>
+    </linearGradient>
+    <linearGradient id="bottle" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f8faff"/>
+      <stop offset="100%" stop-color="#dde6f5"/>
+    </linearGradient>
+  </defs>
+  <rect width="640" height="800" fill="url(#bg)"/>
+  <rect x="285" y="70" width="70" height="50" rx="8" fill="#314a73"/>
+  <path d="M270 120 h100 l20 40 v480 a40 40 0 0 1 -40 40 h-60 a40 40 0 0 1 -40 -40 v-480 z" fill="url(#bottle)" stroke="#314a73" stroke-width="4"/>
+  <rect x="275" y="300" width="90" height="160" rx="12" fill="#314a73"/>
+  <text x="320" y="370" text-anchor="middle" fill="#fff" font-family="Georgia, serif" font-size="24" font-weight="700">SERUM</text>
+  <text x="320" y="410" text-anchor="middle" fill="#c5d2ea" font-family="Arial, sans-serif" font-size="16">50ml</text>
+</svg>

@@ -1,0 +1,79 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: neatmeet_os
+      POSTGRES_USER: neatmeet
+      POSTGRES_PASSWORD: secret
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: neatmeet
+      MINIO_ROOT_PASSWORD: secretsecret
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "8025:8025"
+      - "1025:1025"
+
+  backend:
+    build:
+      context: ../backend
+      dockerfile: ../docker/Dockerfile.backend
+    volumes:
+      - ../backend:/var/www/html
+    ports:
+      - "8000:8000"
+    environment:
+      APP_ENV: local
+      APP_URL: http://localhost:8000
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_DATABASE: neatmeet_os
+      DB_USERNAME: neatmeet
+      DB_PASSWORD: secret
+      REDIS_HOST: redis
+      QUEUE_CONNECTION: redis
+      CACHE_STORE: redis
+      FRONTEND_URL: http://localhost:3000
+      SANCTUM_STATEFUL_DOMAINS: localhost,localhost:3000,127.0.0.1,127.0.0.1:3000
+    depends_on:
+      - postgres
+      - redis
+
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: ../docker/Dockerfile.frontend
+    volumes:
+      - ../frontend:/app
+      - /app/node_modules
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
+      NEXT_PUBLIC_TENANT_SLUG: demo-salon
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+  minio_data:

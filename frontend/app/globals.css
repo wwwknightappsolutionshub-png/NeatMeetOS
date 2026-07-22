@@ -1,0 +1,72 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f3f1ec;
+  --foreground: #1c1917;
+  --admin-ink: #1c1917;
+  --admin-muted: #78716c;
+  --admin-line: #e7e5e4;
+  --admin-surface: #ffffff;
+  --admin-wash: #fafaf9;
+  --admin-sidebar: #1c1917;
+  --admin-sidebar-text: #e7e5e4;
+  --admin-accent: #2f5a45;
+  --admin-accent-soft: #e8f0eb;
+  --platform-ink: #0c0a09;
+  --platform-accent: #b45309;
+  --platform-accent-soft: #fff7ed;
+  --platform-sidebar: #0c0a09;
+  --platform-surface: #1c1917;
+  --platform-input: #0c0a09;
+  --platform-line: rgba(255, 255, 255, 0.18);
+  --platform-fg: #fafaf9;
+  --platform-label: #e7e5e4;
+  --platform-muted: #a8a29e;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-anek);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-anek), ui-sans-serif, system-ui, sans-serif;
+}
+
+@keyframes nm-hero-rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.nm-hero-line {
+  opacity: 0;
+  animation: nm-hero-rise 0.85s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.nm-hero-line-delay {
+  animation-delay: 0.18s;
+}
+
+.nm-hero-line-delay-2 {
+  animation-delay: 0.36s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nm-hero-line,
+  .nm-hero-line-delay,
+  .nm-hero-line-delay-2 {
+    opacity: 1;
+    animation: none;
+    transform: none;
+  }
+}

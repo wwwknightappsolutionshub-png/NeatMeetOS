@@ -1,0 +1,42 @@
+# Dependencies
+node_modules/
+vendor/
+
+# Environment / secrets
+.env
+.env.local
+.env.*.local
+.env.backup
+.env.production
+backend/.env
+frontend/.env.local
+frontend/.env
+*.pem
+
+# Build / cache
+backend/storage/*.key
+backend/bootstrap/cache/*.php
+frontend/.next/
+frontend/out/
+frontend/tsconfig.tsbuildinfo
+frontend/next-env.d.ts
+
+# Database
+backend/database/*.sqlite
+backend/database/*.sqlite-journal
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+.cursor/
+
+# Logs
+*.log
+backend/storage/logs/*
+!backend/storage/logs/.gitignore
+
+# PHPUnit
+.phpunit.result.cache
+backend/.phpunit.cache/
