@@ -74,6 +74,7 @@ export async function completeWorkspaceSignup(
   const data = await api<LoginResponse>('/signup/complete-workspace', {
     method: 'POST',
     body: JSON.stringify({ answers }),
+    auth: true,
     tenant: false,
   });
   setStoredToken(data.token);
