@@ -8,9 +8,11 @@ use App\Domains\Identity\Models\SubscriptionPlan;
 use App\Domains\Identity\Models\Tenant;
 use App\Domains\Identity\Models\User;
 use App\Domains\Identity\Services\AuthMailService;
+use App\Domains\Identity\Services\PlatformNotificationService;
 use App\Domains\Identity\Services\PlatformReferralProgramService;
 use App\Domains\Identity\Services\PlatformReferralSettingService;
 use App\Domains\Identity\Services\SignupFormDefinitionService;
+use App\Domains\Lookbook\Services\LookbookSeedService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
@@ -184,6 +186,85 @@ class MarketingLeadSignupFunnelTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.workspace_incomplete', false)
             ->assertJsonPath('data.tenant.slug', 'bloom-hair');
+    }
+
+    public function test_complete_workspace_succeeds_when_lookbook_seed_fails(): void
+    {
+        $user = User::query()->create([
+            'name' => 'Sam Owner',
+            'email' => 'sam.seedfail@example.com',
+            'password' => 'TempPass1234',
+            'email_verified_at' => now(),
+            'workspace_status' => User::WORKSPACE_PROVISIONAL,
+            'signup_meta' => [],
+        ]);
+
+        $lookbook = Mockery::mock(LookbookSeedService::class);
+        $lookbook->shouldReceive('seedForTenant')
+            ->once()
+            ->andThrow(new \RuntimeException('lookbook_items missing'));
+        $this->app->instance(LookbookSeedService::class, $lookbook);
+
+        Sanctum::actingAs($user);
+
+        $this->postJson('/api/v1/signup/complete-workspace', [
+            'password' => 'PermanentPass99',
+            'password_confirmation' => 'PermanentPass99',
+            'answers' => $this->validAnswers([
+                'business_name' => 'Seed Fail Salon',
+                'slug' => 'seed-fail-salon',
+                'owner_email' => 'sam.seedfail@example.com',
+                'owner_first_name' => 'Sam',
+                'owner_last_name' => 'Owner',
+            ]),
+        ])
+            ->assertCreated()
+            ->assertJsonPath('data.tenant.slug', 'seed-fail-salon');
+
+        $this->assertFalse($user->fresh()->needsWorkspace());
+    }
+
+    public function test_complete_workspace_succeeds_when_platform_notify_fails(): void
+    {
+        $user = User::query()->create([
+            'name' => 'Sam Owner',
+            'email' => 'sam.notifyfail@example.com',
+            'password' => 'TempPass1234',
+            'email_verified_at' => now(),
+            'workspace_status' => User::WORKSPACE_PROVISIONAL,
+            'signup_meta' => [],
+        ]);
+
+        $notifications = Mockery::mock(PlatformNotificationService::class);
+        $notifications->shouldReceive('notifyTenantSignup')
+            ->once()
+            ->andThrow(new \RuntimeException('smtp down'));
+        $this->app->instance(PlatformNotificationService::class, $notifications);
+
+        Sanctum::actingAs($user);
+
+        $this->postJson('/api/v1/signup/complete-workspace', [
+            'password' => 'PermanentPass99',
+            'password_confirmation' => 'PermanentPass99',
+            'answers' => $this->validAnswers([
+                'business_name' => 'Notify Fail Salon',
+                'slug' => 'notify-fail-salon',
+                'owner_email' => 'sam.notifyfail@example.com',
+                'owner_first_name' => 'Sam',
+                'owner_last_name' => 'Owner',
+            ]),
+        ])
+            ->assertCreated()
+            ->assertJsonPath('data.tenant.slug', 'notify-fail-salon');
+
+        $this->assertFalse($user->fresh()->needsWorkspace());
+    }
+
+    public function test_unauthenticated_complete_workspace_returns_401_json(): void
+    {
+        $this->postJson('/api/v1/signup/complete-workspace', [])
+            ->assertUnauthorized()
+            ->assertJsonPath('message', 'Unauthenticated.');
     }
 
     public function test_referral_share_url_points_at_marketing_home(): void

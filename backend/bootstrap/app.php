@@ -32,6 +32,15 @@ return Application::configure(basePath: dirname(__DIR__))
             'platform.admin' => EnsurePlatformAdmin::class,
         ]);
 
+        // API clients must get 401 JSON — never redirect to a missing named route('login').
+        $middleware->redirectGuestsTo(function (Request $request) {
+            if ($request->is('api/*') || $request->expectsJson()) {
+                return null;
+            }
+
+            return '/login';
+        });
+
         // Bearer-token SPA (Next.js) uses credentials: 'omit' and never sends
         // XSRF cookies. statefulApi() would treat Origin as a first-party SPA
         // and reject login/signup POSTs with CSRF 419 — do not enable it.

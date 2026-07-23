@@ -17,10 +17,13 @@ use App\Domains\Identity\Support\SignupServiceCatalogue;
 use App\Domains\Lookbook\Services\LookbookSeedService;
 use App\Shared\Audit\AuditLogger;
 use App\Shared\Tenancy\TenantContext;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 class TenantSignupService
 {
@@ -215,134 +218,137 @@ class TenantSignupService
             ]);
         }
 
-        /** @var Tenant $tenant */
-        $tenant = DB::transaction(function () use ($payload, $basicPlan, $desiredSlug, $user, $permanentPassword) {
-            $tenant = Tenant::query()->create([
-                'name' => $payload['business_name'],
-                'trading_name' => $payload['trading_name'] ?: $payload['business_name'],
-                'slug' => $payload['slug'],
-                'status' => 'active',
-                'activated_at' => now(),
-                'business_type' => $payload['business_type'],
-                'timezone' => $payload['timezone'],
-                'contact_email' => $payload['contact_email'],
-                'contact_phone' => $payload['owner_whatsapp'],
-                'owner_whatsapp' => $payload['owner_whatsapp'],
-                'subscription_plan_id' => $basicPlan->id,
-                'settings' => [
-                    'branding' => array_merge(Tenant::BRANDING_DEFAULTS, [
-                        'brand_display_name' => $payload['business_name'],
-                        'primary_color' => '#2f5a45',
-                        'secondary_color' => '#fafaf9',
-                        'support_email' => $payload['contact_email'],
-                        'support_phone' => $payload['owner_whatsapp'],
-                    ]),
-                    'signup' => [
-                        'desired_plan_slug' => $desiredSlug,
-                        'registered_at' => now()->toIso8601String(),
-                        'source' => 'marketing_lead',
+        try {
+            /** @var Tenant $tenant */
+            $tenant = DB::transaction(function () use ($payload, $basicPlan, $desiredSlug, $user, $permanentPassword) {
+                $tenant = Tenant::query()->create([
+                    'name' => $payload['business_name'],
+                    'trading_name' => $payload['trading_name'] ?: $payload['business_name'],
+                    'slug' => $payload['slug'],
+                    'status' => 'active',
+                    'activated_at' => now(),
+                    'business_type' => $payload['business_type'],
+                    'timezone' => $payload['timezone'],
+                    'contact_email' => $payload['contact_email'],
+                    'contact_phone' => $payload['owner_whatsapp'],
+                    'owner_whatsapp' => $payload['owner_whatsapp'],
+                    'subscription_plan_id' => $basicPlan->id,
+                    'settings' => [
+                        'branding' => array_merge(Tenant::BRANDING_DEFAULTS, [
+                            'brand_display_name' => $payload['business_name'],
+                            'primary_color' => '#2f5a45',
+                            'secondary_color' => '#fafaf9',
+                            'support_email' => $payload['contact_email'],
+                            'support_phone' => $payload['owner_whatsapp'],
+                        ]),
+                        'signup' => [
+                            'desired_plan_slug' => $desiredSlug,
+                            'registered_at' => now()->toIso8601String(),
+                            'source' => 'marketing_lead',
+                        ],
                     ],
-                ],
-            ]);
+                ]);
 
-            TenantSubscription::withoutGlobalScopes()->create([
-                'tenant_id' => $tenant->id,
-                'subscription_plan_id' => $basicPlan->id,
-                'desired_plan_slug' => $desiredSlug,
-                'tier_unlocked' => false,
-                'status' => TenantSubscription::STATUS_TRIAL,
-                'billing_interval' => SubscriptionPlan::INTERVAL_MONTHLY,
-                'trial_ends_at' => now()->addDays(self::TRIAL_DAYS),
-                'current_period_start' => now(),
-                'current_period_end' => now()->addDays(self::TRIAL_DAYS),
-            ]);
+                TenantSubscription::withoutGlobalScopes()->create([
+                    'tenant_id' => $tenant->id,
+                    'subscription_plan_id' => $basicPlan->id,
+                    'desired_plan_slug' => $desiredSlug,
+                    'tier_unlocked' => false,
+                    'status' => TenantSubscription::STATUS_TRIAL,
+                    'billing_interval' => SubscriptionPlan::INTERVAL_MONTHLY,
+                    'trial_ends_at' => now()->addDays(self::TRIAL_DAYS),
+                    'current_period_start' => now(),
+                    'current_period_end' => now()->addDays(self::TRIAL_DAYS),
+                ]);
 
-            $location = Location::withoutGlobalScopes()->create([
-                'tenant_id' => $tenant->id,
-                'name' => $payload['location_name'],
-                'slug' => Str::slug($payload['location_name']).'-'.Str::lower(Str::random(4)),
-                'timezone' => $payload['timezone'],
-                'address' => [
-                    'line1' => $payload['address_line1'],
-                    'city' => $payload['city'],
-                    'postcode' => $payload['postcode'],
-                    'country' => strtoupper($payload['country']),
-                ],
-                'contact_phone' => $payload['owner_whatsapp'],
-                'opening_hours' => $this->openingHoursFromSignup(
-                    $payload['opening_time'],
-                    $payload['closing_time'],
-                ),
-                'is_active' => true,
-            ]);
-
-            $workspace = Workspace::withoutGlobalScopes()->create([
-                'tenant_id' => $tenant->id,
-                'location_id' => $location->id,
-                'name' => 'Chair 1',
-                'code' => 'C1',
-                'workspace_type' => Workspace::TYPE_CHAIR,
-                'is_active' => true,
-            ]);
-
-            $ownerRole = Role::withoutGlobalScopes()->create([
-                'tenant_id' => $tenant->id,
-                'name' => 'Owner',
-                'slug' => 'owner',
-                'is_system' => true,
-                'is_active' => true,
-            ]);
-            $ownerRole->permissions()->sync($this->ownerPermissionIds());
-
-            $teamMember = TeamMember::withoutGlobalScopes()->create([
-                'tenant_id' => $tenant->id,
-                'user_id' => $user->id,
-                'first_name' => $payload['owner_first_name'],
-                'last_name' => $payload['owner_last_name'],
-                'employment_type' => TeamMember::EMPLOYMENT_OWNER,
-                'display_name' => trim($payload['owner_first_name'].' '.$payload['owner_last_name']),
-                'phone' => $payload['owner_whatsapp'],
-                'primary_location_id' => $location->id,
-                'is_active' => true,
-            ]);
-            $teamMember->roles()->attach($ownerRole->id);
-            $teamMember->workspaces()->attach($workspace->id);
-
-            // Permanent password replaces the temporary unlock password.
-            $user->forceFill([
-                'name' => trim($payload['owner_first_name'].' '.$payload['owner_last_name']),
-                'password' => $permanentPassword,
-                'workspace_status' => User::WORKSPACE_COMPLETE,
-                'signup_meta' => array_merge(
-                    is_array($user->signup_meta) ? $user->signup_meta : [],
-                    [
-                        'completed_at' => now()->toIso8601String(),
-                        'temporary_password_invalidated_at' => now()->toIso8601String(),
+                $location = Location::withoutGlobalScopes()->create([
+                    'tenant_id' => $tenant->id,
+                    'name' => $payload['location_name'],
+                    'slug' => Str::slug($payload['location_name']).'-'.Str::lower(Str::random(4)),
+                    'timezone' => $payload['timezone'],
+                    'address' => [
+                        'line1' => $payload['address_line1'],
+                        'city' => $payload['city'],
+                        'postcode' => $payload['postcode'],
+                        'country' => strtoupper($payload['country']),
                     ],
-                ),
-            ])->save();
+                    'contact_phone' => $payload['owner_whatsapp'],
+                    'opening_hours' => $this->openingHoursFromSignup(
+                        $payload['opening_time'],
+                        $payload['closing_time'],
+                    ),
+                    'is_active' => true,
+                ]);
 
-            $this->tenantContext->set($tenant);
-            $this->createSignupServices($tenant->id, $payload['services']);
-            $this->lookbookSeed->seedForTenant($tenant);
+                $workspace = Workspace::withoutGlobalScopes()->create([
+                    'tenant_id' => $tenant->id,
+                    'location_id' => $location->id,
+                    'name' => 'Chair 1',
+                    'code' => 'C1',
+                    'workspace_type' => Workspace::TYPE_CHAIR,
+                    'is_active' => true,
+                ]);
 
-            $this->audit->log('tenant.signup.workspace_completed', $tenant, null, [
-                'slug' => $tenant->slug,
-                'desired_plan_slug' => $desiredSlug,
-                'owner_email' => $user->email,
-                'services_count' => count($payload['services']),
-                'source' => 'marketing_lead',
-                'permanent_password_set' => true,
-            ], $user);
+                $ownerRole = Role::withoutGlobalScopes()->create([
+                    'tenant_id' => $tenant->id,
+                    'name' => 'Owner',
+                    'slug' => 'owner',
+                    'is_system' => true,
+                    'is_active' => true,
+                ]);
+                $ownerRole->permissions()->sync($this->ownerPermissionIds());
 
-            return $tenant;
-        });
+                $teamMember = TeamMember::withoutGlobalScopes()->create([
+                    'tenant_id' => $tenant->id,
+                    'user_id' => $user->id,
+                    'first_name' => $payload['owner_first_name'],
+                    'last_name' => $payload['owner_last_name'],
+                    'employment_type' => TeamMember::EMPLOYMENT_OWNER,
+                    'display_name' => trim($payload['owner_first_name'].' '.$payload['owner_last_name']),
+                    'phone' => $payload['owner_whatsapp'],
+                    'primary_location_id' => $location->id,
+                    'is_active' => true,
+                ]);
+                $teamMember->roles()->attach($ownerRole->id);
+                $teamMember->workspaces()->attach($workspace->id);
 
-        if (! empty($payload['referral_code'])) {
-            $this->platformReferrals->attachOnSignup($tenant, $payload['referral_code']);
+                // Permanent password replaces the temporary unlock password.
+                $user->forceFill([
+                    'name' => trim($payload['owner_first_name'].' '.$payload['owner_last_name']),
+                    'password' => $permanentPassword,
+                    'workspace_status' => User::WORKSPACE_COMPLETE,
+                    'signup_meta' => array_merge(
+                        is_array($user->signup_meta) ? $user->signup_meta : [],
+                        [
+                            'completed_at' => now()->toIso8601String(),
+                            'temporary_password_invalidated_at' => now()->toIso8601String(),
+                        ],
+                    ),
+                ])->save();
+
+                $this->tenantContext->set($tenant);
+                $this->createSignupServices($tenant->id, $payload['services']);
+
+                $this->audit->log('tenant.signup.workspace_completed', $tenant, null, [
+                    'slug' => $tenant->slug,
+                    'desired_plan_slug' => $desiredSlug,
+                    'owner_email' => $user->email,
+                    'services_count' => count($payload['services']),
+                    'source' => 'marketing_lead',
+                    'permanent_password_set' => true,
+                ], $user);
+
+                return $tenant;
+            });
+        } catch (UniqueConstraintViolationException $e) {
+            throw ValidationException::withMessages([
+                'slug' => ['This booking URL slug is already taken. Choose another.'],
+            ]);
         }
-        $this->platformReferrals->handleTenantActivated($tenant);
-        $this->platformNotifications->notifyTenantSignup($tenant, $user->fresh());
+
+        // Non-critical: lookbook seed / referrals / admin mail must not block workspace open.
+        $this->safeSeedLookbook($tenant);
+        $this->safeRunSignupSideEffects($tenant, $user->fresh() ?? $user, $payload['referral_code']);
 
         // Drop tokens issued with the temporary password; issue a fresh session token.
         $user->tokens()->delete();
@@ -488,7 +494,6 @@ class TenantSignupService
 
             $this->tenantContext->set($tenant);
             $this->createSignupServices($tenant->id, $payload['services']);
-            $this->lookbookSeed->seedForTenant($tenant);
 
             $this->audit->log('tenant.signup.registered', $tenant, null, [
                 'slug' => $tenant->slug,
@@ -507,12 +512,22 @@ class TenantSignupService
             return compact('tenant', 'user', 'plainToken');
         });
 
-        if (! empty($payload['referral_code'])) {
-            $this->platformReferrals->attachOnSignup($created['tenant'], $payload['referral_code']);
-        }
+        $this->safeSeedLookbook($created['tenant']);
+        $this->safeRunSignupSideEffects(
+            $created['tenant'],
+            $created['user'],
+            $payload['referral_code'],
+        );
 
-        $this->mail->sendTenantActivation($created['user'], $created['plainToken'], $created['tenant']->name);
-        $this->platformNotifications->notifyTenantSignup($created['tenant'], $created['user']);
+        try {
+            $this->mail->sendTenantActivation($created['user'], $created['plainToken'], $created['tenant']->name);
+        } catch (Throwable $e) {
+            Log::error('signup.activation_mail_failed', [
+                'tenant_id' => $created['tenant']->id,
+                'user_id' => $created['user']->id,
+                'message' => $e->getMessage(),
+            ]);
+        }
 
         return [
             'tenant' => $created['tenant'],
@@ -555,7 +570,7 @@ class TenantSignupService
         }
 
         $this->tenantContext->set($tenant);
-        $this->lookbookSeed->seedForTenant($tenant);
+        $this->safeSeedLookbook($tenant);
         $this->audit->log('tenant.signup.activated', $tenant, null, [
             'user_id' => $user->id,
         ], $user);
@@ -802,6 +817,43 @@ class TenantSignupService
         }
 
         return $ids;
+    }
+
+    private function safeSeedLookbook(Tenant $tenant): void
+    {
+        try {
+            $this->lookbookSeed->seedForTenant($tenant);
+        } catch (Throwable $e) {
+            Log::error('signup.lookbook_seed_failed', [
+                'tenant_id' => $tenant->id,
+                'message' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    private function safeRunSignupSideEffects(Tenant $tenant, User $user, string $referralCode): void
+    {
+        try {
+            if ($referralCode !== '') {
+                $this->platformReferrals->attachOnSignup($tenant, $referralCode);
+            }
+            $this->platformReferrals->handleTenantActivated($tenant);
+        } catch (Throwable $e) {
+            Log::error('signup.referral_hooks_failed', [
+                'tenant_id' => $tenant->id,
+                'message' => $e->getMessage(),
+            ]);
+        }
+
+        try {
+            $this->platformNotifications->notifyTenantSignup($tenant, $user);
+        } catch (Throwable $e) {
+            Log::error('signup.platform_notify_failed', [
+                'tenant_id' => $tenant->id,
+                'user_id' => $user->id,
+                'message' => $e->getMessage(),
+            ]);
+        }
     }
 
     private function openingHoursFromSignup(string $open, string $close): array
