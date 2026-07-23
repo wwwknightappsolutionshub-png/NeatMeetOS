@@ -106,15 +106,18 @@ class ProgressiveModuleAccessService
 
     public function hasBookingWorthAtLeast(Tenant $tenant, int $cents): bool
     {
-        return DB::table('appointment_services as s')
-            ->join('appointments as a', 'a.id', '=', 's.appointment_id')
-            ->where('s.tenant_id', $tenant->id)
+        // Correlated sum — do not use groupBy()+exists(); PostgreSQL rejects
+        // Laravel's exists() wrapper (select *) with GROUP BY.
+        return DB::table('appointments as a')
+            ->where('a.tenant_id', $tenant->id)
             ->whereNotIn('a.status', [
                 Appointment::STATUS_CANCELLED,
                 Appointment::STATUS_NO_SHOW,
             ])
-            ->groupBy('s.appointment_id')
-            ->havingRaw('COALESCE(SUM(s.price_cents), 0) >= ?', [$cents])
+            ->whereRaw(
+                '(select coalesce(sum(s.price_cents), 0) from appointment_services s where s.appointment_id = a.id) >= ?',
+                [$cents],
+            )
             ->exists();
     }
 
