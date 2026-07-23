@@ -170,7 +170,7 @@ class TenantSignupService
             ]);
         }
 
-        // Avoid User::currentTeamMember (latestOfMany) here — keep this check as a plain exists.
+        // Prefer a plain exists() check (no relation load) before provisioning.
         $alreadyLinked = TeamMember::withoutGlobalScopes()
             ->where('user_id', $user->id)
             ->whereNotNull('tenant_id')

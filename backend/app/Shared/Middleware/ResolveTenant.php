@@ -36,8 +36,11 @@ class ResolveTenant
 
         $user = $request->user();
 
-        if ($user !== null && $user->current_team_member?->tenant) {
-            return $user->current_team_member->tenant;
+        if ($user !== null) {
+            $member = $user->resolveActiveTeamMember();
+            if ($member?->tenant !== null) {
+                return $member->tenant;
+            }
         }
 
         return null;

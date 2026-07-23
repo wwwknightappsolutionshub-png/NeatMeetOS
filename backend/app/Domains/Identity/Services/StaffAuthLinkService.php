@@ -29,7 +29,7 @@ class StaffAuthLinkService
             return;
         }
 
-        $tenantId = $user->currentTeamMember?->tenant_id;
+        $tenantId = $user->resolveActiveTeamMember()?->tenant_id;
         $plain = $this->tokens->issue($user, AuthActionToken::PURPOSE_MAGIC_LOGIN, $tenantId, 15);
         $this->mail->sendMagicLogin($user, $plain);
     }
@@ -40,7 +40,7 @@ class StaffAuthLinkService
     public function consumeMagicLogin(string $plainToken, ?string $deviceName = null): array
     {
         $action = $this->tokens->consume($plainToken, AuthActionToken::PURPOSE_MAGIC_LOGIN);
-        $user = User::query()->with('currentTeamMember.tenant')->findOrFail($action->user_id);
+        $user = User::query()->findOrFail($action->user_id);
 
         if ($this->tenantBlocksLogin($user)) {
             throw ValidationException::withMessages([
@@ -54,7 +54,7 @@ class StaffAuthLinkService
         return [
             'token' => $sanctum,
             'user' => $user,
-            'tenant' => $user->currentTeamMember?->tenant,
+            'tenant' => $user->resolveActiveTeamMember()?->tenant,
         ];
     }
 
@@ -65,7 +65,7 @@ class StaffAuthLinkService
             return;
         }
 
-        $tenantId = $user->currentTeamMember?->tenant_id;
+        $tenantId = $user->resolveActiveTeamMember()?->tenant_id;
         $plain = $this->tokens->issue($user, AuthActionToken::PURPOSE_PASSWORD_RESET, $tenantId, 60);
         $this->mail->sendPasswordReset($user, $plain);
     }
@@ -84,8 +84,7 @@ class StaffAuthLinkService
             return false;
         }
 
-        $user->loadMissing('currentTeamMember.tenant');
-        $tenant = $user->currentTeamMember?->tenant;
+        $tenant = $user->resolveActiveTeamMember()?->tenant;
         if ($tenant === null) {
             return false;
         }

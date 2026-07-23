@@ -55,10 +55,21 @@ class User extends Authenticatable
 
     public function currentTeamMember(): HasOne
     {
-        // Use created_at — PostgreSQL cannot MAX() uuid primary keys (team_members.id).
+        // Do not use latestOfMany()/ofMany() — PostgreSQL cannot aggregate uuid PKs,
+        // and ofMany subqueries interact poorly with BelongsToTenant scopes.
         return $this->hasOne(TeamMember::class)
             ->where('is_active', true)
-            ->latestOfMany('created_at');
+            ->orderByDesc('created_at');
+    }
+
+    public function resolveActiveTeamMember(): ?TeamMember
+    {
+        return TeamMember::withoutGlobalScopes()
+            ->where('user_id', $this->id)
+            ->where('is_active', true)
+            ->whereNotNull('tenant_id')
+            ->orderByDesc('created_at')
+            ->first();
     }
 
     protected static function newFactory(): UserFactory

@@ -35,9 +35,9 @@ class ShellController extends Controller
                 'name' => $tenant->name,
                 'slug' => $tenant->slug,
             ] : null,
-            'features' => $entitlements->resolveFeatures($tenant),
-            'locked_modules' => $entitlements->lockedModuleHints($tenant),
-            'limits' => $entitlements->resolveLimits($tenant),
+            'features' => $entitlements->resolveFeatures($tenant instanceof Tenant ? $tenant : null),
+            'locked_modules' => $entitlements->lockedModuleHints($tenant instanceof Tenant ? $tenant : null),
+            'limits' => $entitlements->resolveLimits($tenant instanceof Tenant ? $tenant : null),
             'trial' => $this->trialPayload($tenant instanceof Tenant ? $tenant : null),
             'vapid_public_key' => $push->publicKey(),
             'workspace_surfaces' => array_values(array_filter([
