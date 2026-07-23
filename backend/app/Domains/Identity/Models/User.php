@@ -55,7 +55,10 @@ class User extends Authenticatable
 
     public function currentTeamMember(): HasOne
     {
-        return $this->hasOne(TeamMember::class)->where('is_active', true)->latestOfMany();
+        // Use created_at — PostgreSQL cannot MAX() uuid primary keys (team_members.id).
+        return $this->hasOne(TeamMember::class)
+            ->where('is_active', true)
+            ->latestOfMany('created_at');
     }
 
     protected static function newFactory(): UserFactory

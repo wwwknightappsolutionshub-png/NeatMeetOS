@@ -186,6 +186,11 @@ class MarketingLeadSignupFunnelTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.workspace_incomplete', false)
             ->assertJsonPath('data.tenant.slug', 'bloom-hair');
+
+        // Regression: currentTeamMember must not use MAX(uuid) (breaks on PostgreSQL).
+        $user->refresh()->load('currentTeamMember.tenant');
+        $this->assertNotNull($user->currentTeamMember);
+        $this->assertSame('bloom-hair', $user->currentTeamMember->tenant?->slug);
     }
 
     public function test_complete_workspace_succeeds_when_lookbook_seed_fails(): void

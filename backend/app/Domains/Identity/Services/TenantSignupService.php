@@ -170,7 +170,12 @@ class TenantSignupService
             ]);
         }
 
-        if ($user->currentTeamMember?->tenant !== null) {
+        // Avoid User::currentTeamMember (latestOfMany) here — keep this check as a plain exists.
+        $alreadyLinked = TeamMember::withoutGlobalScopes()
+            ->where('user_id', $user->id)
+            ->whereNotNull('tenant_id')
+            ->exists();
+        if ($alreadyLinked) {
             throw ValidationException::withMessages([
                 'email' => ['Your workspace is already set up. Sign in to your dashboard.'],
             ]);
