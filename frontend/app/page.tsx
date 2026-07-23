@@ -10,7 +10,7 @@ const SITE_URL = (
 
 const OG_TITLE = 'NeatMeet OS — Salon operating system';
 const OG_DESCRIPTION =
-  'One OS for bookings, clients, till, memberships, and follow-up. Start a 30-day free trial.';
+  'Your Daily Beauty & Grooming Operations Made Easier. Start a 30-day free trial.';
 /** JPEG under ~100KB — WhatsApp often drops large PNG previews. */
 const OG_IMAGE_PATH = '/brand/og-landing.jpg';
 const OG_IMAGE_URL = `${SITE_URL}${OG_IMAGE_PATH}`;
