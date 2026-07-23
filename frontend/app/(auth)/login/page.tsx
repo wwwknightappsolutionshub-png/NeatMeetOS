@@ -105,7 +105,8 @@ function LoginAuthPage() {
   const resetToken = searchParams.get('reset');
   const nextPath = searchParams.get('next');
   const referralCode = resolveReferralCode(searchParams.get('ref')) ?? '';
-  const wantSignup = searchParams.get('tab') === 'signup' || Boolean(referralCode);
+  const forceSignupOnly = searchParams.get('tab') === 'signup';
+  const wantSignup = forceSignupOnly || Boolean(referralCode);
   const emailFromQuery = (searchParams.get('email') ?? '').trim();
 
   const [tab, setTab] = useState<AuthTab>(
@@ -465,12 +466,30 @@ function LoginAuthPage() {
                   : 'Staff access for salon teams and platform admins.'}
           </p>
 
-          {!specialMode && !workspaceOnboarding ? (
+          {!specialMode ? (
             <div className="mt-6 flex gap-1 rounded-xl border border-stone-200 bg-stone-100/80 p-1">
-              <button type="button" className={tabClass(tab === 'login')} onClick={() => { setTab('login'); setError(null); setNotice(null); }}>
+              <button
+                type="button"
+                className={`${tabClass(tab === 'login')} ${forceSignupOnly || workspaceOnboarding ? 'cursor-not-allowed opacity-45 hover:bg-transparent hover:text-stone-500' : ''}`}
+                disabled={forceSignupOnly || workspaceOnboarding}
+                onClick={() => {
+                  if (forceSignupOnly || workspaceOnboarding) return;
+                  setTab('login');
+                  setError(null);
+                  setNotice(null);
+                }}
+              >
                 Login
               </button>
-              <button type="button" className={tabClass(tab === 'signup')} onClick={() => { setTab('signup'); setError(null); setNotice(null); }}>
+              <button
+                type="button"
+                className={tabClass(tab === 'signup')}
+                onClick={() => {
+                  setTab('signup');
+                  setError(null);
+                  setNotice(null);
+                }}
+              >
                 Sign up
               </button>
             </div>
@@ -662,7 +681,39 @@ function LoginAuthPage() {
 
           {!specialMode && tab === 'signup' ? (
             <div className="mt-6">
-              {signupDone ? (
+              {forceSignupOnly && emailFromQuery && !workspaceOnboarding ? (
+                <form onSubmit={handlePasswordLogin} className="space-y-4">
+                  <p className="text-sm text-stone-600">
+                    Enter the temporary password from your email to continue Creating Your Workspace.
+                  </p>
+                  <label className="block text-sm">
+                    <span className="font-medium text-stone-700">Email</span>
+                    <input
+                      type="email"
+                      value={email}
+                      readOnly
+                      className={`${inputClass} bg-stone-50 text-stone-600`}
+                      autoComplete="username"
+                    />
+                  </label>
+                  <label className="block text-sm">
+                    <span className="font-medium text-stone-700">Temporary password</span>
+                    <input
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className={inputClass}
+                      required
+                      minLength={8}
+                      autoComplete="current-password"
+                      autoFocus
+                    />
+                  </label>
+                  <Button type="submit" disabled={loading} className="w-full !bg-[#2f5a45]">
+                    {loading ? 'Continuing…' : 'Continue'}
+                  </Button>
+                </form>
+              ) : signupDone ? (
                 <div className="rounded-xl border border-[#2f5a45]/25 bg-[#e8f0eb] px-4 py-5">
                   <p className="text-sm font-semibold text-[#2f5a45]">You&apos;re almost in</p>
                   <p className="mt-2 text-sm text-stone-700">{signupDone}</p>
@@ -673,6 +724,7 @@ function LoginAuthPage() {
                       setTab('login');
                       setLoginMode('password');
                     }}
+                    disabled={forceSignupOnly}
                   >
                     Back to login
                   </Button>

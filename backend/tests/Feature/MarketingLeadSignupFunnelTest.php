@@ -74,6 +74,7 @@ class MarketingLeadSignupFunnelTest extends TestCase
 
         $loginUrl = (string) $response->json('data.login_url');
         $this->assertStringContainsString('email=sam%40example.com', $loginUrl);
+        $this->assertStringContainsString('tab=signup', $loginUrl);
 
         $user = User::query()->where('email', 'sam@example.com')->first();
         $this->assertNotNull($user);

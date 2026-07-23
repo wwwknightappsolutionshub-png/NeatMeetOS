@@ -37,7 +37,6 @@ export function ExitIntentTrialModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [loginUrl, setLoginUrl] = useState<string | null>(null);
   const [tempPassword, setTempPassword] = useState<string | null>(null);
 
   useEffect(() => {
@@ -46,7 +45,6 @@ export function ExitIntentTrialModal({
       setStep(source === 'exit' ? 'form' : 'prompt');
       setError(null);
       setMessage(null);
-      setLoginUrl(null);
       setTempPassword(null);
     }
   }, [open, source]);
@@ -66,7 +64,6 @@ export function ExitIntentTrialModal({
         website,
       });
       setMessage(result.message);
-      setLoginUrl(result.login_url);
       setTempPassword(result.temporary_password ?? null);
       setStep('done');
     } catch (err) {
@@ -234,11 +231,10 @@ export function ExitIntentTrialModal({
                 id="trial-modal-title"
                 className="mt-2 text-xl font-semibold text-stone-900"
               >
-                {tempPassword ? 'Your trial is ready' : 'Check your inbox'}
+                Check your inbox
               </h2>
               <p className="mt-2 text-sm leading-relaxed text-stone-600">
-                {message ||
-                  'We’ve sent your NeatMeet OS login details. Use them to finish Creating Your Workspace.'}
+                Check your inbox / spam box for your temporary login details.
               </p>
               {tempPassword ? (
                 <div className="mt-4 rounded-lg border border-[#2f5a45]/25 bg-white px-3 py-3 text-sm text-stone-800">
@@ -247,19 +243,17 @@ export function ExitIntentTrialModal({
                   </p>
                   <p className="mt-1 font-mono text-base font-semibold tracking-wide">{tempPassword}</p>
                   <p className="mt-2 text-xs text-stone-500">
-                    Copy this now — email delivery is delayed. Change it after workspace setup.
+                    Copy this now if email is delayed. Change it after workspace setup.
                   </p>
                 </div>
               ) : null}
               <div className="mt-6 flex flex-col gap-2 sm:flex-row">
-                {loginUrl ? (
-                  <a
-                    href={loginUrl}
-                    className="inline-flex flex-1 items-center justify-center rounded-lg bg-[#2f5a45] px-4 py-2.5 text-sm font-semibold text-white"
-                  >
-                    Go to login
-                  </a>
-                ) : null}
+                <a
+                  href="mailto:"
+                  className="inline-flex flex-1 items-center justify-center rounded-lg bg-[#2f5a45] px-4 py-2.5 text-sm font-semibold text-white"
+                >
+                  Check email
+                </a>
                 <Button type="button" variant="secondary" onClick={onClose}>
                   Close
                 </Button>

@@ -101,8 +101,8 @@ class TenantSignupService
             return [
                 'status' => 'resent',
                 'message' => $mailSent
-                    ? 'We sent a fresh temporary password to your email.'
-                    : 'Your trial account is ready. Sign in with the temporary password from support if email delivery is delayed.',
+                    ? 'Check your inbox / spam box for your temporary login details.'
+                    : 'Your trial account is ready. Use the temporary password shown to sign in.',
                 'login_url' => $loginUrl,
                 'temporary_password' => $mailSent ? null : $plainPassword,
             ];
@@ -131,7 +131,7 @@ class TenantSignupService
         return [
             'status' => 'created',
             'message' => $mailSent
-                ? 'Check your email for your temporary password and login link.'
+                ? 'Check your inbox / spam box for your temporary login details.'
                 : 'Your trial account is ready. Use the temporary password shown to sign in.',
             'login_url' => $loginUrl,
             // Only returned when SMTP fails so the funnel is not blocked in production.
@@ -353,8 +353,8 @@ class TenantSignupService
         $email = strtolower(trim($email));
 
         return $email !== ''
-            ? $base.'/login?email='.urlencode($email)
-            : $base.'/login';
+            ? $base.'/login?tab=signup&email='.urlencode($email)
+            : $base.'/login?tab=signup';
     }
 
     /**

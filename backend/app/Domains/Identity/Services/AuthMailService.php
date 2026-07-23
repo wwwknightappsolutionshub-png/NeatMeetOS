@@ -62,7 +62,7 @@ HTML;
      */
     public function sendWelcomeTrial(User $user, string $plainPassword): void
     {
-        $loginUrl = $this->frontendUrl('/login?email='.urlencode($user->email));
+        $loginUrl = $this->frontendUrl('/login?tab=signup&email='.urlencode($user->email));
         $name = e($user->name);
         $email = e($user->email);
         $password = e($plainPassword);
@@ -78,7 +78,7 @@ HTML;
     <p style="margin:0 0 12px;line-height:1.5;">Your 30-day free trial is ready. Sign in with the temporary password below, then finish <strong>Creating Your Workspace</strong> so we can provision your salon.</p>
     <p style="margin:0 0 8px;line-height:1.5;"><strong>Email:</strong> {$email}</p>
     <p style="margin:0 0 16px;line-height:1.5;"><strong>Temporary password:</strong> <code style="background:#f5f5f4;padding:2px 6px;border-radius:4px;">{$password}</code></p>
-    <p style="margin:24px 0;"><a href="{$loginUrl}" style="display:inline-block;background:#2f5a45;color:#fff;text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:600;">Log in to NeatMeet OS</a></p>
+    <p style="margin:24px 0;"><a href="{$loginUrl}" style="display:inline-block;background:#2f5a45;color:#fff;text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:600;">Continue to Creating Your Workspace</a></p>
     <p style="margin:0;font-size:12px;color:#78716c;line-height:1.5;">For security, change your password after you finish workspace setup. If you did not request this, you can ignore this email.</p>
   </div>
 </div>
