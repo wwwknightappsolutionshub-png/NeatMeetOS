@@ -11,7 +11,8 @@ const SITE_URL = (
 const OG_TITLE = 'NeatMeet OS — Salon operating system';
 const OG_DESCRIPTION =
   'One OS for bookings, clients, till, memberships, and follow-up. Start a 30-day free trial.';
-const OG_IMAGE_PATH = '/brand/og-landing.png';
+/** JPEG under ~100KB — WhatsApp often drops large PNG previews. */
+const OG_IMAGE_PATH = '/brand/og-landing.jpg';
 const OG_IMAGE_URL = `${SITE_URL}${OG_IMAGE_PATH}`;
 
 export const metadata: Metadata = {
@@ -25,13 +26,14 @@ export const metadata: Metadata = {
     siteName: 'NeatMeet OS',
     title: OG_TITLE,
     description: OG_DESCRIPTION,
-        images: [
+    images: [
       {
         url: OG_IMAGE_URL,
+        secureUrl: OG_IMAGE_URL,
         width: 1200,
         height: 630,
         alt: 'NeatMeet OS — salon operating system. Start a 30-day free trial.',
-        type: 'image/png',
+        type: 'image/jpeg',
       },
     ],
   },
