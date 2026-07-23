@@ -111,6 +111,7 @@ class PublicSignupController extends Controller
     public function completeWorkspace(Request $request): JsonResponse
     {
         $data = $request->validate([
+            'password' => ['required', 'confirmed', Password::defaults()],
             'answers' => ['required', 'array'],
             'answers.business_name' => ['required', 'string', 'max:160'],
             'answers.trading_name' => ['nullable', 'string', 'max:160'],
@@ -142,7 +143,11 @@ class PublicSignupController extends Controller
 
         /** @var \App\Domains\Identity\Models\User $user */
         $user = $request->user();
-        $result = $this->signup->completeWorkspace($user, $data['answers']);
+        $result = $this->signup->completeWorkspace(
+            $user,
+            $data['password'],
+            $data['answers'],
+        );
 
         return ApiResponse::success([
             'token' => $result['token'],

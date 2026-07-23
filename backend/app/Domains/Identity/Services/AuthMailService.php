@@ -75,11 +75,11 @@ HTML;
   </div>
   <div style="border:1px solid #e7e5e4;border-top:0;padding:24px;border-radius:0 0 12px 12px;">
     <p style="margin:0 0 12px;">Hi {$name},</p>
-    <p style="margin:0 0 12px;line-height:1.5;">Your 30-day free trial is ready. Sign in with the temporary password below, then finish <strong>Creating Your Workspace</strong> so we can provision your salon.</p>
+    <p style="margin:0 0 12px;line-height:1.5;">Your 30-day free trial is ready. Use the temporary password below only to unlock <strong>Creating Your Workspace</strong>. At the end of setup you will choose your own permanent password — the temporary one stops working then.</p>
     <p style="margin:0 0 8px;line-height:1.5;"><strong>Email:</strong> {$email}</p>
-    <p style="margin:0 0 16px;line-height:1.5;"><strong>Temporary password:</strong> <code style="background:#f5f5f4;padding:2px 6px;border-radius:4px;">{$password}</code></p>
+    <p style="margin:0 0 16px;line-height:1.5;"><strong>Temporary unlock password:</strong> <code style="background:#f5f5f4;padding:2px 6px;border-radius:4px;">{$password}</code></p>
     <p style="margin:24px 0;"><a href="{$loginUrl}" style="display:inline-block;background:#2f5a45;color:#fff;text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:600;">Continue to Creating Your Workspace</a></p>
-    <p style="margin:0;font-size:12px;color:#78716c;line-height:1.5;">For security, change your password after you finish workspace setup. If you did not request this, you can ignore this email.</p>
+    <p style="margin:0;font-size:12px;color:#78716c;line-height:1.5;">This temporary password is only for setup. If you did not request this, you can ignore this email.</p>
   </div>
 </div>
 HTML;

@@ -121,6 +121,7 @@ function LoginAuthPage() {
   const [loading, setLoading] = useState(false);
   const [magicConsuming, setMagicConsuming] = useState(Boolean(magicToken));
   const [workspaceOnboarding, setWorkspaceOnboarding] = useState(false);
+  const [creatingPassword, setCreatingPassword] = useState(false);
 
   const [signupForm, setSignupForm] = useState<SignupForm | null>(null);
   const [signupLoading, setSignupLoading] = useState(false);
@@ -403,12 +404,20 @@ function LoginAuthPage() {
       setSignupStep((s) => s + 1);
       return;
     }
+
+    // Provisional funnel: Finish workspace → create permanent password first.
+    if (workspaceOnboarding) {
+      setCreatingPassword(true);
+      setPassword('');
+      setPasswordConfirm('');
+      return;
+    }
+
     setLoading(true);
     try {
       const payload = {
         ...answers,
         ...(referralCode ? { referral_code: referralCode } : {}),
-        ...(workspaceOnboarding ? { owner_email: email || answers.owner_email } : {}),
         services: selectedServicesPayload(
           serviceDrafts.filter(
             (d) =>
@@ -418,12 +427,6 @@ function LoginAuthPage() {
         ),
       };
 
-      if (workspaceOnboarding) {
-        const data = await completeWorkspaceSignup(payload);
-        postLoginRedirect(router, data.user.is_platform_admin, nextPath);
-        return;
-      }
-
       const result = await registerSignup(payload);
       setSignupDone(
         result.message ||
@@ -431,6 +434,45 @@ function LoginAuthPage() {
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Registration failed');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handlePermanentPasswordSubmit(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setNotice(null);
+    if (password.length < 8) {
+      setError('Choose a password with at least 8 characters.');
+      return;
+    }
+    if (password !== passwordConfirm) {
+      setError('Passwords do not match.');
+      return;
+    }
+    setLoading(true);
+    try {
+      const payload = {
+        ...answers,
+        ...(referralCode ? { referral_code: referralCode } : {}),
+        owner_email: email || answers.owner_email,
+        services: selectedServicesPayload(
+          serviceDrafts.filter(
+            (d) =>
+              d.is_custom ||
+              matchesBusinessType(d.business_types, answers.business_type ?? ''),
+          ),
+        ),
+      };
+      const data = await completeWorkspaceSignup(
+        payload,
+        password,
+        passwordConfirm,
+      );
+      postLoginRedirect(router, data.user.is_platform_admin, nextPath);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not finish workspace');
     } finally {
       setLoading(false);
     }
@@ -465,7 +507,9 @@ function LoginAuthPage() {
               : specialMode === 'reset'
                 ? 'Enter a new password for your NeatMeet OS account.'
                 : workspaceOnboarding
-                  ? 'Your trial account is ready — complete these steps to provision your salon.'
+                  ? creatingPassword
+                    ? 'Choose a permanent password — your temporary unlock password will stop working.'
+                    : 'Your trial account is ready — complete these steps to provision your salon.'
                   : tab === 'signup'
                   ? 'Tell us about your salon — we will set up booking, services, and your team in a few steps.'
                   : 'Staff access for salon teams and platform admins.'}
@@ -689,7 +733,8 @@ function LoginAuthPage() {
               {forceSignupOnly && emailFromQuery && !workspaceOnboarding ? (
                 <form onSubmit={handlePasswordLogin} className="space-y-4">
                   <p className="text-sm text-stone-600">
-                    Enter the temporary password from your email to continue Creating Your Workspace.
+                    Enter the temporary unlock password from your email to open Creating Your
+                    Workspace. You will choose your own permanent password at the end.
                   </p>
                   <label className="block text-sm">
                     <span className="font-medium text-stone-700">Email</span>
@@ -702,7 +747,7 @@ function LoginAuthPage() {
                     />
                   </label>
                   <label className="block text-sm">
-                    <span className="font-medium text-stone-700">Temporary password</span>
+                    <span className="font-medium text-stone-700">Temporary unlock password</span>
                     <input
                       type="password"
                       value={password}
@@ -734,6 +779,67 @@ function LoginAuthPage() {
                     Back to login
                   </Button>
                 </div>
+              ) : creatingPassword && workspaceOnboarding ? (
+                <form onSubmit={handlePermanentPasswordSubmit} className="space-y-4">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-400">
+                    Final step
+                  </p>
+                  <h2 className="mt-1 text-lg font-semibold text-stone-900">
+                    Create new password
+                  </h2>
+                  <p className="mt-1 text-sm text-stone-500">
+                    This becomes your permanent login with{' '}
+                    <span className="font-medium text-stone-700">{email}</span>. Your temporary
+                    unlock password stops working as soon as you save.
+                  </p>
+                  <label className="block text-sm">
+                    <span className="font-medium text-stone-700">Create new password</span>
+                    <input
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className={inputClass}
+                      required
+                      minLength={8}
+                      autoComplete="new-password"
+                      autoFocus
+                    />
+                  </label>
+                  <label className="block text-sm">
+                    <span className="font-medium text-stone-700">Confirm password</span>
+                    <input
+                      type="password"
+                      value={passwordConfirm}
+                      onChange={(e) => setPasswordConfirm(e.target.value)}
+                      className={inputClass}
+                      required
+                      minLength={8}
+                      autoComplete="new-password"
+                    />
+                  </label>
+                  <div className="flex gap-2 pt-2">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={() => {
+                        setError(null);
+                        setCreatingPassword(false);
+                        setPassword('');
+                        setPasswordConfirm('');
+                      }}
+                      disabled={loading}
+                    >
+                      Back
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={loading}
+                      className="flex-1 !bg-[#2f5a45]"
+                    >
+                      {loading ? 'Opening workspace…' : 'Save password & open workspace'}
+                    </Button>
+                  </div>
+                </form>
               ) : signupLoading || !signupForm ? (
                 <p className="text-sm text-stone-500">Loading signup wizard…</p>
               ) : (
@@ -817,8 +923,9 @@ function LoginAuthPage() {
                       </Button>
                     </div>
                     <p className="text-[11px] text-stone-400">
-                      New salons start on Basic with a {signupForm.trial_days}-day trial.
-                      Pro / Diamond stay locked until trial ends (or platform unlock).
+                      {workspaceOnboarding
+                        ? 'Next you will create your permanent password. The temporary unlock password will stop working.'
+                        : `New salons start on Basic with a ${signupForm.trial_days}-day trial. Pro / Diamond stay locked until trial ends (or platform unlock).`}
                     </p>
                   </form>
                 </>

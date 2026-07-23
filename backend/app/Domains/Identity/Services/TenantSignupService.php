@@ -154,11 +154,12 @@ class TenantSignupService
 
     /**
      * Finish workspace provisioning for a provisional (lead) user who is already authenticated.
+     * Replaces the temporary unlock password with the owner's permanent password.
      *
      * @param  array<string, mixed>  $answers
      * @return array{tenant: Tenant, user: User, token: string}
      */
-    public function completeWorkspace(User $user, array $answers): array
+    public function completeWorkspace(User $user, string $permanentPassword, array $answers): array
     {
         if (! $user->needsWorkspace()) {
             throw ValidationException::withMessages([
@@ -215,7 +216,7 @@ class TenantSignupService
         }
 
         /** @var Tenant $tenant */
-        $tenant = DB::transaction(function () use ($payload, $basicPlan, $desiredSlug, $user) {
+        $tenant = DB::transaction(function () use ($payload, $basicPlan, $desiredSlug, $user, $permanentPassword) {
             $tenant = Tenant::query()->create([
                 'name' => $payload['business_name'],
                 'trading_name' => $payload['trading_name'] ?: $payload['business_name'],
@@ -307,12 +308,17 @@ class TenantSignupService
             $teamMember->roles()->attach($ownerRole->id);
             $teamMember->workspaces()->attach($workspace->id);
 
+            // Permanent password replaces the temporary unlock password.
             $user->forceFill([
                 'name' => trim($payload['owner_first_name'].' '.$payload['owner_last_name']),
+                'password' => $permanentPassword,
                 'workspace_status' => User::WORKSPACE_COMPLETE,
                 'signup_meta' => array_merge(
                     is_array($user->signup_meta) ? $user->signup_meta : [],
-                    ['completed_at' => now()->toIso8601String()],
+                    [
+                        'completed_at' => now()->toIso8601String(),
+                        'temporary_password_invalidated_at' => now()->toIso8601String(),
+                    ],
                 ),
             ])->save();
 
@@ -326,6 +332,7 @@ class TenantSignupService
                 'owner_email' => $user->email,
                 'services_count' => count($payload['services']),
                 'source' => 'marketing_lead',
+                'permanent_password_set' => true,
             ], $user);
 
             return $tenant;
@@ -337,6 +344,7 @@ class TenantSignupService
         $this->platformReferrals->handleTenantActivated($tenant);
         $this->platformNotifications->notifyTenantSignup($tenant, $user->fresh());
 
+        // Drop tokens issued with the temporary password; issue a fresh session token.
         $user->tokens()->delete();
         $sanctum = $user->createToken('neatmeet-os-web')->plainTextToken;
 

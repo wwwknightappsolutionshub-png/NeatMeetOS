@@ -12,6 +12,7 @@ use App\Domains\Identity\Services\PlatformReferralProgramService;
 use App\Domains\Identity\Services\PlatformReferralSettingService;
 use App\Domains\Identity\Services\SignupFormDefinitionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Laravel\Sanctum\Sanctum;
 use Mockery;
@@ -150,6 +151,8 @@ class MarketingLeadSignupFunnelTest extends TestCase
         Sanctum::actingAs($user);
 
         $this->postJson('/api/v1/signup/complete-workspace', [
+            'password' => 'PermanentPass99',
+            'password_confirmation' => 'PermanentPass99',
             'answers' => $this->validAnswers([
                 'owner_email' => 'sam.lead@example.com',
                 'owner_first_name' => 'Sam',
@@ -162,10 +165,25 @@ class MarketingLeadSignupFunnelTest extends TestCase
 
         $user->refresh();
         $this->assertFalse($user->needsWorkspace());
+        $this->assertTrue(Hash::check('PermanentPass99', $user->password));
+        $this->assertFalse(Hash::check($plain, $user->password));
         $this->assertDatabaseHas('tenants', [
             'slug' => 'bloom-hair',
             'status' => 'active',
         ]);
+
+        $this->postJson('/api/v1/auth/login', [
+            'email' => 'sam.lead@example.com',
+            'password' => $plain,
+        ])->assertUnprocessable();
+
+        $this->postJson('/api/v1/auth/login', [
+            'email' => 'sam.lead@example.com',
+            'password' => 'PermanentPass99',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.workspace_incomplete', false)
+            ->assertJsonPath('data.tenant.slug', 'bloom-hair');
     }
 
     public function test_referral_share_url_points_at_marketing_home(): void
@@ -213,6 +231,8 @@ class MarketingLeadSignupFunnelTest extends TestCase
         Sanctum::actingAs($user);
 
         $this->postJson('/api/v1/signup/complete-workspace', [
+            'password' => 'PermanentPass88',
+            'password_confirmation' => 'PermanentPass88',
             'answers' => $this->validAnswers([
                 'business_name' => 'Referred Salon',
                 'slug' => 'referred-salon',

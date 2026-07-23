@@ -70,10 +70,16 @@ export async function captureSignupLead(payload: {
 
 export async function completeWorkspaceSignup(
   answers: Record<string, unknown>,
+  password: string,
+  passwordConfirmation: string,
 ): Promise<LoginResponse> {
   const data = await api<LoginResponse>('/signup/complete-workspace', {
     method: 'POST',
-    body: JSON.stringify({ answers }),
+    body: JSON.stringify({
+      answers,
+      password,
+      password_confirmation: passwordConfirmation,
+    }),
     auth: true,
     tenant: false,
   });
