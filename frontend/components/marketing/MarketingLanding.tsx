@@ -338,10 +338,7 @@ export function MarketingLanding() {
           </p>
           <h1 className="mt-4 max-w-4xl text-[2.35rem] font-semibold leading-[1.05] tracking-tight text-white sm:text-5xl md:text-6xl lg:text-[4.25rem]">
             <span className="nm-hero-line block">
-              Simplify Your Grooming &amp; Beauty Business
-            </span>
-            <span className="nm-hero-line nm-hero-line-delay block">
-              From One System
+              One System That Simplifies Your Beauty Business
             </span>
           </h1>
           <p className="nm-hero-line nm-hero-line-delay-2 mx-auto mt-5 max-w-2xl text-base leading-relaxed text-white/85 sm:text-lg">
