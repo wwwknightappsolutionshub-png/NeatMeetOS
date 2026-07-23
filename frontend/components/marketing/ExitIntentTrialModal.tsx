@@ -49,6 +49,12 @@ export function ExitIntentTrialModal({
     }
   }, [open, source]);
 
+  useEffect(() => {
+    if (!open || step !== 'done') return;
+    const timer = window.setTimeout(() => onClose(), 10_000);
+    return () => window.clearTimeout(timer);
+  }, [open, step, onClose]);
+
   if (!open) return null;
 
   async function handleSubmit(e: FormEvent) {
