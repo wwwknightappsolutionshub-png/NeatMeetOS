@@ -89,6 +89,17 @@ class MarketingLeadSignupFunnelTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.workspace_incomplete', true)
             ->assertJsonPath('data.tenant', null);
+
+        // Browser SPA sends Origin; must not require CSRF (Bearer + credentials omit).
+        $this->withHeaders([
+            'Origin' => 'https://neatmeet.prohost.cloud',
+            'Referer' => 'https://neatmeet.prohost.cloud/login?tab=signup',
+        ])->postJson('/api/v1/auth/login', [
+            'email' => 'sam@example.com',
+            'password' => $captured,
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.workspace_incomplete', true);
     }
 
     public function test_lead_honeypot_does_not_create_user(): void

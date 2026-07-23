@@ -105,8 +105,17 @@ export async function api<T>(
   const payload = (await response.json()) as ApiResponse<T> | ApiError;
 
   if (!response.ok || !('success' in payload) || !payload.success) {
-    const message =
+    let message =
       'message' in payload ? payload.message : 'Request failed';
+    if (response.status === 419) {
+      message =
+        'Session expired. Refresh the page and try again.';
+    } else if (
+      response.status >= 500 &&
+      (!message || message === 'Server Error')
+    ) {
+      message = 'Something went wrong on the server. Please try again.';
+    }
     const code =
       'code' in payload && typeof payload.code === 'string' ? payload.code : null;
     const upgrade =

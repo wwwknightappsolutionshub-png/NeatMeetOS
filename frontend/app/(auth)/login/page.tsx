@@ -172,8 +172,13 @@ function LoginAuthPage() {
     };
   }, [magicToken, router]);
 
+  const awaitingTempPassword =
+    forceSignupOnly && Boolean(emailFromQuery) && !workspaceOnboarding;
+
   useEffect(() => {
-    if (tab !== 'signup' || signupForm) return;
+    // Defer form load until the multi-step wizard is actually shown — avoids
+    // surfacing /signup/form errors on the temporary-password gate.
+    if (tab !== 'signup' || signupForm || awaitingTempPassword) return;
     setSignupLoading(true);
     void fetchSignupForm()
       .then((form) => {
@@ -196,7 +201,7 @@ function LoginAuthPage() {
         setError(e instanceof Error ? e.message : 'Could not load signup form');
       })
       .finally(() => setSignupLoading(false));
-  }, [tab, signupForm]);
+  }, [tab, signupForm, awaitingTempPassword]);
 
   const steps = signupForm?.steps ?? [];
   const currentStep = steps[signupStep];

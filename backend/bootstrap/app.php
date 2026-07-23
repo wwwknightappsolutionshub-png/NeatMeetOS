@@ -32,7 +32,9 @@ return Application::configure(basePath: dirname(__DIR__))
             'platform.admin' => EnsurePlatformAdmin::class,
         ]);
 
-        $middleware->statefulApi();
+        // Bearer-token SPA (Next.js) uses credentials: 'omit' and never sends
+        // XSRF cookies. statefulApi() would treat Origin as a first-party SPA
+        // and reject login/signup POSTs with CSRF 419 — do not enable it.
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

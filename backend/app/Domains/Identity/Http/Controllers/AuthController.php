@@ -2,6 +2,7 @@
 
 namespace App\Domains\Identity\Http\Controllers;
 
+use App\Domains\Identity\Models\TeamMember;
 use App\Domains\Identity\Models\User;
 use App\Shared\Support\ApiResponse;
 use Illuminate\Http\JsonResponse;
@@ -27,9 +28,14 @@ class AuthController extends Controller
             ]);
         }
 
-        $user->load('currentTeamMember.tenant');
+        $member = TeamMember::withoutGlobalScopes()
+            ->where('user_id', $user->id)
+            ->where('is_active', true)
+            ->with('tenant')
+            ->orderByDesc('id')
+            ->first();
 
-        $tenant = $user->currentTeamMember?->tenant;
+        $tenant = $member?->tenant;
         if (
             ! $user->is_platform_admin
             && $tenant !== null
@@ -53,10 +59,10 @@ class AuthController extends Controller
                 'email' => $user->email,
                 'is_platform_admin' => (bool) $user->is_platform_admin,
             ],
-            'tenant' => $user->currentTeamMember?->tenant ? [
-                'id' => $user->currentTeamMember->tenant->id,
-                'name' => $user->currentTeamMember->tenant->name,
-                'slug' => $user->currentTeamMember->tenant->slug,
+            'tenant' => $tenant ? [
+                'id' => $tenant->id,
+                'name' => $tenant->name,
+                'slug' => $tenant->slug,
             ] : null,
             'workspace_incomplete' => $workspaceIncomplete,
         ], 'Authenticated');
@@ -72,7 +78,16 @@ class AuthController extends Controller
     public function me(Request $request): JsonResponse
     {
         $user = $request->user();
-        $user?->load('currentTeamMember.tenant');
+        $member = null;
+        if ($user !== null) {
+            $member = TeamMember::withoutGlobalScopes()
+                ->where('user_id', $user->id)
+                ->where('is_active', true)
+                ->with('tenant')
+                ->orderByDesc('id')
+                ->first();
+        }
+        $tenant = $member?->tenant;
 
         return ApiResponse::success([
             'user' => $user ? [
@@ -81,13 +96,13 @@ class AuthController extends Controller
                 'email' => $user->email,
                 'is_platform_admin' => (bool) $user->is_platform_admin,
             ] : null,
-            'tenant' => $user?->currentTeamMember?->tenant ? [
-                'id' => $user->currentTeamMember->tenant->id,
-                'name' => $user->currentTeamMember->tenant->name,
-                'slug' => $user->currentTeamMember->tenant->slug,
+            'tenant' => $tenant ? [
+                'id' => $tenant->id,
+                'name' => $tenant->name,
+                'slug' => $tenant->slug,
             ] : null,
             'workspace_incomplete' => $user
-                ? ($user->needsWorkspace() && $user->currentTeamMember?->tenant === null)
+                ? ($user->needsWorkspace() && $tenant === null)
                 : false,
         ]);
     }
