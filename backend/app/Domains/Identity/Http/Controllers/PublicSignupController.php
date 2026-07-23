@@ -143,11 +143,23 @@ class PublicSignupController extends Controller
 
         /** @var \App\Domains\Identity\Models\User $user */
         $user = $request->user();
-        $result = $this->signup->completeWorkspace(
-            $user,
-            $data['password'],
-            $data['answers'],
-        );
+
+        try {
+            $result = $this->signup->completeWorkspace(
+                $user,
+                $data['password'],
+                $data['answers'],
+            );
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('signup.complete_workspace_failed', [
+                'user_id' => $user->id,
+                'email' => $user->email,
+                'exception' => $e::class,
+                'message' => $e->getMessage(),
+                'file' => $e->getFile().':'.$e->getLine(),
+            ]);
+            throw $e;
+        }
 
         return ApiResponse::success([
             'token' => $result['token'],
