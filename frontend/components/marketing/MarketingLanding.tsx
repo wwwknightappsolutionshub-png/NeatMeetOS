@@ -28,6 +28,35 @@ const PAIN_POINTS = [
   },
 ] as const;
 
+const START_TODAY = [
+  'No Credit Card Required',
+  'Ready in under 10 Minutes',
+  'Import your clients',
+  'Cancel Anytime',
+] as const;
+
+const PROOF_STATS = [
+  { value: '250+', label: 'Onboarding' },
+  { value: '< 10 min', label: 'Average setup' },
+  { value: '30 days', label: 'Free trial' },
+  { value: '1 system', label: 'For the whole salon' },
+] as const;
+
+const INSTEAD_OF = [
+  'Checking multiple business apps',
+  'Chasing deposits',
+  'Updating spreadsheets',
+  'Texting reminders manually',
+] as const;
+
+const YOU_SIMPLY = [
+  'Accept Bookings',
+  'Take payments',
+  'Sell Your Products',
+  'Schedule Automated Reminders',
+  'Track Inventory',
+] as const;
+
 const NAV = [
   { href: '#how-it-works', label: 'How it works' },
   { href: '#product', label: 'Product' },
@@ -308,9 +337,11 @@ export function MarketingLanding() {
             NeatMeet OS
           </p>
           <h1 className="mt-4 max-w-4xl text-[2.35rem] font-semibold leading-[1.05] tracking-tight text-white sm:text-5xl md:text-6xl lg:text-[4.25rem]">
-            <span className="nm-hero-line block">Your business is busy enough.</span>
+            <span className="nm-hero-line block">
+              Simplify Your Grooming &amp; Beauty Business
+            </span>
             <span className="nm-hero-line nm-hero-line-delay block">
-              Your tools shouldn&apos;t make it harder.
+              From One System
             </span>
           </h1>
           <p className="nm-hero-line nm-hero-line-delay-2 mx-auto mt-5 max-w-2xl text-base leading-relaxed text-white/85 sm:text-lg">
@@ -341,7 +372,7 @@ export function MarketingLanding() {
               The problem
             </p>
             <h2 className="mt-3 text-3xl font-semibold tracking-tight text-stone-900 sm:text-4xl">
-              Multiple Apps is Running Your Business Out.
+              Too Many Apps. Too Many Mistakes
             </h2>
             <p className="mx-auto mt-4 text-base leading-relaxed text-stone-600">
               You do not need more apps. You need one simple system for bookings, clients,
@@ -381,6 +412,27 @@ export function MarketingLanding() {
               See what is included
             </a>
           </div>
+        </div>
+      </section>
+
+      <section
+        aria-label="Proof of service"
+        className="border-b border-stone-200/70 bg-white px-5 py-10 sm:px-8"
+      >
+        <div className="mx-auto max-w-6xl">
+          <p className="text-center text-[11px] font-semibold uppercase tracking-[0.18em] text-[#2f5a45]">
+            Proof of service
+          </p>
+          <dl className="mt-6 grid grid-cols-2 gap-6 sm:grid-cols-4 sm:gap-4">
+            {PROOF_STATS.map((stat) => (
+              <div key={stat.label} className="text-center">
+                <dt className="text-2xl font-semibold tracking-tight text-stone-900 sm:text-3xl">
+                  {stat.value}
+                </dt>
+                <dd className="mt-1 text-sm text-stone-600">{stat.label}</dd>
+              </div>
+            ))}
+          </dl>
         </div>
       </section>
 
@@ -433,6 +485,51 @@ export function MarketingLanding() {
                 </div>
               );
             })}
+          </div>
+        </div>
+      </section>
+
+      <section id="imagine-your-day" className="border-b border-stone-200/70 bg-[#f3f1ec] px-5 py-16 sm:px-8 sm:py-24">
+        <div className="mx-auto max-w-6xl">
+          <div className="mx-auto max-w-2xl text-center">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#2f5a45]">
+              Day in the life
+            </p>
+            <h2 className="mt-3 text-3xl font-semibold tracking-tight text-stone-900 sm:text-4xl">
+              Imagine Your Day
+            </h2>
+            <p className="mt-3 text-base text-stone-600">
+              Swap the chaos of juggling tools for one calm, mobile-friendly workspace.
+            </p>
+          </div>
+
+          <div className="mt-12 grid gap-6 lg:grid-cols-2">
+            <div className="rounded-2xl border border-stone-200 bg-white p-6 sm:p-8">
+              <h3 className="text-lg font-semibold text-stone-900">Instead of:</h3>
+              <ul className="mt-5 space-y-3">
+                {INSTEAD_OF.map((item) => (
+                  <li key={item} className="flex gap-3 text-sm leading-relaxed text-stone-600">
+                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-stone-400" aria-hidden />
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="rounded-2xl border border-[#2f5a45]/25 bg-[#2f5a45] p-6 sm:p-8">
+              <h3 className="text-lg font-semibold text-white">You Simply:</h3>
+              <ul className="mt-5 space-y-3">
+                {YOU_SIMPLY.map((item) => (
+                  <li key={item} className="flex gap-3 text-sm leading-relaxed text-white/90">
+                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-white/80" aria-hidden />
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-6 border-t border-white/15 pt-5 text-sm leading-relaxed text-white/80">
+                All from a simple mobile friendly place.
+              </p>
+            </div>
           </div>
         </div>
       </section>
@@ -496,39 +593,18 @@ export function MarketingLanding() {
           </div>
 
           <div className="rounded-2xl border border-white/15 bg-[#264a39]/80 p-6 shadow-xl backdrop-blur-sm sm:p-7">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/60">
-              How activation works
-            </p>
-            <ol className="mt-5 space-y-0">
-              {[
-                {
-                  title: 'Claim with name & email',
-                  body: 'We send a temporary password and login link instantly.',
-                },
-                {
-                  title: 'Sign in to NeatMeet OS',
-                  body: 'Your account is provisional until the workspace is complete.',
-                },
-                {
-                  title: 'Create Your Workspace',
-                  body: 'Salon details, services, location — then your 30-day trial starts.',
-                },
-              ].map((step, i) => (
-                <li key={step.title} className="relative flex gap-4 pb-6 last:pb-0">
-                  {i < 2 ? (
-                    <span className="absolute left-[15px] top-8 h-[calc(100%-1.5rem)] w-px bg-white/20" aria-hidden />
-                  ) : null}
-                  <span className="relative z-[1] flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/25 bg-white/10 text-xs font-bold text-white">
-                    {i + 1}
-                  </span>
-                  <div className="min-w-0 pt-0.5">
-                    <p className="text-sm font-semibold text-white">{step.title}</p>
-                    <p className="mt-1 text-sm leading-relaxed text-white/70">{step.body}</p>
-                  </div>
+            <h3 className="text-xl font-semibold tracking-tight text-white">
+              START TODAY
+            </h3>
+            <ul className="mt-5 space-y-3">
+              {START_TODAY.map((item) => (
+                <li key={item} className="flex gap-3 text-sm leading-relaxed text-white/90">
+                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-white/80" aria-hidden />
+                  <span>{item}</span>
                 </li>
               ))}
-            </ol>
-            <p className="mt-2 border-t border-white/15 pt-4 text-[11px] leading-relaxed text-white/55">
+            </ul>
+            <p className="mt-6 border-t border-white/15 pt-4 text-[11px] leading-relaxed text-white/55">
               Already have login details?{' '}
               <Link href="/login" className="font-semibold text-white underline-offset-2 hover:underline">
                 Sign in
