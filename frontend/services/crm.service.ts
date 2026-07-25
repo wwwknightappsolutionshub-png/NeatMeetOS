@@ -1,10 +1,13 @@
-import { api } from '@/lib/api-client';
+import { api, API_BASE, getStoredTenantSlug, getStoredToken } from '@/lib/api-client';
 import type {
   Client,
   ClientConsentRecord,
   ClientConsentState,
   ClientDocument,
   ClientFormula,
+  ClientImportMapping,
+  ClientImportPreview,
+  ClientImportResult,
   ClientNote,
   ClientPhoto,
   ClientTag,
@@ -217,4 +220,55 @@ export async function archiveClientDocument(
     ...auth,
     method: 'PATCH',
   });
+}
+
+async function postClientImportFormData<T>(path: string, form: FormData): Promise<T> {
+  const headers: HeadersInit = { Accept: 'application/json' };
+  const token = getStoredToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const slug = getStoredTenantSlug();
+  if (slug) headers['X-Tenant-Slug'] = slug;
+
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: 'POST',
+    headers,
+    body: form,
+    credentials: 'omit',
+  });
+
+  const json = (await res.json()) as {
+    success: boolean;
+    message: string;
+    data?: T;
+    errors?: Record<string, string[]>;
+  };
+
+  if (!res.ok || !json.success || json.data === undefined) {
+    const firstError = json.errors ? Object.values(json.errors).flat()[0] : undefined;
+    throw new Error(firstError || json.message || 'Import request failed');
+  }
+
+  return json.data;
+}
+
+export async function previewClientImport(file: File): Promise<ClientImportPreview> {
+  const form = new FormData();
+  form.append('file', file);
+  return postClientImportFormData<ClientImportPreview>('/admin/clients/import/preview', form);
+}
+
+export async function runClientImport(payload: {
+  file: File;
+  mapping: ClientImportMapping;
+  grant_privacy_contact?: boolean;
+  grant_marketing_email?: boolean;
+  grant_marketing_sms?: boolean;
+}): Promise<ClientImportResult> {
+  const form = new FormData();
+  form.append('file', payload.file);
+  form.append('mapping', JSON.stringify(payload.mapping));
+  form.append('grant_privacy_contact', payload.grant_privacy_contact === false ? '0' : '1');
+  form.append('grant_marketing_email', payload.grant_marketing_email ? '1' : '0');
+  form.append('grant_marketing_sms', payload.grant_marketing_sms ? '1' : '0');
+  return postClientImportFormData<ClientImportResult>('/admin/clients/import', form);
 }

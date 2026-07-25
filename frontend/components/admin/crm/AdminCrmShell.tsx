@@ -20,7 +20,12 @@ export function AdminCrmShell({ title, children }: AdminCrmShellProps) {
         {
           href: '/admin/clients',
           label: 'Clients',
-          active: pathname === '/admin/clients' || pathname.startsWith('/admin/clients/'),
+          active: pathname === '/admin/clients' || (pathname.startsWith('/admin/clients/') && !pathname.startsWith('/admin/clients/import')),
+        },
+        {
+          href: '/admin/clients/import',
+          label: 'Import CSV',
+          active: pathname.startsWith('/admin/clients/import'),
         },
       ]}
     >

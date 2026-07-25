@@ -179,3 +179,27 @@ export const PHOTO_CATEGORIES = [
 export const DOCUMENT_TYPES = ['reference', 'signed', 'preference', 'other'] as const;
 
 export const LOYALTY_DISPLAY_STATUSES = ['none', 'member', 'vip'] as const;
+
+export type ClientImportTargetField =
+  | 'first_name'
+  | 'last_name'
+  | 'name'
+  | 'email'
+  | 'phone';
+
+export type ClientImportMapping = Record<ClientImportTargetField, string | null>;
+
+export interface ClientImportPreview {
+  headers: string[];
+  suggested_mapping: ClientImportMapping;
+  sample_rows: Record<string, string>[];
+  row_count: number;
+}
+
+export interface ClientImportResult {
+  created: number;
+  skipped_duplicates: number;
+  skipped_invalid: number;
+  errors: Array<{ row: number; reason: string }>;
+  created_ids: string[];
+}

@@ -23,6 +23,7 @@ use App\Domains\Crm\Http\Controllers\PublicMember\MemberPortalController;
 use App\Domains\Crm\Http\Controllers\PublicMember\NextVisitMemberController;
 use App\Domains\Crm\Http\Controllers\Admin\ClientConsentController;
 use App\Domains\Crm\Http\Controllers\Admin\ClientController;
+use App\Domains\Crm\Http\Controllers\Admin\ClientImportController;
 use App\Domains\Crm\Http\Controllers\Admin\ClientDocumentController;
 use App\Domains\Crm\Http\Controllers\Admin\ClientFormulaController;
 use App\Domains\Crm\Http\Controllers\Admin\ClientNoteController;
@@ -318,6 +319,8 @@ Route::prefix('v1')->group(function () {
 
         Route::middleware('permission:crm.manage')->group(function () {
             Route::post('/clients', [ClientController::class, 'store']);
+            Route::post('/clients/import/preview', [ClientImportController::class, 'preview']);
+            Route::post('/clients/import', [ClientImportController::class, 'store']);
             Route::put('/clients/{id}', [ClientController::class, 'update']);
             Route::patch('/clients/{id}/status', [ClientController::class, 'updateStatus']);
             Route::post('/clients/{id}/erase', [ClientController::class, 'erase']);

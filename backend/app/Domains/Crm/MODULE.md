@@ -21,6 +21,7 @@
 - **Public CRM join QR (extension)** — short public form at `/join/{tenantSlug}`; WhatsApp required; branded welcome email on signup (when email provided) with membership/loyalty offers + membership PWA link; admin QR at Settings → CRM join QR
 - **Membership PWA portal (extension)** — `/member/{tenantSlug}` login via email + WhatsApp; unlocks Membership/Loyalty booking tiers
 - **Client referral programme (extension)** — members share `?ref=CODE` join links; referrer earns +100 loyalty on successful **new** join; referred earns +300 on first plan/package purchase; WhatsApp share URL + typed email invites (max 20); no device contact-list access
+- **CSV client import (extension)** — admin upload at `/admin/clients/import`; preview + column mapping; create clients with consent source `import`; dedupe on phone/email within tenant (max 2000 rows)
 
 ## Permissions
 

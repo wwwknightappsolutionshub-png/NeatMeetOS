@@ -171,6 +171,11 @@ export default function ClientsListPage() {
               <Button type="button" onClick={() => setShowForm(true)}>
                 New client
               </Button>
+              <Link href="/admin/clients/import">
+                <Button type="button" variant="secondary">
+                  Import CSV
+                </Button>
+              </Link>
             </div>
           </div>
         </Card>

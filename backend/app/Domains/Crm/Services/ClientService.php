@@ -91,7 +91,11 @@ class ClientService
             ->findOrFail($id);
     }
 
-    public function create(array $data): Client
+    /**
+     * @param  array<string, mixed>  $data
+     * @param  array{skip_automations?: bool}  $options
+     */
+    public function create(array $data, array $options = []): Client
     {
         $tenantId = $this->requireTenantId();
         $this->validateLocation($data['primary_location_id'] ?? null, $tenantId);
@@ -114,25 +118,27 @@ class ClientService
             $client->resolvedDisplayName(),
         );
 
-        try {
-            $this->marketingTriggers->fireClientCreated($client);
-        } catch (\Throwable) {
-            // Marketing automations must not block CRM client creation.
-        }
-
-        try {
-            $this->welcomeAutomation->queueWelcomeEmail($client, 15);
-        } catch (\Throwable) {
-            // Welcome email queue must not block CRM client creation.
-        }
-
-        try {
-            $tenant = Tenant::query()->find($tenantId);
-            if ($tenant) {
-                $this->progressiveAccess->maybeNudgeAfterClientCreated($tenant);
+        if (! ($options['skip_automations'] ?? false)) {
+            try {
+                $this->marketingTriggers->fireClientCreated($client);
+            } catch (\Throwable) {
+                // Marketing automations must not block CRM client creation.
             }
-        } catch (\Throwable) {
-            // Upgrade nudges must not block CRM client creation.
+
+            try {
+                $this->welcomeAutomation->queueWelcomeEmail($client, 15);
+            } catch (\Throwable) {
+                // Welcome email queue must not block CRM client creation.
+            }
+
+            try {
+                $tenant = Tenant::query()->find($tenantId);
+                if ($tenant) {
+                    $this->progressiveAccess->maybeNudgeAfterClientCreated($tenant);
+                }
+            } catch (\Throwable) {
+                // Upgrade nudges must not block CRM client creation.
+            }
         }
 
         return $client->fresh(['tags', 'primaryLocation']);
