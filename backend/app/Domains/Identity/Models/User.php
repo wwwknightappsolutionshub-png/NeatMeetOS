@@ -24,6 +24,7 @@ class User extends Authenticatable
         'email',
         'password',
         'is_platform_admin',
+        'platform_role',
         'workspace_status',
         'signup_meta',
     ];
@@ -41,6 +42,14 @@ class User extends Authenticatable
             'is_platform_admin' => 'boolean',
             'signup_meta' => 'array',
         ];
+    }
+
+    public function platformRole(): ?string
+    {
+        return \App\Domains\Identity\Support\PlatformRole::effective(
+            (bool) $this->is_platform_admin,
+            $this->platform_role,
+        );
     }
 
     public function needsWorkspace(): bool

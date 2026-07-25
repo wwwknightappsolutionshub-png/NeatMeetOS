@@ -263,6 +263,7 @@ class BootstrapSeeder extends Seeder
                 'name' => 'Platform Admin',
                 'password' => Hash::make('password'),
                 'is_platform_admin' => true,
+                'platform_role' => 'owner',
             ],
         );
 

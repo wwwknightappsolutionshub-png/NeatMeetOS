@@ -50,7 +50,9 @@ use App\Domains\Identity\Http\Controllers\Admin\TenantPresenceController;
 use App\Domains\Identity\Http\Controllers\Platform\PlatformAuditLogController;
 use App\Domains\Identity\Http\Controllers\Platform\PlatformModuleController;
 use App\Domains\Identity\Http\Controllers\Platform\PlatformNotificationController;
+use App\Domains\Identity\Http\Controllers\Platform\PlatformProfileController;
 use App\Domains\Identity\Http\Controllers\Platform\PlatformSignupFormController;
+use App\Domains\Identity\Http\Controllers\Platform\PlatformStaffController;
 use App\Domains\Identity\Http\Controllers\Admin\BrandingController;
 use App\Domains\Identity\Http\Controllers\Admin\LocationController;
 use App\Domains\Identity\Http\Controllers\Admin\OrganizationController;
@@ -207,22 +209,17 @@ Route::prefix('v1')->group(function () {
         Route::post('/upgrade-offer/claim', [UpgradeOfferController::class, 'claim']);
     });
 
-    // Platform super-admin (cross-tenant; gated by users.is_platform_admin).
+    // Platform super-admin (cross-tenant; gated by users.is_platform_admin + platform_role).
     Route::middleware(['auth:sanctum', 'platform.admin'])->prefix('platform')->group(function () {
+        Route::get('/profile', [PlatformProfileController::class, 'show']);
+        Route::put('/profile', [PlatformProfileController::class, 'update']);
+        Route::put('/profile/password', [PlatformProfileController::class, 'updatePassword']);
+
         Route::get('/overview', [PlatformAdminController::class, 'overview']);
         Route::get('/tenants', [PlatformAdminController::class, 'tenants']);
-        Route::post('/tenants/{id}/unlock-tiers', [PlatformAdminController::class, 'unlockTenantTier']);
-        Route::post('/tenants/{id}/suspend', [PlatformAdminController::class, 'suspendTenant']);
-        Route::post('/tenants/{id}/unsuspend', [PlatformAdminController::class, 'unsuspendTenant']);
-        Route::post('/tenants/{id}/impersonate', [PlatformAdminController::class, 'impersonateTenant']);
-        Route::post('/tenants/{id}/poke', [PlatformPresenceController::class, 'poke']);
         Route::get('/pwa-users', [PlatformPresenceController::class, 'pwaUsers']);
-        Route::post('/pwa-users/push', [PlatformPresenceController::class, 'pushPwaUsers']);
         Route::get('/billing/invoices', [PlatformAdminController::class, 'invoices']);
         Route::get('/billing/invoices/{id}', [PlatformAdminController::class, 'showInvoice']);
-        Route::post('/billing/invoices/{id}/mark-paid', [PlatformAdminController::class, 'markInvoicePaid']);
-        Route::post('/billing/invoices/{id}/fail-payment', [PlatformAdminController::class, 'failInvoicePayment']);
-        Route::post('/billing/process', [PlatformAdminController::class, 'processBilling']);
 
         Route::get('/notifications', [PlatformNotificationController::class, 'index']);
         Route::get('/notifications/unread-count', [PlatformNotificationController::class, 'unreadCount']);
@@ -230,28 +227,52 @@ Route::prefix('v1')->group(function () {
         Route::post('/notifications/{id}/read', [PlatformNotificationController::class, 'markRead']);
 
         Route::get('/modules', [PlatformModuleController::class, 'index']);
-        Route::put('/plans/{id}/modules', [PlatformModuleController::class, 'updatePlan']);
         Route::get('/tenants/{id}/modules', [PlatformModuleController::class, 'showTenant']);
-        Route::put('/tenants/{id}/modules', [PlatformModuleController::class, 'updateTenant']);
 
         Route::get('/audit-logs', [PlatformAuditLogController::class, 'index']);
         Route::get('/audit-logs/{id}', [PlatformAuditLogController::class, 'show']);
 
         Route::get('/upgrade-campaigns/settings', [PlatformUpgradeCampaignController::class, 'settings']);
-        Route::put('/upgrade-campaigns/settings', [PlatformUpgradeCampaignController::class, 'updateSettings']);
         Route::get('/upgrade-campaigns/templates', [PlatformUpgradeCampaignController::class, 'templates']);
-        Route::put('/upgrade-campaigns/templates/{id}', [PlatformUpgradeCampaignController::class, 'updateTemplate']);
-        Route::post('/upgrade-campaigns/dispatch', [PlatformUpgradeCampaignController::class, 'dispatchNow']);
 
-        Route::post('/broadcasts', [PlatformTenantBroadcastController::class, 'store']);
         Route::get('/referral-settings', [PlatformReferralSettingController::class, 'show']);
-        Route::put('/referral-settings', [PlatformReferralSettingController::class, 'update']);
 
         Route::get('/signup-forms', [PlatformSignupFormController::class, 'index']);
-        Route::post('/signup-forms', [PlatformSignupFormController::class, 'store']);
         Route::get('/signup-forms/{id}', [PlatformSignupFormController::class, 'show']);
-        Route::put('/signup-forms/{id}', [PlatformSignupFormController::class, 'update']);
-        Route::delete('/signup-forms/{id}', [PlatformSignupFormController::class, 'destroy']);
+
+        Route::middleware('platform.role:owner,manager')->group(function () {
+            Route::post('/tenants/{id}/unlock-tiers', [PlatformAdminController::class, 'unlockTenantTier']);
+            Route::post('/tenants/{id}/suspend', [PlatformAdminController::class, 'suspendTenant']);
+            Route::post('/tenants/{id}/unsuspend', [PlatformAdminController::class, 'unsuspendTenant']);
+            Route::post('/tenants/{id}/impersonate', [PlatformAdminController::class, 'impersonateTenant']);
+            Route::post('/tenants/{id}/poke', [PlatformPresenceController::class, 'poke']);
+            Route::post('/pwa-users/push', [PlatformPresenceController::class, 'pushPwaUsers']);
+            Route::post('/billing/invoices/{id}/mark-paid', [PlatformAdminController::class, 'markInvoicePaid']);
+            Route::post('/billing/invoices/{id}/fail-payment', [PlatformAdminController::class, 'failInvoicePayment']);
+            Route::post('/billing/process', [PlatformAdminController::class, 'processBilling']);
+
+            Route::put('/plans/{id}/modules', [PlatformModuleController::class, 'updatePlan']);
+            Route::put('/tenants/{id}/modules', [PlatformModuleController::class, 'updateTenant']);
+
+            Route::put('/upgrade-campaigns/settings', [PlatformUpgradeCampaignController::class, 'updateSettings']);
+            Route::put('/upgrade-campaigns/templates/{id}', [PlatformUpgradeCampaignController::class, 'updateTemplate']);
+            Route::post('/upgrade-campaigns/dispatch', [PlatformUpgradeCampaignController::class, 'dispatchNow']);
+
+            Route::post('/broadcasts', [PlatformTenantBroadcastController::class, 'store']);
+            Route::put('/referral-settings', [PlatformReferralSettingController::class, 'update']);
+
+            Route::post('/signup-forms', [PlatformSignupFormController::class, 'store']);
+            Route::put('/signup-forms/{id}', [PlatformSignupFormController::class, 'update']);
+            Route::delete('/signup-forms/{id}', [PlatformSignupFormController::class, 'destroy']);
+        });
+
+        Route::middleware('platform.role:owner')->group(function () {
+            Route::get('/staff', [PlatformStaffController::class, 'index']);
+            Route::post('/staff', [PlatformStaffController::class, 'store']);
+            Route::put('/staff/{id}', [PlatformStaffController::class, 'update']);
+            Route::put('/staff/{id}/password', [PlatformStaffController::class, 'updatePassword']);
+            Route::delete('/staff/{id}', [PlatformStaffController::class, 'destroy']);
+        });
     });
 
     Route::middleware(['auth:sanctum', 'tenant.resolve', 'team.member'])->prefix('admin')->group(function () {

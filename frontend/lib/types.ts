@@ -44,6 +44,7 @@ export interface AuthUser {
   name: string;
   email: string;
   is_platform_admin?: boolean;
+  platform_role?: 'owner' | 'manager' | 'support' | null;
 }
 
 export interface TenantSummary {

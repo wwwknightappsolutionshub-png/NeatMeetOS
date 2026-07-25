@@ -370,3 +370,106 @@ export async function pushPlatformPwaUsers(payload: {
     body: JSON.stringify(payload),
   });
 }
+
+export type PlatformRoleSlug = 'owner' | 'manager' | 'support';
+
+export interface PlatformRoleInfo {
+  slug: PlatformRoleSlug;
+  label: string;
+  description: string;
+}
+
+export interface PlatformStaffUser {
+  id: number;
+  name: string;
+  email: string;
+  is_platform_admin: boolean;
+  platform_role: PlatformRoleSlug | null;
+  platform_role_label: string | null;
+  created_at: string | null;
+}
+
+export async function fetchPlatformProfile(): Promise<{
+  user: PlatformStaffUser;
+  roles: PlatformRoleInfo[];
+}> {
+  return api('/platform/profile', { auth: true, tenant: false });
+}
+
+export async function updatePlatformProfile(data: {
+  name?: string;
+  email?: string;
+}): Promise<{ user: PlatformStaffUser }> {
+  return api('/platform/profile', {
+    method: 'PUT',
+    auth: true,
+    tenant: false,
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updatePlatformPassword(data: {
+  current_password: string;
+  password: string;
+  password_confirmation: string;
+}): Promise<null> {
+  return api('/platform/profile/password', {
+    method: 'PUT',
+    auth: true,
+    tenant: false,
+    body: JSON.stringify(data),
+  });
+}
+
+export async function fetchPlatformStaff(): Promise<{
+  items: PlatformStaffUser[];
+  roles: PlatformRoleInfo[];
+}> {
+  return api('/platform/staff', { auth: true, tenant: false });
+}
+
+export async function createPlatformStaff(data: {
+  name: string;
+  email: string;
+  password: string;
+  platform_role: 'manager' | 'support';
+}): Promise<PlatformStaffUser> {
+  return api('/platform/staff', {
+    method: 'POST',
+    auth: true,
+    tenant: false,
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updatePlatformStaff(
+  id: number,
+  data: { name?: string; platform_role?: PlatformRoleSlug },
+): Promise<PlatformStaffUser> {
+  return api(`/platform/staff/${id}`, {
+    method: 'PUT',
+    auth: true,
+    tenant: false,
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updatePlatformStaffPassword(
+  id: number,
+  data: { password: string; password_confirmation: string },
+): Promise<null> {
+  return api(`/platform/staff/${id}/password`, {
+    method: 'PUT',
+    auth: true,
+    tenant: false,
+    body: JSON.stringify(data),
+  });
+}
+
+export async function revokePlatformStaff(id: number): Promise<PlatformStaffUser> {
+  return api(`/platform/staff/${id}`, {
+    method: 'DELETE',
+    auth: true,
+    tenant: false,
+  });
+}

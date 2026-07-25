@@ -58,6 +58,7 @@ class AuthController extends Controller
                 'name' => $user->name,
                 'email' => $user->email,
                 'is_platform_admin' => (bool) $user->is_platform_admin,
+                'platform_role' => $user->platformRole(),
             ],
             'tenant' => $tenant ? [
                 'id' => $tenant->id,
@@ -95,6 +96,7 @@ class AuthController extends Controller
                 'name' => $user->name,
                 'email' => $user->email,
                 'is_platform_admin' => (bool) $user->is_platform_admin,
+                'platform_role' => $user?->platformRole(),
             ] : null,
             'tenant' => $tenant ? [
                 'id' => $tenant->id,

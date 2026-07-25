@@ -55,6 +55,17 @@ const links = [
     label: 'Referrals',
     match: (p: string) => p.startsWith('/platform/referrals'),
   },
+  {
+    href: '/platform/settings',
+    label: 'Account',
+    match: (p: string) => p.startsWith('/platform/settings'),
+  },
+  {
+    href: '/platform/staff',
+    label: 'Staff',
+    match: (p: string) => p.startsWith('/platform/staff'),
+    ownerOnly: true,
+  },
 ];
 
 function navClass(active: boolean): string {
@@ -71,6 +82,9 @@ export function PlatformAppShell({ children }: PlatformAppShellProps) {
   const router = useRouter();
   const [shell, setShell] = useState<ShellStatus | null>(null);
   const [signingOut, setSigningOut] = useState(false);
+
+  const role = shell?.user?.platform_role ?? null;
+  const isOwner = role === 'owner' || (shell?.user?.is_platform_admin && !role);
 
   useEffect(() => {
     if (!getStoredToken()) {
@@ -99,6 +113,8 @@ export function PlatformAppShell({ children }: PlatformAppShellProps) {
     router.replace('/login');
   }
 
+  const visibleLinks = links.filter((link) => !('ownerOnly' in link && link.ownerOnly) || isOwner);
+
   return (
     <div className="flex min-h-full bg-[linear-gradient(160deg,#1c1917_0%,#292524_42%,#44403c_100%)] text-stone-100">
       <aside className="sticky top-0 flex h-screen w-60 shrink-0 flex-col border-r border-white/10 bg-[var(--platform-sidebar)]">
@@ -109,7 +125,13 @@ export function PlatformAppShell({ children }: PlatformAppShellProps) {
               <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/45">
                 NeatMeet OS
               </p>
-              <p className="text-sm font-semibold text-white">Super admin</p>
+              <p className="text-sm font-semibold text-white">
+                {role === 'manager'
+                  ? 'Platform manager'
+                  : role === 'support'
+                    ? 'Platform support'
+                    : 'Super admin'}
+              </p>
             </div>
           </div>
         </div>
@@ -118,7 +140,7 @@ export function PlatformAppShell({ children }: PlatformAppShellProps) {
             Platform
           </p>
           <ul className="space-y-0.5">
-            {links.map((link) => (
+            {visibleLinks.map((link) => (
               <li key={link.href}>
                 <Link href={link.href} className={navClass(link.match(pathname))}>
                   {link.label}
@@ -144,6 +166,12 @@ export function PlatformAppShell({ children }: PlatformAppShellProps) {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <Link
+              href="/platform/settings"
+              className="rounded-lg border border-white/15 bg-white/5 px-3 py-1.5 text-sm font-medium text-stone-100 hover:bg-white/10"
+            >
+              Profile
+            </Link>
             <PlatformNotificationBell />
             <button
               type="button"
