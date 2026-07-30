@@ -3,6 +3,7 @@
 namespace App\Domains\Identity\Http\Controllers;
 
 use App\Domains\Crm\Services\MemberPushDispatchService;
+use App\Domains\Identity\Models\TeamMember;
 use App\Domains\Identity\Models\Tenant;
 use App\Domains\Identity\Services\TenantEntitlementService;
 use App\Domains\Identity\Services\TenantSignupService;
@@ -37,6 +38,7 @@ class ShellController extends Controller
                 'slug' => $tenant->slug,
             ] : null,
             'features' => $entitlements->resolveFeatures($tenant instanceof Tenant ? $tenant : null),
+            'permissions' => $this->permissionIdsForUser($user?->id, $tenant instanceof Tenant ? $tenant : null),
             'locked_modules' => $entitlements->lockedModuleHints($tenant instanceof Tenant ? $tenant : null),
             'limits' => $entitlements->resolveLimits($tenant instanceof Tenant ? $tenant : null),
             'trial' => $this->trialPayload($tenant instanceof Tenant ? $tenant : null),
@@ -50,6 +52,34 @@ class ShellController extends Controller
                 $user?->is_platform_admin ? 'platform' : null,
             ])),
         ]);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function permissionIdsForUser(?int $userId, ?Tenant $tenant): array
+    {
+        if ($userId === null || $tenant === null) {
+            return [];
+        }
+
+        $teamMember = TeamMember::query()
+            ->where('user_id', $userId)
+            ->where('tenant_id', $tenant->id)
+            ->where('is_active', true)
+            ->with(['roles.permissions'])
+            ->first();
+
+        if ($teamMember === null) {
+            return [];
+        }
+
+        return $teamMember->roles
+            ->flatMap(fn ($role) => $role->permissions)
+            ->pluck('id')
+            ->unique()
+            ->values()
+            ->all();
     }
 
     /**

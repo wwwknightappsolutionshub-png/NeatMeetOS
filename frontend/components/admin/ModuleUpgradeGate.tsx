@@ -17,6 +17,7 @@ const BENEFITS: Record<string, string> = {
   ecommerce: 'Sell products online with your branded shop.',
   gallery: 'Showcase finished work in an Instagram-style grid on your booking page.',
   lookbook: 'Present editorial looks and seasonal inspiration on your public book page.',
+  ai_hairstyle: 'Review customer-approved AI hairstyle previews and accept looks for the chair.',
   next_visit: 'Prompt members to schedule their next visit after check-in and nudge them before it.',
 };
 

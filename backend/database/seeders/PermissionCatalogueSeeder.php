@@ -69,6 +69,8 @@ class PermissionCatalogueSeeder extends Seeder
             ['id' => 'lookbook.manage', 'name' => 'Manage lookbook', 'slug' => 'lookbook.manage', 'module' => 'lookbook'],
             ['id' => 'next_visit.view', 'name' => 'View next visit plans', 'slug' => 'next_visit.view', 'module' => 'next_visit'],
             ['id' => 'next_visit.manage', 'name' => 'Manage next visit plans', 'slug' => 'next_visit.manage', 'module' => 'next_visit'],
+            ['id' => 'ai_hairstyle.view', 'name' => 'View AI hairstyle previews', 'slug' => 'ai_hairstyle.view', 'module' => 'ai_hairstyle'],
+            ['id' => 'ai_hairstyle.manage', 'name' => 'Manage AI hairstyle approvals', 'slug' => 'ai_hairstyle.manage', 'module' => 'ai_hairstyle'],
         ];
     }
 

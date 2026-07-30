@@ -8,9 +8,14 @@ import {
   PlatformPageIntro,
   platformInputClass,
 } from '@/components/platform/ui';
-import type { PlatformStaffUser } from '@/services/platform.service';
+import type {
+  PlatformAiHairstyleSettings,
+  PlatformStaffUser,
+} from '@/services/platform.service';
 import {
+  fetchPlatformAiHairstyleSettings,
   fetchPlatformProfile,
+  updatePlatformAiHairstyleSettings,
   updatePlatformPassword,
   updatePlatformProfile,
 } from '@/services/platform.service';
@@ -29,14 +34,24 @@ export default function PlatformSettingsPage() {
   const [profileSaved, setProfileSaved] = useState(false);
   const [passwordSaved, setPasswordSaved] = useState(false);
 
+  const [aiSettings, setAiSettings] = useState<PlatformAiHairstyleSettings | null>(null);
+  const [aiProvider, setAiProvider] = useState('stub');
+  const [savingAi, setSavingAi] = useState(false);
+  const [aiSaved, setAiSaved] = useState(false);
+
+  const canManageAi =
+    user?.platform_role === 'owner' || user?.platform_role === 'manager';
+
   useEffect(() => {
-    fetchPlatformProfile()
-      .then((data) => {
-        setUser(data.user);
-        setName(data.user.name);
-        setEmail(data.user.email);
+    Promise.all([fetchPlatformProfile(), fetchPlatformAiHairstyleSettings()])
+      .then(([profile, ai]) => {
+        setUser(profile.user);
+        setName(profile.user.name);
+        setEmail(profile.user.email);
+        setAiSettings(ai);
+        setAiProvider(ai.provider);
       })
-      .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load profile'))
+      .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load settings'))
       .finally(() => setLoading(false));
   }, []);
 
@@ -75,6 +90,23 @@ export default function PlatformSettingsPage() {
       setError(err instanceof Error ? err.message : 'Password update failed');
     } finally {
       setSavingPassword(false);
+    }
+  }
+
+  async function handleAi(e: FormEvent) {
+    e.preventDefault();
+    setSavingAi(true);
+    setError(null);
+    setAiSaved(false);
+    try {
+      const next = await updatePlatformAiHairstyleSettings({ provider: aiProvider });
+      setAiSettings(next);
+      setAiProvider(next.provider);
+      setAiSaved(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'AI provider update failed');
+    } finally {
+      setSavingAi(false);
     }
   }
 
@@ -127,6 +159,55 @@ export default function PlatformSettingsPage() {
               </PlatformButton>
               {profileSaved ? <span className="text-sm text-emerald-400">Saved</span> : null}
             </div>
+          </form>
+        )}
+      </PlatformCard>
+
+      <PlatformCard title="AI Hairstyle provider">
+        {loading || !aiSettings ? (
+          <p className="text-sm text-stone-400">Loading…</p>
+        ) : (
+          <form onSubmit={handleAi} className="space-y-3">
+            <p className="text-sm text-stone-400">
+              Choose the generation backend for entitled salons. Secrets stay in server env
+              (`REPLICATE_API_TOKEN`). Production should set `AI_HAIRSTYLE_ALLOW_STUB=false`.
+            </p>
+            {!aiSettings.allow_stub ? (
+              <p className="text-xs text-amber-400/90">
+                Stub is disabled on this server — Replicate only.
+              </p>
+            ) : null}
+            <PlatformField label="Active provider">
+              <select
+                className={platformInputClass}
+                value={aiProvider}
+                disabled={!canManageAi}
+                onChange={(e) => setAiProvider(e.target.value)}
+              >
+                {aiSettings.providers.map((p) => (
+                  <option key={p.key} value={p.key}>
+                    {p.label}
+                  </option>
+                ))}
+              </select>
+            </PlatformField>
+            <p className="text-xs text-stone-500">
+              {aiSettings.providers.find((p) => p.key === aiProvider)?.description}
+            </p>
+            <p className="text-xs text-stone-500">
+              Replicate token: {aiSettings.replicate_configured ? 'configured' : 'missing'} · Model:{' '}
+              {aiSettings.replicate_model}
+            </p>
+            {canManageAi ? (
+              <div className="flex items-center gap-3 pt-1">
+                <PlatformButton type="submit" disabled={savingAi}>
+                  {savingAi ? 'Saving…' : 'Save provider'}
+                </PlatformButton>
+                {aiSaved ? <span className="text-sm text-emerald-400">Saved</span> : null}
+              </div>
+            ) : (
+              <p className="text-xs text-stone-500">Only owners and managers can change this.</p>
+            )}
           </form>
         )}
       </PlatformCard>

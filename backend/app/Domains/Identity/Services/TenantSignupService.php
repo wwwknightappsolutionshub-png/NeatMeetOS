@@ -812,6 +812,8 @@ class TenantSignupService
             'lookbook.manage',
             'next_visit.view',
             'next_visit.manage',
+            'ai_hairstyle.view',
+            'ai_hairstyle.manage',
         ];
 
         foreach ($ids as $id) {

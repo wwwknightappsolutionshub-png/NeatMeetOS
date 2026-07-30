@@ -336,6 +336,38 @@ export async function updatePlatformReferralSettings(
   });
 }
 
+export interface PlatformAiHairstyleProviderOption {
+  key: string;
+  label: string;
+  description: string;
+}
+
+export interface PlatformAiHairstyleSettings {
+  provider: string;
+  providers: PlatformAiHairstyleProviderOption[];
+  allow_stub: boolean;
+  replicate_configured: boolean;
+  replicate_model: string;
+}
+
+export async function fetchPlatformAiHairstyleSettings(): Promise<PlatformAiHairstyleSettings> {
+  return api<PlatformAiHairstyleSettings>('/platform/ai-hairstyle-settings', {
+    auth: true,
+    tenant: false,
+  });
+}
+
+export async function updatePlatformAiHairstyleSettings(payload: {
+  provider: string;
+}): Promise<PlatformAiHairstyleSettings> {
+  return api<PlatformAiHairstyleSettings>('/platform/ai-hairstyle-settings', {
+    method: 'PUT',
+    auth: true,
+    tenant: false,
+    body: JSON.stringify(payload),
+  });
+}
+
 export async function pokeTenant(
   tenantId: string,
   message?: string,

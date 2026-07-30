@@ -6,6 +6,7 @@ use App\Domains\Identity\Models\SubscriptionPlan;
 use App\Domains\Identity\Models\Tenant;
 use App\Domains\Identity\Models\TenantModuleOverride;
 use App\Domains\Identity\Support\PlatformModuleCatalogue;
+use App\Domains\Identity\Support\ProgressiveModuleAccess;
 use App\Shared\Audit\AuditLogger;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -44,7 +45,52 @@ class TenantEntitlementService
             }
         }
 
-        return $this->progressive->applyToFeatures($tenant, $base, $overrideKeys);
+        $features = $this->progressive->applyToFeatures($tenant, $base, $overrideKeys);
+
+        return $this->applyAiHairstyleGate($tenant, $features, $overrides);
+    }
+
+    /**
+     * AI Hairstyle is never plan-included. Effective only when:
+     * platform force-on override + eligible business type + active module trial.
+     *
+     * @param  array<string, bool>  $features
+     * @param  \Illuminate\Support\Collection<string, TenantModuleOverride>  $overrides
+     * @return array<string, bool>
+     */
+    private function applyAiHairstyleGate(Tenant $tenant, array $features, $overrides): array
+    {
+        $overrideOn = $overrides->has('ai_hairstyle')
+            && (bool) $overrides->get('ai_hairstyle')->enabled;
+
+        $features['ai_hairstyle'] = $overrideOn
+            && ProgressiveModuleAccess::isAiHairstyleEligible($tenant->business_type)
+            && $this->isAiHairstyleTrialActive($tenant);
+
+        return $features;
+    }
+
+    public function isAiHairstyleTrialActive(Tenant $tenant): bool
+    {
+        $endsAt = $tenant->ai_hairstyle_trial_ends_at;
+
+        return $endsAt !== null && $endsAt->isFuture();
+    }
+
+    /**
+     * Start or renew the 30-day AI Hairstyle trial when a platform admin force-enables.
+     * Keeps an existing future end date so mid-trial re-saves do not reset the clock.
+     */
+    public function ensureAiHairstyleTrialWindow(Tenant $tenant): void
+    {
+        $endsAt = $tenant->ai_hairstyle_trial_ends_at;
+        if ($endsAt !== null && $endsAt->isFuture()) {
+            return;
+        }
+
+        $tenant->forceFill([
+            'ai_hairstyle_trial_ends_at' => now()->addDays(ProgressiveModuleAccess::AI_HAIRSTYLE_TRIAL_DAYS),
+        ])->save();
     }
 
     public function isEnabled(?Tenant $tenant, string $moduleKey): bool
@@ -247,7 +293,10 @@ class TenantEntitlementService
      *     plan_features: array<string, bool>,
      *     overrides: array<string, bool>,
      *     effective: array<string, bool>,
-     *     limits: array<string, int|null>
+     *     limits: array<string, int|null>,
+     *     catalogue: list<array{key: string, label: string, description: string, core: bool}>,
+     *     ai_hairstyle_eligible: bool,
+     *     ai_hairstyle_trial_ends_at: string|null
      * }
      */
     public function tenantModules(Tenant $tenant): array
@@ -270,6 +319,8 @@ class TenantEntitlementService
             'effective' => $this->resolveFeatures($tenant),
             'limits' => $this->resolveLimits($tenant),
             'catalogue' => PlatformModuleCatalogue::all(),
+            'ai_hairstyle_eligible' => ProgressiveModuleAccess::isAiHairstyleEligible($tenant->business_type),
+            'ai_hairstyle_trial_ends_at' => $tenant->ai_hairstyle_trial_ends_at?->toIso8601String(),
         ];
     }
 
@@ -286,6 +337,18 @@ class TenantEntitlementService
                     throw ValidationException::withMessages([
                         'overrides' => ["Unknown module key: {$key}"],
                     ]);
+                }
+
+                if ($key === 'ai_hairstyle' && $value === true) {
+                    if (! ProgressiveModuleAccess::isAiHairstyleEligible($tenant->business_type)) {
+                        throw ValidationException::withMessages([
+                            'overrides.ai_hairstyle' => [
+                                'AI Hairstyle Preview can only be enabled for barbershop, barber, boutique, chain, or spa tenants.',
+                            ],
+                        ]);
+                    }
+                    $this->ensureAiHairstyleTrialWindow($tenant);
+                    $tenant->refresh();
                 }
 
                 if ($value === null) {
@@ -310,9 +373,11 @@ class TenantEntitlementService
             $this->audit->log('platform.tenant.modules_updated', $tenant, [
                 'overrides' => $old['overrides'],
                 'effective' => $old['effective'],
+                'ai_hairstyle_trial_ends_at' => $old['ai_hairstyle_trial_ends_at'],
             ], [
                 'overrides' => $fresh['overrides'],
                 'effective' => $fresh['effective'],
+                'ai_hairstyle_trial_ends_at' => $fresh['ai_hairstyle_trial_ends_at'],
             ]);
 
             return $fresh;

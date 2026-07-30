@@ -216,6 +216,8 @@ class BootstrapSeeder extends Seeder
             'lookbook.manage',
             'next_visit.view',
             'next_visit.manage',
+            'ai_hairstyle.view',
+            'ai_hairstyle.manage',
         ];
 
         $ownerRole = Role::withoutGlobalScopes()->create([
@@ -255,6 +257,8 @@ class BootstrapSeeder extends Seeder
             'analytics.exports.manage',
             'integrations.view',
             'integrations.reporting.view',
+            'ai_hairstyle.view',
+            'ai_hairstyle.manage',
         ]);
 
         User::query()->updateOrCreate(

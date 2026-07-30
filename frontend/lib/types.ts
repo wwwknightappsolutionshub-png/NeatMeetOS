@@ -67,6 +67,8 @@ export interface ShellStatus {
   tenant: TenantSummary | null;
   workspace_surfaces: string[];
   features?: Record<string, boolean>;
+  /** Permission slugs for the current tenant team member (empty if none). */
+  permissions?: string[];
   locked_modules?: ModuleUpgradePayload[];
   limits?: {
     max_locations?: number | null;
@@ -268,6 +270,8 @@ export interface TenantModulesState {
   effective: Record<string, boolean>;
   limits: Record<string, number | null>;
   catalogue: PlatformModuleDef[];
+  ai_hairstyle_eligible?: boolean;
+  ai_hairstyle_trial_ends_at?: string | null;
 }
 
 export interface PlatformUpgradeCampaignSettings {

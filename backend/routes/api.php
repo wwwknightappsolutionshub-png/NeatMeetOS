@@ -1,5 +1,8 @@
 <?php
 
+use App\Domains\AiHairstyle\Http\Controllers\Admin\AdminAiHairstyleController;
+use App\Domains\AiHairstyle\Http\Controllers\Platform\PlatformAiHairstyleSettingController;
+use App\Domains\AiHairstyle\Http\Controllers\PublicBook\PublicAiHairstyleController;
 use App\Domains\Booking\Http\Controllers\Admin\AppointmentCommerceController;
 use App\Domains\Booking\Http\Controllers\Admin\AppointmentController;
 use App\Domains\Booking\Http\Controllers\Admin\AppointmentPackageController;
@@ -147,6 +150,14 @@ Route::prefix('v1')->group(function () {
         Route::post('/appointments/{bookingReference}/cancel', [OnlineBookingController::class, 'cancelManaged'])->middleware('throttle:public-book-write');
         Route::get('/reviews', [PublicSalonReviewController::class, 'index']);
         Route::post('/reviews', [PublicSalonReviewController::class, 'store'])->middleware('throttle:public-book-write');
+
+        Route::prefix('ai-hairstyle')->group(function () {
+            Route::post('/sessions', [PublicAiHairstyleController::class, 'store'])->middleware('throttle:public-book-write');
+            Route::get('/sessions/{id}', [PublicAiHairstyleController::class, 'show']);
+            Route::post('/sessions/{id}/generate', [PublicAiHairstyleController::class, 'generate'])->middleware('throttle:public-book-write');
+            Route::post('/sessions/{id}/select', [PublicAiHairstyleController::class, 'select'])->middleware('throttle:public-book-write');
+            Route::post('/sessions/{id}/submit', [PublicAiHairstyleController::class, 'submit'])->middleware('throttle:public-book-write');
+        });
     });
 
     // Module 2 extension — Public CRM join form (QR lead capture; WhatsApp required).
@@ -236,6 +247,7 @@ Route::prefix('v1')->group(function () {
         Route::get('/upgrade-campaigns/templates', [PlatformUpgradeCampaignController::class, 'templates']);
 
         Route::get('/referral-settings', [PlatformReferralSettingController::class, 'show']);
+        Route::get('/ai-hairstyle-settings', [PlatformAiHairstyleSettingController::class, 'show']);
 
         Route::get('/signup-forms', [PlatformSignupFormController::class, 'index']);
         Route::get('/signup-forms/{id}', [PlatformSignupFormController::class, 'show']);
@@ -260,6 +272,7 @@ Route::prefix('v1')->group(function () {
 
             Route::post('/broadcasts', [PlatformTenantBroadcastController::class, 'store']);
             Route::put('/referral-settings', [PlatformReferralSettingController::class, 'update']);
+            Route::put('/ai-hairstyle-settings', [PlatformAiHairstyleSettingController::class, 'update']);
 
             Route::post('/signup-forms', [PlatformSignupFormController::class, 'store']);
             Route::put('/signup-forms/{id}', [PlatformSignupFormController::class, 'update']);
@@ -514,6 +527,15 @@ Route::prefix('v1')->group(function () {
             Route::post('/lookbook/items/{id}/replace-image', [LookbookItemController::class, 'replaceImage']);
             Route::post('/lookbook/items/{id}/hide', [LookbookItemController::class, 'hide']);
             Route::post('/lookbook/items/{id}/publish', [LookbookItemController::class, 'publish']);
+        });
+
+        Route::middleware('permission:ai_hairstyle.view')->group(function () {
+            Route::get('/ai-hairstyle/sessions', [AdminAiHairstyleController::class, 'index']);
+        });
+
+        Route::middleware('permission:ai_hairstyle.manage')->group(function () {
+            Route::post('/ai-hairstyle/sessions/{id}/accept', [AdminAiHairstyleController::class, 'accept']);
+            Route::post('/ai-hairstyle/sessions/{id}/decline', [AdminAiHairstyleController::class, 'decline']);
         });
 
         Route::middleware('permission:next_visit.view')->group(function () {

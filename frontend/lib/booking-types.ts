@@ -204,6 +204,8 @@ export interface OnlineBookingCatalog {
   locations: OnlineBookingLocation[];
   services: BookableService[];
   providers: OnlineBookingProvider[];
+  /** When true, show AI look landing gate before the booking flow. */
+  ai_hairstyle_landing?: boolean;
 }
 
 export interface OnlineBookingSlot {

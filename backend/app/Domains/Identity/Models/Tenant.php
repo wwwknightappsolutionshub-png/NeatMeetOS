@@ -48,6 +48,7 @@ class Tenant extends Model
         'contact_phone',
         'owner_whatsapp',
         'subscription_plan_id',
+        'ai_hairstyle_trial_ends_at',
         'settings',
     ];
 
@@ -58,6 +59,7 @@ class Tenant extends Model
             'activated_at' => 'datetime',
             'admin_last_seen_at' => 'datetime',
             'suspended_at' => 'datetime',
+            'ai_hairstyle_trial_ends_at' => 'datetime',
         ];
     }
 

@@ -43,7 +43,8 @@ class OnlineBookingController extends Controller
                 'display_name' => $p->display_name,
                 'primary_location_id' => $p->primary_location_id,
             ])->values(),
-        ]);
+            'ai_hairstyle_landing' => (bool) ($catalog['ai_hairstyle_landing'] ?? false),
+        ])->header('Cache-Control', 'public, max-age=30, stale-while-revalidate=300');
     }
 
     public function slots(Request $request): JsonResponse

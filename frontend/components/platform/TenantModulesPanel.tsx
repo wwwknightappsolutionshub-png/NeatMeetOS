@@ -103,6 +103,18 @@ export function TenantModulesPanel({ tenantId, tenantName, onClose }: Props) {
               const value = draft[mod.key];
               const planOn = Boolean(state.plan_features[mod.key]);
               const effective = Boolean(state.effective[mod.key]);
+              const isAiHairstyle = mod.key === 'ai_hairstyle';
+              const trialEnds = state.ai_hairstyle_trial_ends_at
+                ? new Date(state.ai_hairstyle_trial_ends_at)
+                : null;
+              const trialLabel =
+                trialEnds && !Number.isNaN(trialEnds.getTime())
+                  ? trialEnds.toLocaleDateString(undefined, {
+                      year: 'numeric',
+                      month: 'short',
+                      day: 'numeric',
+                    })
+                  : null;
               return (
                 <li
                   key={mod.key}
@@ -115,6 +127,14 @@ export function TenantModulesPanel({ tenantId, tenantName, onClose }: Props) {
                         Plan default: {planOn ? 'On' : 'Off'} · Effective:{' '}
                         {effective ? 'On' : 'Off'}
                       </p>
+                      {isAiHairstyle ? (
+                        <p className="mt-1 text-xs text-stone-400">
+                          {state.ai_hairstyle_eligible
+                            ? 'Eligible business type'
+                            : 'Not eligible (needs barbershop / barber / boutique / chain / spa)'}
+                          {trialLabel ? ` · Trial ends ${trialLabel}` : ' · No trial started'}
+                        </p>
+                      ) : null}
                     </div>
                     <select
                       value={value === null || value === undefined ? 'inherit' : value ? 'on' : 'off'}

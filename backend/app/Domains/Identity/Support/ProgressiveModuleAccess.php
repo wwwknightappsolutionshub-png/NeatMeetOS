@@ -29,6 +29,16 @@ final class ProgressiveModuleAccess
     public const GALLERY_FEMALE_ORIENTED_TYPES = ['boutique', 'chain', 'spa'];
 
     /**
+     * Business types eligible for AI Hairstyle Preview (barber + female-oriented salon).
+     *
+     * @var list<string>
+     */
+    public const AI_HAIRSTYLE_ELIGIBLE_TYPES = ['barbershop', 'barber', 'boutique', 'chain', 'spa'];
+
+    /** Free module window when a platform admin first enables AI Hairstyle. */
+    public const AI_HAIRSTYLE_TRIAL_DAYS = 30;
+
+    /**
      * @return list<string>
      */
     public static function timeUnlockModules(): array
@@ -47,5 +57,10 @@ final class ProgressiveModuleAccess
     public static function isGalleryFemaleOriented(?string $businessType): bool
     {
         return in_array((string) $businessType, self::GALLERY_FEMALE_ORIENTED_TYPES, true);
+    }
+
+    public static function isAiHairstyleEligible(?string $businessType): bool
+    {
+        return in_array((string) $businessType, self::AI_HAIRSTYLE_ELIGIBLE_TYPES, true);
     }
 }

@@ -127,6 +127,40 @@ Expect:
 
 ---
 
+## AI Hairstyle Preview (premium module)
+
+Super-admin enables the module per eligible tenant (barbershop / barber / boutique / chain / spa). Generation uses a queue job — **`neatmeet-queue` must be online**.
+
+Add to **backend** `.env` (then `config:cache`). **Production must disable stub:**
+
+```bash
+AI_HAIRSTYLE_PROVIDER=replicate
+AI_HAIRSTYLE_ALLOW_STUB=false
+AI_HAIRSTYLE_TEMP_MAX_AGE_MINUTES=120
+REPLICATE_API_TOKEN=r8_...
+REPLICATE_AI_HAIRSTYLE_MODEL=zsxkib/instant-id
+```
+
+| Key | Notes |
+|-----|--------|
+| `AI_HAIRSTYLE_PROVIDER` | Default when no platform settings row exists (`stub` or `replicate`) |
+| `AI_HAIRSTYLE_ALLOW_STUB` | **Set `false` on VPS.** Blocks stub selection and generation (fail-closed) |
+| `AI_HAIRSTYLE_TEMP_MAX_AGE_MINUTES` | Orphan selfie purge window (hourly `ai-hairstyle:purge-temp`) |
+| `REPLICATE_API_TOKEN` | Required before enabling Replicate in `/platform/settings` |
+| `REPLICATE_AI_HAIRSTYLE_MODEL` | Optional override (default InstantID) |
+
+**After migrate + env:**
+
+1. Platform → **Settings** → AI Hairstyle provider → **Replicate** (stub hidden when `ALLOW_STUB=false`)  
+2. Platform → tenant modules → **Force on** AI Hairstyle Preview (starts 30-day module trial)  
+3. Confirm `pm2 restart neatmeet-queue` after deploy so `GenerateAiHairstyleJob` runs  
+4. Confirm scheduler runs (hourly temp purge)  
+5. Smoke: `/book/{slug}` landing → `/ai-look` → submit (owner bell notice) → admin **Approved Looks** → accept (client email)
+
+Selfies are ephemeral (local temp, deleted after the job or by hourly purge). Only composite previews are stored on the public disk. Accept emails the guest; submit notifies salon owners via the admin bell.
+
+---
+
 ## Nginx (aaPanel)
 
 - **Site directory:** `/www/wwwroot/neatmeet.prohost.cloud`

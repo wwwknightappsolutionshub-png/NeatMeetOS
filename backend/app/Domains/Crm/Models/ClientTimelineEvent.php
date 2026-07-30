@@ -49,6 +49,12 @@ class ClientTimelineEvent extends Model
 
     public const EVENT_VISIT_CHECKIN = 'visit.checkin';
 
+    public const EVENT_AI_HAIRSTYLE_SUBMITTED = 'ai_hairstyle.submitted';
+
+    public const EVENT_AI_HAIRSTYLE_ACCEPTED = 'ai_hairstyle.accepted';
+
+    public const EVENT_AI_HAIRSTYLE_DECLINED = 'ai_hairstyle.declined';
+
     protected $fillable = [
         'tenant_id',
         'client_id',

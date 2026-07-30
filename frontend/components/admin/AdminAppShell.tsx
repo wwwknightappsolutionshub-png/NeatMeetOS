@@ -21,6 +21,8 @@ const operationLinks: {
   label: string;
   match: (p: string) => boolean;
   feature?: string;
+  /** When set, nav item is hidden unless the shell permissions include this slug. */
+  permission?: string;
 }[] = [
   { href: '/admin/dashboard', label: 'Dashboard', match: (p) => p === '/admin/dashboard' },
   {
@@ -81,6 +83,13 @@ const operationLinks: {
     label: 'Lookbook',
     match: (p) => p.startsWith('/admin/lookbook'),
     feature: 'lookbook',
+  },
+  {
+    href: '/admin/ai-hairstyle',
+    label: 'Approved Looks',
+    match: (p) => p.startsWith('/admin/ai-hairstyle'),
+    feature: 'ai_hairstyle',
+    permission: 'ai_hairstyle.view',
   },
   {
     href: '/admin/next-visit',
@@ -170,6 +179,7 @@ export function AdminAppShell({ children }: AdminAppShellProps) {
   const router = useRouter();
   const [bookSlug, setBookSlug] = useState('demo-salon');
   const [features, setFeatures] = useState<Record<string, boolean> | undefined>();
+  const [permissions, setPermissions] = useState<string[] | null>(null);
   const [lockedModules, setLockedModules] = useState<ModuleUpgradePayload[]>([]);
   const [vapidPublicKey, setVapidPublicKey] = useState<string | null>(null);
 
@@ -182,6 +192,7 @@ export function AdminAppShell({ children }: AdminAppShellProps) {
     void fetchShell()
       .then((shell: ShellStatus) => {
         setFeatures(shell.features);
+        setPermissions(shell.permissions ?? []);
         setLockedModules(shell.locked_modules ?? []);
         setVapidPublicKey(shell.vapid_public_key ?? null);
       })
@@ -254,7 +265,14 @@ export function AdminAppShell({ children }: AdminAppShellProps) {
             Operations
           </p>
           <ul className="space-y-0.5">
-            {operationLinks.map((link) => {
+            {operationLinks
+              .filter((link) => {
+                if (!link.permission) return true;
+                // Until shell loads, keep the item visible; after load, require the slug.
+                if (permissions === null) return true;
+                return permissions.includes(link.permission);
+              })
+              .map((link) => {
               const locked = !featureEnabled(features, link.feature);
               return (
                 <li key={link.href}>

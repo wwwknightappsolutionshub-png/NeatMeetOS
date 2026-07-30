@@ -97,6 +97,12 @@ final class PlatformModuleCatalogue
                 'description' => 'Check-in prompt to schedule the next visit with reminders.',
                 'core' => false,
             ],
+            [
+                'key' => 'ai_hairstyle',
+                'label' => 'AI Hairstyle Preview',
+                'description' => 'Premium selfie-to-look preview for barbershops and salons. Super-admin enable only.',
+                'core' => false,
+            ],
         ];
     }
 
@@ -136,6 +142,7 @@ final class PlatformModuleCatalogue
             'gallery' => 'gallery',
             'lookbook' => 'lookbook',
             'next_visit' => 'next_visit',
+            'ai_hairstyle' => 'ai_hairstyle',
         ];
     }
 
@@ -164,6 +171,7 @@ final class PlatformModuleCatalogue
                 'gallery' => false,
                 'lookbook' => false,
                 'next_visit' => false,
+                'ai_hairstyle' => false,
             ]),
             'pro' => array_merge($allOff, [
                 'notifications' => true,
@@ -177,8 +185,12 @@ final class PlatformModuleCatalogue
                 'gallery' => true,
                 'lookbook' => true,
                 'next_visit' => true,
+                'ai_hairstyle' => false,
             ]),
-            'diamond' => array_fill_keys(self::keys(), true),
+            // Premium module is never plan-included; platform override + trial only.
+            'diamond' => array_merge(array_fill_keys(self::keys(), true), [
+                'ai_hairstyle' => false,
+            ]),
             default => $allOff,
         };
     }

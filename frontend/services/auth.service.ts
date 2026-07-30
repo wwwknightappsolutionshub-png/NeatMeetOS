@@ -92,10 +92,33 @@ export async function logout(): Promise<void> {
   try {
     await api<null>('/auth/logout', { method: 'POST', auth: true });
   } finally {
+    clearShellCache();
     clearStoredSession();
   }
 }
 
+let shellCache: { at: number; data: ShellStatus } | null = null;
+let shellInflight: Promise<ShellStatus> | null = null;
+
 export async function fetchShell(): Promise<ShellStatus> {
-  return api<ShellStatus>('/shell', { auth: true });
+  const now = Date.now();
+  if (shellCache && now - shellCache.at < 60_000) {
+    return shellCache.data;
+  }
+  if (shellInflight) {
+    return shellInflight;
+  }
+  shellInflight = api<ShellStatus>('/shell', { auth: true })
+    .then((data) => {
+      shellCache = { at: Date.now(), data };
+      return data;
+    })
+    .finally(() => {
+      shellInflight = null;
+    });
+  return shellInflight;
+}
+
+export function clearShellCache(): void {
+  shellCache = null;
 }

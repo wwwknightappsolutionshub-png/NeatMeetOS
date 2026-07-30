@@ -1,8 +1,9 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import Image from 'next/image';
 import { Suspense, useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
-import { useParams, useSearchParams } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { NeatMeetLogo } from '@/components/brand/NeatMeetLogo';
 import type {
   Appointment,
@@ -17,13 +18,35 @@ import {
 } from '@/services/online-booking.service';
 import { buildGoogleCalendarUrl, downloadIcsFile } from '@/lib/booking-calendar';
 import { resolveMediaUrl } from '@/lib/media-url';
+import {
+  hasSkippedAiHairstyleLanding,
+  markAiHairstyleLandingSkipped,
+} from '@/lib/ai-hairstyle-landing';
 import Link from 'next/link';
-import { BookingReviewsSection } from '@/components/booking/BookingReviewsSection';
-import { BookingShopCarousel } from '@/components/booking/BookingShopCarousel';
-import { PublicGallerySection } from '@/components/public/PublicGallerySection';
-import { PublicLookbookSection } from '@/components/public/PublicLookbookSection';
+import { AiHairstyleLandingGate } from '@/components/booking/AiHairstyleLandingGate';
 import { SocialFooterIcons } from '@/components/public/SocialFooterIcons';
 import { loadMemberSession } from '@/services/member-portal.service';
+
+const BookingReviewsSection = dynamic(
+  () =>
+    import('@/components/booking/BookingReviewsSection').then((m) => m.BookingReviewsSection),
+  { ssr: false },
+);
+const BookingShopCarousel = dynamic(
+  () =>
+    import('@/components/booking/BookingShopCarousel').then((m) => m.BookingShopCarousel),
+  { ssr: false },
+);
+const PublicGallerySection = dynamic(
+  () =>
+    import('@/components/public/PublicGallerySection').then((m) => m.PublicGallerySection),
+  { ssr: false },
+);
+const PublicLookbookSection = dynamic(
+  () =>
+    import('@/components/public/PublicLookbookSection').then((m) => m.PublicLookbookSection),
+  { ssr: false },
+);
 
 type Step = 'service' | 'when' | 'details' | 'done';
 
@@ -401,6 +424,7 @@ export default function OnlineBookingPage() {
 function OnlineBookingPageInner() {
   const params = useParams<{ tenantSlug: string }>();
   const searchParams = useSearchParams();
+  const router = useRouter();
   const tenantSlug = params.tenantSlug;
   const locationFromQuery = searchParams.get('location');
 
@@ -408,6 +432,7 @@ function OnlineBookingPageInner() {
   const [catalog, setCatalog] = useState<OnlineBookingCatalog | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [aiLandingSkipped, setAiLandingSkipped] = useState(false);
 
   const [serviceId, setServiceId] = useState('');
   const [locationId, setLocationId] = useState('');
@@ -434,6 +459,10 @@ function OnlineBookingPageInner() {
     'open' | 'opening_soon' | 'closing' | 'closed'
   >('open');
 
+  useEffect(() => {
+    setAiLandingSkipped(hasSkippedAiHairstyleLanding(tenantSlug));
+  }, [tenantSlug]);
+
   const loadCatalog = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
@@ -459,6 +488,12 @@ function OnlineBookingPageInner() {
   useEffect(() => {
     void loadCatalog();
   }, [loadCatalog]);
+
+  const showAiLandingGate =
+    !loading &&
+    !loadError &&
+    Boolean(catalog?.ai_hairstyle_landing) &&
+    !aiLandingSkipped;
 
   const selectedService: BookableService | undefined = useMemo(
     () => catalog?.services.find((s) => s.id === serviceId),
@@ -638,6 +673,23 @@ function OnlineBookingPageInner() {
   const stepIndex = STEPS.findIndex((s) => s.key === step);
   const progressPct = ((stepIndex + 1) / STEPS.length) * 100;
   const statusMeta = storeStatusMeta(liveStoreStatus);
+
+  if (showAiLandingGate) {
+    return (
+      <AiHairstyleLandingGate
+        salonName={salonName}
+        brandPrimary={brandPrimary}
+        brandLogo={brandLogo}
+        onStart={() => {
+          router.push(`/book/${tenantSlug}/ai-look`);
+        }}
+        onSkip={() => {
+          markAiHairstyleLandingSkipped(tenantSlug);
+          setAiLandingSkipped(true);
+        }}
+      />
+    );
+  }
 
   return (
     <div

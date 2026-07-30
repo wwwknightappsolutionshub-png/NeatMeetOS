@@ -9,6 +9,8 @@ use App\Domains\Crm\Services\ClientService;
 use App\Domains\Crm\Services\MemberPortalAuthService;
 use App\Domains\Identity\Models\Location;
 use App\Domains\Identity\Models\TeamMember;
+use App\Domains\Identity\Services\TenantEntitlementService;
+use App\Domains\Staff\Models\StaffAbsence;
 use App\Domains\Staff\Models\StaffAvailabilityRule;
 use App\Domains\Staff\Models\StaffProfile;
 use App\Shared\Tenancy\TenantContext;
@@ -29,10 +31,17 @@ class OnlineBookingService
         private readonly AppointmentSchedulingValidator $schedulingValidator,
         private readonly ClientService $clients,
         private readonly MemberPortalAuthService $memberPortal,
+        private readonly TenantEntitlementService $entitlements,
     ) {}
 
     /**
-     * @return array{tenant: array<string, mixed>, locations: Collection, services: Collection, providers: Collection}
+     * @return array{
+     *     tenant: array<string, mixed>,
+     *     locations: Collection,
+     *     services: Collection,
+     *     providers: Collection,
+     *     ai_hairstyle_landing: bool
+     * }
      */
     public function catalog(?string $locationId = null): array
     {
@@ -74,6 +83,7 @@ class OnlineBookingService
             'locations' => $locations,
             'services' => $services,
             'providers' => $providersQuery->get(),
+            'ai_hairstyle_landing' => $this->entitlements->isEnabled($tenant, 'ai_hairstyle'),
         ];
     }
 
@@ -125,14 +135,58 @@ class OnlineBookingService
         $duration = max(1, (int) $service->duration_minutes);
         $providers = $this->resolveProvidersForSlotSearch($locationId, $teamMemberId);
         $slots = [];
+        $dayStart = $day->copy()->startOfDay();
+        $dayEnd = $day->copy()->endOfDay();
 
         foreach ($providers as $provider) {
+            $profile = StaffProfile::query()->where('team_member_id', $provider->id)->first();
+            if ($profile === null || ! $profile->is_bookable || ! $provider->is_active) {
+                continue;
+            }
+
             $rules = StaffAvailabilityRule::query()
                 ->where('team_member_id', $provider->id)
                 ->where('location_id', $locationId)
                 ->where('day_of_week', $day->dayOfWeekIso)
                 ->where('is_active', true)
                 ->get();
+
+            if ($rules->isEmpty()) {
+                continue;
+            }
+
+            // Prefetch day conflicts once per provider (slot search only — book() still fully validates).
+            $providerBusy = Appointment::query()
+                ->where('team_member_id', $provider->id)
+                ->whereNotIn('status', [Appointment::STATUS_CANCELLED, Appointment::STATUS_NO_SHOW])
+                ->where(function ($q) {
+                    $q->whereNull('walk_in_stage')
+                        ->orWhere('walk_in_stage', '!=', Appointment::WALK_IN_WAITING);
+                })
+                ->where('starts_at', '<', $dayEnd)
+                ->where('ends_at', '>', $dayStart)
+                ->get(['starts_at', 'ends_at']);
+
+            $workspaceIds = $rules->pluck('workspace_id')->filter()->unique()->values();
+            $workspaceBusy = $workspaceIds->isEmpty()
+                ? collect()
+                : Appointment::query()
+                    ->whereIn('workspace_id', $workspaceIds->all())
+                    ->whereNotIn('status', [Appointment::STATUS_CANCELLED, Appointment::STATUS_NO_SHOW])
+                    ->where(function ($q) {
+                        $q->whereNull('walk_in_stage')
+                            ->orWhere('walk_in_stage', '!=', Appointment::WALK_IN_WAITING);
+                    })
+                    ->where('starts_at', '<', $dayEnd)
+                    ->where('ends_at', '>', $dayStart)
+                    ->get(['workspace_id', 'starts_at', 'ends_at']);
+
+            $absences = StaffAbsence::query()
+                ->where('team_member_id', $provider->id)
+                ->where('status', StaffAbsence::STATUS_ACTIVE)
+                ->where('starts_at', '<', $dayEnd)
+                ->where('ends_at', '>', $dayStart)
+                ->get(['starts_at', 'ends_at']);
 
             foreach ($rules as $rule) {
                 $cursor = Carbon::parse($day->toDateString().' '.$rule->start_time);
@@ -143,14 +197,21 @@ class OnlineBookingService
                     $endsAt = $cursor->copy()->addMinutes($duration);
 
                     if ($startsAt->gt(now())) {
-                        try {
-                            $this->schedulingValidator->validate(
-                                $provider->id,
-                                $locationId,
-                                $rule->workspace_id,
-                                $startsAt,
-                                $endsAt,
+                        $blocked = $providerBusy->contains(
+                            fn ($appt) => $appt->starts_at < $endsAt && $appt->ends_at > $startsAt
+                        ) || $absences->contains(
+                            fn ($row) => $row->starts_at < $endsAt && $row->ends_at > $startsAt
+                        );
+
+                        if (! $blocked && $rule->workspace_id !== null) {
+                            $blocked = $workspaceBusy->contains(
+                                fn ($appt) => $appt->workspace_id === $rule->workspace_id
+                                    && $appt->starts_at < $endsAt
+                                    && $appt->ends_at > $startsAt
                             );
+                        }
+
+                        if (! $blocked) {
                             $slots[] = [
                                 'starts_at' => $startsAt->toIso8601String(),
                                 'ends_at' => $endsAt->toIso8601String(),
@@ -159,8 +220,6 @@ class OnlineBookingService
                                 'workspace_id' => $rule->workspace_id,
                                 'provider_name' => $provider->display_name,
                             ];
-                        } catch (ValidationException) {
-                            // Slot unavailable — skip.
                         }
                     }
 

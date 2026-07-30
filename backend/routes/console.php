@@ -14,3 +14,4 @@ Schedule::command('platform:dispatch-upgrade-campaigns')->hourly();
 Schedule::command('platform:process-billing')->dailyAt('06:15');
 Schedule::command('next-visit:dispatch-reminders')->everyFifteenMinutes();
 Schedule::command('next-visit:missed-digest')->hourly();
+Schedule::command('ai-hairstyle:purge-temp')->hourly();
