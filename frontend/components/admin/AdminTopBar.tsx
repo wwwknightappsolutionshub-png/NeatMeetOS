@@ -35,7 +35,12 @@ function initials(name?: string | null): string {
   return parts.map((p) => p[0]?.toUpperCase() ?? '').join('') || '?';
 }
 
-export function AdminTopBar() {
+interface AdminTopBarProps {
+  /** Opens the shell nav drawer on small screens. */
+  onMenuClick?: () => void;
+}
+
+export function AdminTopBar({ onMenuClick }: AdminTopBarProps = {}) {
   const router = useRouter();
   const [shell, setShell] = useState<ShellStatus | null>(null);
   const [notifOpen, setNotifOpen] = useState(false);
@@ -112,14 +117,26 @@ export function AdminTopBar() {
 
   return (
     <>
-      <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-[var(--admin-line)] bg-white/90 px-4 backdrop-blur sm:px-6">
-        <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-[var(--admin-ink)]">
-            {shell?.tenant?.name ?? 'Workspace'}
-          </p>
-          <p className="truncate text-xs text-[var(--admin-muted)]">
-            {shell?.user?.name ? `Signed in as ${shell.user.name}` : 'Admin'}
-          </p>
+      <header className="sticky top-0 z-20 flex h-14 items-center justify-between gap-2 border-b border-[var(--admin-line)] bg-white/90 px-4 backdrop-blur sm:px-6">
+        <div className="flex min-w-0 items-center gap-2">
+          {onMenuClick ? (
+            <button
+              type="button"
+              onClick={onMenuClick}
+              aria-label="Open navigation"
+              className="-ml-1 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[var(--admin-line)] bg-white text-[var(--admin-ink)] hover:bg-[var(--admin-wash)] lg:hidden"
+            >
+              <MenuIcon />
+            </button>
+          ) : null}
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-[var(--admin-ink)]">
+              {shell?.tenant?.name ?? 'Workspace'}
+            </p>
+            <p className="truncate text-xs text-[var(--admin-muted)]">
+              {shell?.user?.name ? `Signed in as ${shell.user.name}` : 'Admin'}
+            </p>
+          </div>
         </div>
 
         <div className="flex items-center gap-1.5">
@@ -333,6 +350,19 @@ export function AdminTopBar() {
         }
       />
     </>
+  );
+}
+
+function MenuIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M4 7h16M4 12h16M4 17h16"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+      />
+    </svg>
   );
 }
 

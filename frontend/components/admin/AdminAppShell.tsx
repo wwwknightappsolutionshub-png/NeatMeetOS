@@ -182,6 +182,7 @@ export function AdminAppShell({ children }: AdminAppShellProps) {
   const [permissions, setPermissions] = useState<string[] | null>(null);
   const [lockedModules, setLockedModules] = useState<ModuleUpgradePayload[]>([]);
   const [vapidPublicKey, setVapidPublicKey] = useState<string | null>(null);
+  const [navOpen, setNavOpen] = useState(false);
 
   useEffect(() => {
     if (!getStoredToken()) {
@@ -224,6 +225,27 @@ export function AdminAppShell({ children }: AdminAppShellProps) {
     };
   }, []);
 
+  useEffect(() => {
+    setNavOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!navOpen) return;
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setNavOpen(false);
+    };
+    document.addEventListener('keydown', onKey);
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [navOpen]);
+
   const requiredFeature = routeFeature(pathname);
   const routeLocked =
     Boolean(requiredFeature) && !featureEnabled(features, requiredFeature);
@@ -248,19 +270,41 @@ export function AdminAppShell({ children }: AdminAppShellProps) {
 
   return (
     <div className="flex min-h-full bg-[linear-gradient(165deg,#f7f5f1_0%,#efebe4_48%,#f3f1ec_100%)] text-[var(--admin-ink)]">
-      <aside className="sticky top-0 flex h-screen w-60 shrink-0 flex-col bg-[var(--admin-sidebar)] text-[var(--admin-sidebar-text)]">
+      {navOpen ? (
+        <button
+          type="button"
+          aria-label="Close navigation"
+          onClick={() => setNavOpen(false)}
+          className="fixed inset-0 z-30 bg-zinc-900/45 lg:hidden"
+        />
+      ) : null}
+      <aside
+        className={[
+          'fixed inset-y-0 left-0 z-40 flex w-64 max-w-[82vw] shrink-0 flex-col bg-[var(--admin-sidebar)] text-[var(--admin-sidebar-text)] shadow-xl transition-transform duration-200 ease-out',
+          navOpen ? 'translate-x-0' : '-translate-x-full',
+          'lg:sticky lg:top-0 lg:z-auto lg:h-screen lg:w-60 lg:max-w-none lg:translate-x-0 lg:shadow-none',
+        ].join(' ')}
+      >
         <div className="border-b border-white/10 px-4 py-5">
           <div className="flex items-center gap-2.5">
             <NeatMeetLogo size={32} variant="onDark" />
-            <div>
+            <div className="min-w-0">
               <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/50">
                 NeatMeet OS
               </p>
               <p className="text-sm font-semibold text-white">Tenant admin</p>
             </div>
+            <button
+              type="button"
+              onClick={() => setNavOpen(false)}
+              aria-label="Close navigation"
+              className="ml-auto inline-flex h-8 w-8 items-center justify-center rounded-lg text-white/70 hover:bg-white/10 hover:text-white lg:hidden"
+            >
+              <CloseIcon />
+            </button>
           </div>
         </div>
-        <nav className="flex-1 overflow-y-auto px-2.5 py-4">
+        <nav className="flex-1 overflow-y-auto px-2.5 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-4">
           <p className="mb-1.5 px-2.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/40">
             Operations
           </p>
@@ -278,6 +322,7 @@ export function AdminAppShell({ children }: AdminAppShellProps) {
                 <li key={link.href}>
                   <Link
                     href={link.href}
+                    onClick={() => setNavOpen(false)}
                     className={navClass(link.match(pathname), locked)}
                   >
                     <span className="flex items-center justify-between gap-2">
@@ -299,7 +344,11 @@ export function AdminAppShell({ children }: AdminAppShellProps) {
           <ul className="space-y-0.5">
             {settingsLinks.map((link) => (
               <li key={link.href}>
-                <Link href={link.href} className={navClass(pathname === link.href)}>
+                <Link
+                  href={link.href}
+                  onClick={() => setNavOpen(false)}
+                  className={navClass(pathname === link.href)}
+                >
                   {link.label}
                 </Link>
               </li>
@@ -310,6 +359,7 @@ export function AdminAppShell({ children }: AdminAppShellProps) {
           </p>
           <Link
             href={`/book/${bookSlug}`}
+            onClick={() => setNavOpen(false)}
             className={navClass(false)}
             target="_blank"
             rel="noreferrer"
@@ -319,7 +369,7 @@ export function AdminAppShell({ children }: AdminAppShellProps) {
         </nav>
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">
-        <AdminTopBar />
+        <AdminTopBar onMenuClick={() => setNavOpen(true)} />
         <AdminPwaPrompt vapidPublicKey={vapidPublicKey} />
         <AdminReferralNudge />
         <main className="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-8">
@@ -331,5 +381,18 @@ export function AdminAppShell({ children }: AdminAppShellProps) {
         </main>
       </div>
     </div>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M6 6l12 12M18 6L6 18"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+      />
+    </svg>
   );
 }
