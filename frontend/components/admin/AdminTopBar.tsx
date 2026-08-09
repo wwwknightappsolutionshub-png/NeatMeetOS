@@ -119,14 +119,14 @@ export function AdminTopBar({ onMenuClick }: AdminTopBarProps = {}) {
 
   return (
     <>
-      <header className="sticky top-0 z-20 flex h-14 items-center justify-between gap-2 border-b border-[var(--admin-line)] bg-white/90 px-4 backdrop-blur sm:px-6">
-        <div className="flex min-w-0 items-center gap-2">
+      <header className="sticky top-0 z-20 flex h-14 items-center gap-1.5 overflow-hidden border-b border-[var(--admin-line)] bg-white/90 px-3 backdrop-blur sm:gap-2 sm:px-6">
+        <div className="flex shrink-0 items-center gap-1.5">
           {onMenuClick ? (
             <button
               type="button"
               onClick={onMenuClick}
               aria-label="Open navigation"
-              className="-ml-1 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[var(--admin-line)] bg-white text-[var(--admin-ink)] hover:bg-[var(--admin-wash)] lg:hidden"
+              className="-ml-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[var(--admin-line)] bg-white text-[var(--admin-ink)] hover:bg-[var(--admin-wash)] lg:hidden"
             >
               <MenuIcon />
             </button>
@@ -154,7 +154,7 @@ export function AdminTopBar({ onMenuClick }: AdminTopBarProps = {}) {
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5">
+        <div className="ml-auto flex min-w-0 items-center justify-end gap-1 sm:gap-1.5">
           {shell?.user?.is_platform_admin ? (
             <Link
               href="/platform"
@@ -166,14 +166,18 @@ export function AdminTopBar({ onMenuClick }: AdminTopBarProps = {}) {
           {shell?.trial?.active ? (
             <Link
               href="/admin/settings/subscription"
-              className="inline-flex max-w-[11rem] flex-col justify-center rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-amber-950 hover:bg-amber-100 sm:max-w-none"
+              className="inline-flex h-9 max-w-[4.75rem] shrink items-center justify-center truncate rounded-lg border border-amber-200 bg-amber-50 px-1.5 text-[11px] font-semibold tabular-nums text-amber-950 hover:bg-amber-100 sm:max-w-none sm:flex-col sm:px-2.5 sm:py-1 sm:text-xs"
               title={
-                shell.trial.ends_at
+                shell.trial.label?.trim() ||
+                (shell.trial.ends_at
                   ? `Trial ends ${new Date(shell.trial.ends_at).toLocaleDateString()}`
-                  : 'Free trial'
+                  : 'Free trial')
               }
             >
-              <span className="truncate text-[11px] font-semibold leading-tight tracking-tight sm:text-xs">
+              <span className="truncate sm:hidden">
+                {shell.trial.day}/{shell.trial.total_days}
+              </span>
+              <span className="hidden truncate sm:inline">
                 {shell.trial.label?.trim()
                   ? shell.trial.label
                   : `Day ${shell.trial.day} / ${shell.trial.total_days}`}
@@ -191,16 +195,20 @@ export function AdminTopBar({ onMenuClick }: AdminTopBarProps = {}) {
           ) : null}
           <Link
             href="/admin/settings/referrals"
-            className="inline-flex h-9 max-w-[9.5rem] items-center truncate rounded-lg border-2 border-[#c4a35a] bg-[#fff8e8] px-2.5 text-xs font-bold tracking-wide text-[#6b4f12] shadow-[0_1px_0_rgba(196,163,90,0.35)] hover:bg-[#f7eccf] sm:max-w-none sm:text-sm"
+            className={[
+              'inline-flex h-9 shrink-0 items-center justify-center rounded-lg border-2 border-[#c4a35a] bg-[#fff8e8] px-2 text-xs font-bold tracking-wide text-[#6b4f12] shadow-[0_1px_0_rgba(196,163,90,0.35)] hover:bg-[#f7eccf] sm:px-2.5 sm:text-sm',
+              // Trial badge already competes for space on small phones.
+              shell?.trial?.active ? 'max-sm:hidden' : '',
+            ].join(' ')}
             title="Refer & Reward"
           >
             <span className="hidden sm:inline">Refer &amp; Reward*</span>
-            <span className="sm:hidden">Refer*</span>
+            <span className="sm:hidden">Refer</span>
           </Link>
           <button
             type="button"
             onClick={() => setChatOpen(true)}
-            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[var(--admin-line)] bg-white px-2.5 text-sm text-[var(--admin-ink)] hover:bg-[var(--admin-wash)]"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[var(--admin-line)] bg-white text-[var(--admin-ink)] hover:bg-[var(--admin-wash)] sm:w-auto sm:gap-1.5 sm:px-2.5 sm:text-sm"
             title="Desk chat"
           >
             <ChatIcon />
@@ -303,7 +311,7 @@ export function AdminTopBar({ onMenuClick }: AdminTopBarProps = {}) {
                 setProfileOpen((v) => !v);
                 setNotifOpen(false);
               }}
-              className="inline-flex h-9 items-center gap-2 rounded-lg border border-[var(--admin-line)] bg-white pl-1.5 pr-2.5 text-sm text-[var(--admin-ink)] hover:bg-[var(--admin-wash)]"
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[var(--admin-line)] bg-white text-sm text-[var(--admin-ink)] hover:bg-[var(--admin-wash)] sm:w-auto sm:gap-2 sm:pl-1.5 sm:pr-2.5"
               title="Profile"
             >
               <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--admin-accent)] text-[10px] font-semibold text-white">
@@ -329,6 +337,17 @@ export function AdminTopBar({ onMenuClick }: AdminTopBarProps = {}) {
                       Account settings
                     </Link>
                   </li>
+                  {shell?.trial?.active ? (
+                    <li className="sm:hidden">
+                      <Link
+                        href="/admin/settings/referrals"
+                        className="block px-3 py-2 hover:bg-[var(--admin-wash)]"
+                        onClick={() => setProfileOpen(false)}
+                      >
+                        Refer &amp; Reward
+                      </Link>
+                    </li>
+                  ) : null}
                   <li>
                     <Link
                       href="/admin/settings/team"
