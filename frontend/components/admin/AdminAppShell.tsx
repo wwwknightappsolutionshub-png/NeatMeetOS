@@ -125,7 +125,9 @@ const operationLinks: {
   {
     href: '/admin/integrations',
     label: 'Integrations',
-    match: (p) => p.startsWith('/admin/integrations'),
+    // WhatsApp scan moved to Settings (not plan-gated).
+    match: (p) =>
+      p.startsWith('/admin/integrations') && !p.startsWith('/admin/integrations/whatsapp'),
     feature: 'integrations',
   },
 ];
@@ -133,6 +135,7 @@ const operationLinks: {
 const settingsLinks = [
   { href: '/admin/settings/account', label: 'Account' },
   { href: '/admin/settings/branding', label: 'Branding' },
+  { href: '/admin/settings/whatsapp', label: 'Salon WhatsApp' },
   { href: '/admin/settings/booking-qr', label: 'Booking QR' },
   { href: '/admin/settings/crm-join-qr', label: 'CRM join QR' },
   { href: '/admin/settings/locations', label: 'Locations' },

@@ -23,7 +23,7 @@ import {
 
 const quickLinks = [
   {
-    href: '/admin/integrations/whatsapp',
+    href: '/admin/settings/whatsapp',
     label: 'Salon WhatsApp',
     description: 'Scan your number; platform API key powers delivery with salon fallback',
   },
