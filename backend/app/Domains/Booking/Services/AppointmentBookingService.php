@@ -4,6 +4,7 @@ namespace App\Domains\Booking\Services;
 
 use App\Domains\Booking\Models\Appointment;
 use App\Domains\Booking\Models\AppointmentServiceLine;
+use App\Domains\Booking\Support\BookingBoardBroadcaster;
 use App\Domains\Identity\Models\Tenant;
 use App\Domains\Identity\Services\ProgressiveModuleAccessService;
 use App\Domains\Notifications\Services\NotificationTriggerService;
@@ -92,7 +93,7 @@ class AppointmentBookingService
 
         $deposit = $this->depositService->snapshotFromResolvedLines($resolved['lines']);
 
-        return DB::transaction(function () use ($data, $resolved, $startsAt, $endsAt, $createdByTeamMemberId, $meta, $deposit) {
+        $appointment = DB::transaction(function () use ($data, $resolved, $startsAt, $endsAt, $createdByTeamMemberId, $meta, $deposit) {
             $appointment = Appointment::query()->create([
                 'tenant_id' => $this->scope->tenantId(),
                 'location_id' => $data['location_id'],
@@ -153,6 +154,10 @@ class AppointmentBookingService
 
             return $appointment;
         });
+
+        BookingBoardBroadcaster::forAppointment($appointment);
+
+        return $appointment;
     }
 
     public function updateStatus(Appointment $appointment, string $status, ?string $noShowReason = null): Appointment
@@ -198,7 +203,10 @@ class AppointmentBookingService
             'workspace_id' => $workspaceId,
         ]);
 
-        return $appointment->fresh()->load(['client', 'teamMember', 'location', 'workspace', 'serviceLines']);
+        $appointment = $appointment->fresh()->load(['client', 'teamMember', 'location', 'workspace', 'serviceLines']);
+        BookingBoardBroadcaster::forAppointment($appointment);
+
+        return $appointment;
     }
 
     public function updateDepositStatus(Appointment $appointment, string $status): Appointment
@@ -266,7 +274,7 @@ class AppointmentBookingService
             $appointment->id,
         );
 
-        return DB::transaction(function () use ($appointment, $data, $teamMemberId, $locationId, $workspaceId, $startsAt, $endsAt, $resolved) {
+        $appointment = DB::transaction(function () use ($appointment, $data, $teamMemberId, $locationId, $workspaceId, $startsAt, $endsAt, $resolved) {
             $old = $appointment->only(['starts_at', 'ends_at', 'team_member_id', 'workspace_id']);
 
             $appointment->fill([
@@ -302,6 +310,10 @@ class AppointmentBookingService
 
             return $appointment->fresh()->load(['client', 'teamMember', 'location', 'workspace', 'serviceLines']);
         });
+
+        BookingBoardBroadcaster::forAppointment($appointment);
+
+        return $appointment;
     }
 
     public function cancel(Appointment $appointment, ?string $reason = null): Appointment
@@ -327,6 +339,8 @@ class AppointmentBookingService
         $this->notificationTriggers->safe(
             fn () => $this->notificationTriggers->sendBookingCancellation($appointment)
         );
+
+        BookingBoardBroadcaster::forAppointment($appointment);
 
         return $appointment;
     }

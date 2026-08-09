@@ -21,6 +21,7 @@ class AnalyticsSavedReportResource extends JsonResource
             'schedule_day_of_week' => $this->schedule_day_of_week,
             'schedule_day_of_month' => $this->schedule_day_of_month,
             'schedule_time' => $this->schedule_time,
+            'delivery_emails' => $this->delivery_emails ?? [],
             'last_run_at' => $this->last_run_at?->toIso8601String(),
             'archived_at' => $this->archived_at?->toIso8601String(),
             'created_by' => $this->whenLoaded('createdBy', fn () => [

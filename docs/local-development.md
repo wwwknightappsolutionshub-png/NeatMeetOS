@@ -482,25 +482,25 @@ Saved report presets + synchronous CSV/JSON export jobs on top of the 12A datase
 
 **Behaviour:**
 
-- Exports execute **synchronously** in-request (no queues/workers). Files persist to the `local` disk under `analytics/exports/{tenantId}/analytics-{type}-{Y-m-d-His}.{ext}`.
+- Exports are **queued** (`ProcessAnalyticsExportJob`; sync in tests). Files persist to the `local` disk under `analytics/exports/{tenantId}/analytics-{type}-{Y-m-d-His}.{ext}`.
 - Formats: `csv` (compact primary rows per report type) and `json` (full payload wrapped with `report_type` / `generated_at` / `filters` / `range` / `data`).
-- Scheduling fields (`is_scheduled`, `schedule_frequency`, etc.) are stored as **config only** — no cron/emailed delivery yet.
+- Scheduling: `analytics:run-scheduled` every 5 minutes runs due saved reports; `delivery_emails` receives the file when set.
 
 **Local check:** log in as owner, `POST /analytics/exports { "report_type": "overview", "export_format": "json" }`, then `GET /analytics/exports/{id}/download`.
 
 See `backend/app/Domains/Analytics/MODULE.md` (Module 12B section) for full detail.
 
-**Deferred beyond 12B:** PDF/XLSX exports, queued/background exports, emailed + cron-scheduled report delivery, custom report builder, chart image generation, BI connectors, warehouse/snapshots.
+**Deferred beyond 12B:** PDF/XLSX exports, custom report builder, chart image generation, BI connectors, warehouse/snapshots.
 
 **Admin UI (Step 22B, frontend):**
 
 | Route | Purpose |
 |-------|---------|
 | `/admin/analytics/reports` | Saved reports list — create preset, edit, archive, run export now |
-| `/admin/analytics/reports/[reportId]` | Saved report detail/edit — update filters/format/schedule config, run export |
+| `/admin/analytics/reports/[reportId]` | Saved report detail/edit — update filters/format/schedule/delivery, run export |
 | `/admin/analytics/exports` | Ad-hoc export panel + export job history with status and download |
 
-Navigation: Analytics shell adds **Reports** and **Exports** links alongside the Step 21B overview subpages. Filter fields in create/edit forms respect report-type capability (communications: no location/provider; clients/inventory: no provider). Scheduling fields are editable but config-only — no background delivery yet. Downloads use authenticated blob fetch via `downloadAnalyticsExport()` (not bare `download_url` links). Frontend types/service extended in `frontend/lib/analytics-types.ts` and `frontend/services/analytics.service.ts`; components under `frontend/components/admin/analytics/`.
+Navigation: Analytics shell adds **Reports** and **Exports** links alongside the Step 21B overview subpages. Filter fields in create/edit forms respect report-type capability (communications: no location/provider; clients/inventory: no provider). Schedule + delivery emails run via `analytics:run-scheduled`. Downloads use authenticated blob fetch via `downloadAnalyticsExport()` (not bare `download_url` links). Frontend types/service extended in `frontend/lib/analytics-types.ts` and `frontend/services/analytics.service.ts`; components under `frontend/components/admin/analytics/`.
 
 ### Step 23A — Provider integrations foundation (Module 13A, backend only)
 
@@ -575,20 +575,23 @@ npm run dev
 
 Web: `http://localhost:3000` → redirects to `/health`
 
-### 3. Queue worker + scheduler (production / async local)
+### 3. Queue worker + scheduler + Reverb (production / async local)
 
 ```bash
 cd backend
-# Process jobs (DispatchNotificationMessageJob, marketing, member push)
+# Process jobs (analytics exports, notifications, marketing, member push)
 php artisan queue:work
 
-# Run scheduled tasks (booking reminders, upgrade campaigns, platform billing)
+# Run scheduled tasks (booking reminders, marketing, analytics:run-scheduled, billing)
 php artisan schedule:work
 # Production cron alternative:
 # * * * * * cd /path/to/backend && php artisan schedule:run >> /dev/null 2>&1
+
+# Live day-board WebSockets (optional local)
+php artisan reverb:start
 ```
 
-Horizon is optional and not packaged by default; `queue:work` is the supported worker.
+Horizon is optional and not packaged by default; `queue:work` is the supported worker. Match `REVERB_*` / `NEXT_PUBLIC_REVERB_*` from `.env.example` when using live board updates.
 
 ## Docker (PostgreSQL + Redis + MinIO + Mailpit)
 

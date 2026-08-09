@@ -181,6 +181,55 @@ class AnalyticsSavedReportService
         } elseif (! $partial) {
             $out['schedule_time'] = null;
         }
+
+        if (array_key_exists('delivery_emails', $data)) {
+            $out['delivery_emails'] = $this->normalizeDeliveryEmails($data['delivery_emails']);
+        } elseif (! $partial) {
+            $out['delivery_emails'] = null;
+        }
+    }
+
+    /**
+     * @return list<string>|null
+     */
+    private function normalizeDeliveryEmails(mixed $emails): ?array
+    {
+        if ($emails === null || $emails === '') {
+            return null;
+        }
+
+        if (is_string($emails)) {
+            $emails = preg_split('/[\s,;]+/', $emails) ?: [];
+        }
+
+        if (! is_array($emails)) {
+            throw ValidationException::withMessages([
+                'delivery_emails' => ['Delivery emails must be a list of addresses.'],
+            ]);
+        }
+
+        $clean = [];
+        foreach ($emails as $email) {
+            $value = strtolower(trim((string) $email));
+            if ($value === '') {
+                continue;
+            }
+            if (! filter_var($value, FILTER_VALIDATE_EMAIL)) {
+                throw ValidationException::withMessages([
+                    'delivery_emails' => ["Invalid delivery email: {$value}"],
+                ]);
+            }
+            $clean[] = $value;
+        }
+
+        $clean = array_values(array_unique($clean));
+        if (count($clean) > 10) {
+            throw ValidationException::withMessages([
+                'delivery_emails' => ['At most 10 delivery emails are allowed.'],
+            ]);
+        }
+
+        return $clean === [] ? null : $clean;
     }
 
     /**

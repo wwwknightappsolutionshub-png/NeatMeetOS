@@ -75,11 +75,11 @@ This document is the handoff reference for the completed Scenario B roadmap. No 
 | Support tooling | Built (suspend, impersonate, client export/erase) |
 | Member Web Push (VAPID) | Built (`minishlink/web-push` + member bootstrap key) |
 | PDF/XLSX analytics exports | CSV/JSON only |
-| Scheduled/emailed report delivery | Config fields only |
+| Scheduled/emailed report delivery | Built (`analytics:run-scheduled` + `delivery_emails`) |
 | Recurring membership billing automation | Manual/admin flows |
 | Consultation domain | Scaffold only |
 | Ecommerce domain | Scaffold only |
-| Reverb/WebSocket production stack | Not wired |
+| Reverb/WebSocket production stack | Built for booking day board (local `reverb:start`; VPS process optional) |
 | `analytics.reporting.view` / `integrations.reporting.view` | Seeded permissions, no separate routes (exports use `analytics.exports.manage`) |
 
 ## Demo / verification guide

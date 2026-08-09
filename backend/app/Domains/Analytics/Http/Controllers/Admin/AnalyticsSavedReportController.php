@@ -96,6 +96,8 @@ class AnalyticsSavedReportController extends Controller
             'schedule_day_of_week' => ['nullable', 'integer', 'min:0', 'max:6'],
             'schedule_day_of_month' => ['nullable', 'integer', 'min:1', 'max:31'],
             'schedule_time' => ['nullable', 'string', 'max:10'],
+            'delivery_emails' => ['nullable', 'array', 'max:10'],
+            'delivery_emails.*' => ['email', 'max:255'],
         ]);
     }
 }

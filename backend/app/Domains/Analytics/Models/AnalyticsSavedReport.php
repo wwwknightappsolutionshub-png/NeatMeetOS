@@ -28,6 +28,7 @@ class AnalyticsSavedReport extends Model
         'schedule_day_of_week',
         'schedule_day_of_month',
         'schedule_time',
+        'delivery_emails',
         'last_run_at',
         'archived_at',
     ];
@@ -36,6 +37,7 @@ class AnalyticsSavedReport extends Model
     {
         return [
             'filters_json' => 'array',
+            'delivery_emails' => 'array',
             'is_scheduled' => 'boolean',
             'schedule_day_of_week' => 'integer',
             'schedule_day_of_month' => 'integer',

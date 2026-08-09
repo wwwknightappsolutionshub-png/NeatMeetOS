@@ -10,6 +10,7 @@ Artisan::command('inspire', function () {
 
 Schedule::command('notifications:dispatch-booking-reminders')->everyFiveMinutes();
 Schedule::command('marketing:run-scheduled')->everyFiveMinutes();
+Schedule::command('analytics:run-scheduled')->everyFiveMinutes();
 Schedule::command('platform:dispatch-upgrade-campaigns')->hourly();
 Schedule::command('platform:process-billing')->dailyAt('06:15');
 Schedule::command('next-visit:dispatch-reminders')->everyFifteenMinutes();

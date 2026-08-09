@@ -59,6 +59,9 @@ export function AnalyticsSavedReportForm({
       : '',
   );
   const [time, setTime] = useState(initial?.schedule_time ?? '');
+  const [deliveryEmails, setDeliveryEmails] = useState(
+    (initial?.delivery_emails ?? []).join(', '),
+  );
 
   const [locations, setLocations] = useState<Location[]>([]);
   const [providers, setProviders] = useState<TeamMember[]>([]);
@@ -93,6 +96,12 @@ export function AnalyticsSavedReportForm({
       schedule_day_of_week: isScheduled && dayOfWeek !== '' ? Number(dayOfWeek) : null,
       schedule_day_of_month: isScheduled && dayOfMonth !== '' ? Number(dayOfMonth) : null,
       schedule_time: isScheduled && time ? time : null,
+      delivery_emails: isScheduled
+        ? deliveryEmails
+            .split(/[\s,;]+/)
+            .map((e) => e.trim())
+            .filter(Boolean)
+        : null,
     });
   }
 
@@ -167,10 +176,10 @@ export function AnalyticsSavedReportForm({
       </fieldset>
 
       <fieldset className="space-y-4 rounded-lg border border-zinc-200 p-4">
-        <legend className="px-1 text-xs font-medium uppercase tracking-wide text-zinc-500">Schedule (config only)</legend>
+        <legend className="px-1 text-xs font-medium uppercase tracking-wide text-zinc-500">Schedule & delivery</legend>
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" checked={isScheduled} onChange={(e) => setIsScheduled(e.target.checked)} />
-          <span>Mark as scheduled (no automated delivery yet)</span>
+          <span>Run on a schedule (queue + email delivery)</span>
         </label>
         {isScheduled ? (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -196,6 +205,14 @@ export function AnalyticsSavedReportForm({
             ) : null}
             <Field label="Time (HH:MM)">
               <input type="time" className={inputClass} value={time} onChange={(e) => setTime(e.target.value)} />
+            </Field>
+            <Field label="Delivery emails">
+              <input
+                className={inputClass}
+                value={deliveryEmails}
+                onChange={(e) => setDeliveryEmails(e.target.value)}
+                placeholder="owner@salon.com, manager@salon.com"
+              />
             </Field>
           </div>
         ) : null}

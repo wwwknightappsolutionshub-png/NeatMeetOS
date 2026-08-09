@@ -720,11 +720,6 @@ function LoginAuthPage() {
                 </form>
               ) : null}
 
-              <p className="mt-6 text-[11px] leading-relaxed text-stone-400">
-                Demo · owner@demo.neatmeet.local / password
-                <br />
-                Platform · platform@neatmeet.local / password
-              </p>
             </div>
           ) : null}
 

@@ -3,6 +3,7 @@
 namespace App\Domains\Booking\Services;
 
 use App\Domains\Booking\Models\Appointment;
+use App\Domains\Booking\Support\BookingBoardBroadcaster;
 use App\Domains\Marketing\Services\MarketingAutomationTriggerService;
 use App\Domains\Notifications\Services\NotificationTriggerService;
 use App\Shared\Audit\AuditLogger;
@@ -133,6 +134,8 @@ class AppointmentLifecycleService
             // Marketing automations must not block appointment transitions.
         }
 
+        BookingBoardBroadcaster::forAppointment($appointment);
+
         return $appointment;
     }
 
@@ -173,7 +176,10 @@ class AppointmentLifecycleService
             'status_correction_note' => $correctionNote,
         ]);
 
-        return $appointment->fresh()->load(['client', 'teamMember', 'location', 'workspace', 'serviceLines']);
+        $appointment = $appointment->fresh()->load(['client', 'teamMember', 'location', 'workspace', 'serviceLines']);
+        BookingBoardBroadcaster::forAppointment($appointment);
+
+        return $appointment;
     }
 
     public function allowedTransitions(Appointment $appointment): array

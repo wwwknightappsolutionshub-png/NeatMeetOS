@@ -536,4 +536,55 @@ class Module12BAnalyticsExportsAdminTest extends TestCase
             ]);
         }
     }
+
+    public function test_scheduled_command_dispatches_due_report_and_mails_delivery_emails(): void
+    {
+        \Illuminate\Support\Facades\Mail::fake();
+        Storage::fake('local');
+
+        $ctx = $this->seedTenantContext($this->modulePermissions());
+
+        $reportId = $this->withTenantAuth($ctx['token'])
+            ->postJson('/api/v1/admin/analytics/saved-reports', [
+                'name' => 'Daily overview mail',
+                'report_type' => 'overview',
+                'export_format' => 'csv',
+                'is_scheduled' => true,
+                'schedule_frequency' => 'daily',
+                'schedule_time' => '00:00',
+                'delivery_emails' => ['owner@example.test'],
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.delivery_emails.0', 'owner@example.test')
+            ->json('data.id');
+
+        $this->artisan('analytics:run-scheduled', ['--tenant' => $ctx['tenant']->id])
+            ->assertSuccessful();
+
+        $this->assertDatabaseHas('analytics_export_jobs', [
+            'analytics_saved_report_id' => $reportId,
+            'status' => AnalyticsExportJobStatus::COMPLETED,
+        ]);
+
+        \Illuminate\Support\Facades\Mail::assertQueued(
+            \App\Domains\Analytics\Mail\AnalyticsScheduledExportMail::class,
+            function (\App\Domains\Analytics\Mail\AnalyticsScheduledExportMail $mail) {
+                return $mail->reportName === 'Daily overview mail'
+                    && $mail->hasTo('owner@example.test');
+            },
+        );
+
+        // Second run same day should not double-dispatch.
+        $countAfterFirst = AnalyticsExportJob::query()
+            ->where('analytics_saved_report_id', $reportId)
+            ->count();
+
+        $this->artisan('analytics:run-scheduled', ['--tenant' => $ctx['tenant']->id])
+            ->assertSuccessful();
+
+        $this->assertSame(
+            $countAfterFirst,
+            AnalyticsExportJob::query()->where('analytics_saved_report_id', $reportId)->count(),
+        );
+    }
 }

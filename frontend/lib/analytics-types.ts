@@ -424,6 +424,7 @@ export interface AnalyticsSavedReport {
   schedule_day_of_week: number | null;
   schedule_day_of_month: number | null;
   schedule_time: string | null;
+  delivery_emails: string[];
   last_run_at: string | null;
   archived_at: string | null;
   created_by?: { id: string | null; name: string | null } | null;
@@ -459,6 +460,7 @@ export interface SavedReportPayload {
   schedule_day_of_week?: number | null;
   schedule_day_of_month?: number | null;
   schedule_time?: string | null;
+  delivery_emails?: string[] | null;
 }
 
 export interface ExportCreatePayload {

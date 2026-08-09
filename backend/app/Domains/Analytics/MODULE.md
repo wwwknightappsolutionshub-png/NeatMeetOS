@@ -1,4 +1,4 @@
-# Module 12A ù Analytics & Reporting Foundation
+# Module 12A ? Analytics & Reporting Foundation
 
 Read-only operational analytics domain. Aggregates KPIs across CRM, Booking, Payments, POS, Memberships, Inventory, Marketing, and Notifications without taking ownership of their records.
 
@@ -24,7 +24,7 @@ All routes require `analytics.view`. Owner and Manager roles receive both `analy
 
 Default date window when `from`/`to` omitted: **last 30 days** (inclusive).
 
-## Module 12B ù Saved reports & exports
+## Module 12B ? Saved reports & exports
 
 Additive extension (backend Step 22A). Lets tenants save analytics report presets and run synchronous CSV/JSON exports of the 12A datasets.
 
@@ -52,17 +52,17 @@ Additive extension (backend Step 22A). Lets tenants save analytics report preset
 
 ### Export behaviour
 
-- **Synchronous execution** ù exports run inline in the request/service flow. No queues, workers, cron, or emailed delivery in 12B. Jobs still pass through `pending` ? `processing` ? `completed`/`failed` within the same request for a consistent audit trail.
-- **Formats** ù `csv` (compact primary row set per report type) and `json` (full structured payload wrapped with `report_type`, `generated_at`, `filters`, `range`, `data`). PDF/XLSX are out of scope.
-- **CSV primary row sets** ù overview: one KPI summary row; bookings/revenue/clients: daily series; inventory: low-stock items; communications: per-channel breakdown rows (may be empty when no messages exist).
-- **Storage** ù files are written to the `local` disk under `analytics/exports/{tenantId}/analytics-{type}-{Y-m-d-His}.{ext}`.
-- **Download** ù `GET /exports/{id}/download` requires `analytics.exports.manage`, tenant ownership, `completed` status, and an on-disk file. Returns 404 when the job is incomplete, cross-tenant, or the file is missing. The admin UI downloads via authenticated blob fetch (not a bare browser link).
-- **Scheduling** ù `is_scheduled` + `schedule_*` fields are persisted as configuration only; no background delivery is wired yet.
+- **Queued execution** ? exports are created as `pending` and processed by `ProcessAnalyticsExportJob` (sync queue in tests; `queue:work` in production). Status still flows `pending` ? `processing` ? `completed`/`failed`.
+- **Formats** ? `csv` (compact primary row set per report type) and `json` (full structured payload wrapped with `report_type`, `generated_at`, `filters`, `range`, `data`). PDF/XLSX are out of scope.
+- **CSV primary row sets** ? overview: one KPI summary row; bookings/revenue/clients: daily series; inventory: low-stock items; communications: per-channel breakdown rows (may be empty when no messages exist).
+- **Storage** ? files are written to the `local` disk under `analytics/exports/{tenantId}/analytics-{type}-{Y-m-d-His}.{ext}`.
+- **Download** ? `GET /exports/{id}/download` requires `analytics.exports.manage`, tenant ownership, `completed` status, and an on-disk file. Returns 404 when the job is incomplete, cross-tenant, or the file is missing. The admin UI downloads via authenticated blob fetch (not a bare browser link).
+- **Scheduling** ? `is_scheduled` + `schedule_*` + `delivery_emails` drive `analytics:run-scheduled` (every 5 minutes). Due reports queue an export; completed files are emailed to `delivery_emails` when set.
 - **Archived presets** cannot be run (422) and are excluded from the default saved-reports list.
 
 ### Permissions
 
-- `analytics.exports.manage` ù manage saved reports, run exports, download files. Granted to Owner and Manager.
+- `analytics.exports.manage` ? manage saved reports, run exports, download files. Granted to Owner and Manager.
 
 ### Audit events
 
@@ -72,8 +72,9 @@ Additive extension (backend Step 22A). Lets tenants save analytics report preset
 
 | Service | Responsibility |
 |---------|----------------|
-| `AnalyticsSavedReportService` | Saved report CRUD + archive, filter/schedule validation, filters JSON normalisation |
-| `AnalyticsExportService` | Create + synchronously execute export jobs, file generation, status/metadata persistence |
+| `AnalyticsSavedReportService` | Saved report CRUD + archive, filter/schedule/delivery validation |
+| `AnalyticsExportService` | Create + queue export jobs; `execute()` builds files |
+| `AnalyticsScheduledExportService` | Due-schedule detection for `analytics:run-scheduled` |
 | `AnalyticsExportTransformer` | Flatten 12A payloads into CSV header + rows per report type |
 
 ## Timestamp semantics
@@ -112,7 +113,7 @@ Additive extension (backend Step 22A). Lets tenants save analytics report preset
 
 ## Domain boundary rules
 
-- Analytics is **read-only** ù no mutations, no audit events on reads
+- Analytics is **read-only** ? no mutations, no audit events on reads
 - Queries existing domain tables via Eloquent query builder; does not duplicate ownership
 - Marketing vs Notifications delivery metrics remain separate sections
 
@@ -121,13 +122,11 @@ Additive extension (backend Step 22A). Lets tenants save analytics report preset
 | Metric | Reason |
 |--------|--------|
 | `preferred_channel` summary on overview | No dedicated scalar column; stored in JSON `clients.preferences` without stable schema |
-| Finance-grade net revenue / accounting | Out of scope ù operational reporting only |
+| Finance-grade net revenue / accounting | Out of scope ? operational reporting only |
 | Real-time provider delivery analytics | Simulation-first dispatch; counts based on message status fields |
 
 ## Deferred (beyond 12B)
 
-- Background queued exports / async workers
-- Scheduled emailed report delivery (cron)
 - PDF/XLSX export formats
 - Custom report builder / arbitrary SQL
 - Chart image generation
@@ -141,5 +140,5 @@ Additive extension (backend Step 22A). Lets tenants save analytics report preset
 
 | File | Coverage |
 |------|----------|
-| `tests/Feature/Module12AAnalyticsAdminTest.php` | 9 HTTP tests ó read-only analytics endpoints, permission gates, tenant isolation |
+| `tests/Feature/Module12AAnalyticsAdminTest.php` | 9 HTTP tests ? read-only analytics endpoints, permission gates, tenant isolation |
 | `tests/Feature/Module12BAnalyticsExportsAdminTest.php` | 20 HTTP tests - saved reports CRUD/archive, exports, download, failure path, tenant isolation |

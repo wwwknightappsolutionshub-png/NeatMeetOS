@@ -4,6 +4,7 @@ namespace App\Domains\Booking\Services;
 
 use App\Domains\Booking\Models\Appointment;
 use App\Domains\Booking\Models\AppointmentServiceLine;
+use App\Domains\Booking\Support\BookingBoardBroadcaster;
 use App\Domains\Identity\Models\Tenant;
 use App\Domains\Identity\Services\ProgressiveModuleAccessService;
 use App\Shared\Audit\AuditLogger;
@@ -77,7 +78,7 @@ class WalkInService
         $walkInStage = $seatImmediately ? Appointment::WALK_IN_SEATED : Appointment::WALK_IN_WAITING;
         $status = $seatImmediately ? Appointment::STATUS_CHECKED_IN : Appointment::STATUS_PENDING;
 
-        return DB::transaction(function () use (
+        $appointment = DB::transaction(function () use (
             $data,
             $resolved,
             $arrivedAt,
@@ -137,6 +138,10 @@ class WalkInService
 
             return $appointment;
         });
+
+        BookingBoardBroadcaster::forAppointment($appointment);
+
+        return $appointment;
     }
 
     public function seat(Appointment $appointment, array $data): Appointment
@@ -195,7 +200,10 @@ class WalkInService
             'team_member_id', 'workspace_id', 'walk_in_stage', 'status', 'starts_at', 'ends_at',
         ]));
 
-        return $appointment->fresh()->load(['client', 'teamMember', 'location', 'workspace', 'serviceLines']);
+        $appointment = $appointment->fresh()->load(['client', 'teamMember', 'location', 'workspace', 'serviceLines']);
+        BookingBoardBroadcaster::forAppointment($appointment);
+
+        return $appointment;
     }
 
     private function generateBookingReference(): string

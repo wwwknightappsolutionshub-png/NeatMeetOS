@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AdminBookingShell } from '@/components/admin/booking/AdminBookingShell';
 import { AppointmentBoardCard } from '@/components/admin/booking/AppointmentBoardCard';
 import {
@@ -16,8 +16,10 @@ import { Card } from '@/components/ui/Card';
 import type { BookingDayBoard } from '@/lib/booking-types';
 import { APPOINTMENT_STATUSES } from '@/lib/booking-types';
 import type { Client } from '@/lib/crm-types';
+import { subscribeBookingBoard } from '@/lib/echo';
 import type { Location, Workspace } from '@/lib/identity-types';
 import type { StaffProvider } from '@/lib/staff-types';
+import { fetchShell } from '@/services/auth.service';
 import { fetchClients } from '@/services/crm.service';
 import { fetchLocations, fetchWorkspaces } from '@/services/identity.service';
 import {
@@ -90,6 +92,41 @@ export default function BookingsPage() {
 
   useEffect(() => {
     load();
+  }, [load]);
+
+  // Live day-board updates via Reverb (no-op when Reverb env is unset).
+  const dateRef = useRef(date);
+  const locationFilterRef = useRef(locationFilter);
+  dateRef.current = date;
+  locationFilterRef.current = locationFilter;
+
+  useEffect(() => {
+    let unsubscribe: (() => void) | null = null;
+    let cancelled = false;
+
+    fetchShell()
+      .then((shell) => {
+        if (cancelled || !shell.tenant?.id) return;
+        unsubscribe = subscribeBookingBoard(shell.tenant.id, (payload) => {
+          if (payload.date !== dateRef.current) return;
+          if (
+            locationFilterRef.current &&
+            payload.location_id &&
+            payload.location_id !== locationFilterRef.current
+          ) {
+            return;
+          }
+          load();
+        });
+      })
+      .catch(() => {
+        /* Echo optional */
+      });
+
+    return () => {
+      cancelled = true;
+      unsubscribe?.();
+    };
   }, [load]);
 
   async function handleCreate(event: React.FormEvent) {

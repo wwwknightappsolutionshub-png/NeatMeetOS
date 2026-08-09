@@ -7,6 +7,7 @@ use App\Domains\Analytics\Enums\AnalyticsExportJobStatus;
 use App\Domains\Analytics\Enums\AnalyticsReportType;
 use App\Domains\Analytics\Models\AnalyticsExportJob;
 use App\Domains\Analytics\Models\AnalyticsSavedReport;
+use App\Jobs\ProcessAnalyticsExportJob;
 use App\Shared\Audit\AuditLogger;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -15,12 +16,10 @@ use Illuminate\Validation\ValidationException;
 use Throwable;
 
 /**
- * Creates and synchronously executes analytics export jobs.
+ * Creates analytics export jobs and queues execution.
  *
- * 12B executes exports inline in the request flow — no queues/workers. An
- * export job snapshots the report type + filters, runs the matching 12A
- * analytics service, flattens the payload (CSV) or serialises it (JSON), and
- * persists the generated file plus status/row-count/timestamps.
+ * Jobs are created as pending and processed by ProcessAnalyticsExportJob
+ * (sync queue in tests; database/redis workers in production).
  */
 class AnalyticsExportService
 {
@@ -65,7 +64,7 @@ class AnalyticsExportService
     }
 
     /**
-     * Create + execute an ad-hoc export job.
+     * Create + queue an ad-hoc export job.
      *
      * @param  array<string, mixed>  $data
      */
@@ -76,12 +75,13 @@ class AnalyticsExportService
         $filters = $this->normalizeFilters($data['filters'] ?? null);
 
         $job = $this->createJob($reportType, $format, $filters, $teamMemberId, null);
+        ProcessAnalyticsExportJob::dispatch($this->scope->tenantId(), $job->id);
 
-        return $this->execute($job);
+        return $job->fresh('savedReport');
     }
 
     /**
-     * Create + execute an export job from a saved report preset.
+     * Create + queue an export job from a saved report preset.
      */
     public function runSavedReport(AnalyticsSavedReport $report, ?string $teamMemberId = null): AnalyticsExportJob
     {
@@ -99,12 +99,13 @@ class AnalyticsExportService
             $report->id,
         );
 
-        $executed = $this->execute($job);
-
+        // Mark run time when queued so the scheduler does not double-dispatch.
         $report->last_run_at = now();
         $report->save();
 
-        return $executed;
+        ProcessAnalyticsExportJob::dispatch($this->scope->tenantId(), $job->id);
+
+        return $job->fresh('savedReport');
     }
 
     /**
