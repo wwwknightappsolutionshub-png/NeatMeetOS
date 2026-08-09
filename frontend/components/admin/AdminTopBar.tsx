@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { clearStoredSession, getStoredToken } from '@/lib/api-client';
 import type { ShellStatus, TenantOwnerNotice } from '@/lib/types';
 import {
@@ -42,6 +42,8 @@ interface AdminTopBarProps {
 
 export function AdminTopBar({ onMenuClick }: AdminTopBarProps = {}) {
   const router = useRouter();
+  const pathname = usePathname();
+  const onDashboard = pathname === '/admin/dashboard';
   const [shell, setShell] = useState<ShellStatus | null>(null);
   const [notifOpen, setNotifOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -129,7 +131,20 @@ export function AdminTopBar({ onMenuClick }: AdminTopBarProps = {}) {
               <MenuIcon />
             </button>
           ) : null}
-          <div className="min-w-0">
+          <Link
+            href="/admin/dashboard"
+            aria-label="Home — dashboard"
+            title="Home"
+            className={[
+              'inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border text-[var(--admin-ink)]',
+              onDashboard
+                ? 'border-[var(--admin-accent)] bg-[var(--admin-accent)] text-white'
+                : 'border-[var(--admin-line)] bg-white hover:bg-[var(--admin-wash)]',
+            ].join(' ')}
+          >
+            <HomeIcon />
+          </Link>
+          <div className="min-w-0 max-sm:hidden">
             <p className="truncate text-sm font-semibold text-[var(--admin-ink)]">
               {shell?.tenant?.name ?? 'Workspace'}
             </p>
@@ -361,6 +376,19 @@ function MenuIcon() {
         stroke="currentColor"
         strokeWidth="1.75"
         strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function HomeIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M4.5 11.5 12 5l7.5 6.5V19a1.5 1.5 0 0 1-1.5 1.5h-4.25v-5.25h-3.5V20.5H6A1.5 1.5 0 0 1 4.5 19v-7.5Z"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinejoin="round"
       />
     </svg>
   );

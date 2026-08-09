@@ -56,6 +56,87 @@ function statusTone(status: string): string {
   }
 }
 
+type Urgency = 'live' | 'imminent' | 'soon' | 'later' | 'done';
+
+function appointmentUrgency(appointment: Appointment, nowMs: number): Urgency {
+  const start = new Date(appointment.starts_at).getTime();
+  const end = new Date(appointment.ends_at).getTime();
+  if (appointment.status === 'completed') return 'done';
+  if (appointment.status === 'checked_in' || (nowMs >= start && nowMs < end)) return 'live';
+  if (nowMs >= end) return 'done';
+  const mins = (start - nowMs) / 60_000;
+  if (mins <= 5) return 'imminent';
+  if (mins <= 30) return 'soon';
+  return 'later';
+}
+
+function urgencyStyles(urgency: Urgency): {
+  card: string;
+  badge: string;
+  label: string;
+} {
+  switch (urgency) {
+    case 'live':
+      return {
+        card: 'border-rose-300 bg-rose-50 ring-1 ring-rose-200',
+        badge: 'bg-rose-600 text-white',
+        label: 'In progress',
+      };
+    case 'imminent':
+      return {
+        card: 'border-orange-300 bg-orange-50 ring-1 ring-orange-200',
+        badge: 'bg-orange-600 text-white',
+        label: 'Starting soon',
+      };
+    case 'soon':
+      return {
+        card: 'border-amber-300 bg-amber-50',
+        badge: 'bg-amber-500 text-white',
+        label: 'Up next',
+      };
+    case 'done':
+      return {
+        card: 'border-zinc-200 bg-zinc-50',
+        badge: 'bg-zinc-200 text-zinc-700',
+        label: 'Done',
+      };
+    default:
+      return {
+        card: 'border-zinc-200 bg-white',
+        badge: 'bg-emerald-100 text-emerald-900',
+        label: 'Scheduled',
+      };
+  }
+}
+
+function formatCountdown(appointment: Appointment, nowMs: number): string {
+  const start = new Date(appointment.starts_at).getTime();
+  const end = new Date(appointment.ends_at).getTime();
+
+  if (appointment.status === 'checked_in' || (nowMs >= start && nowMs < end)) {
+    const left = Math.max(0, end - nowMs);
+    return `Ends in ${formatDuration(left)}`;
+  }
+
+  if (nowMs >= end || appointment.status === 'completed') {
+    return 'Finished';
+  }
+
+  const until = start - nowMs;
+  if (until <= 0) return 'Starting now';
+  return `Starts in ${formatDuration(until)}`;
+}
+
+function formatDuration(ms: number): string {
+  const totalSec = Math.max(0, Math.round(ms / 1000));
+  const hours = Math.floor(totalSec / 3600);
+  const minutes = Math.floor((totalSec % 3600) / 60);
+  const seconds = totalSec % 60;
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  if (minutes > 0) return `${minutes}m ${seconds.toString().padStart(2, '0')}s`;
+  return `${seconds}s`;
+}
+
 function settledValue<T>(result: PromiseSettledResult<T>): T | null {
   return result.status === 'fulfilled' ? result.value : null;
 }
@@ -87,9 +168,15 @@ export default function AdminDashboardPage() {
     null,
   );
   const [refreshedAt, setRefreshedAt] = useState<Date | null>(null);
+  const [nowMs, setNowMs] = useState(() => Date.now());
 
   const range = useMemo(() => lastNDaysRange(7), []);
   const today = range.to;
+
+  useEffect(() => {
+    const id = window.setInterval(() => setNowMs(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, []);
 
   const load = useCallback(async () => {
     if (!getStoredToken()) {
@@ -160,9 +247,22 @@ export default function AdminDashboardPage() {
     if (!board?.appointments) return [];
     return [...board.appointments]
       .filter((a) => !['cancelled', 'no_show'].includes(a.status))
-      .sort((a, b) => a.starts_at.localeCompare(b.starts_at))
-      .slice(0, 10);
+      .sort((a, b) => a.starts_at.localeCompare(b.starts_at));
   }, [board]);
+
+  const focusAppointment = useMemo(() => {
+    const active = todaysAppointments.find((a) => {
+      const urgency = appointmentUrgency(a, nowMs);
+      return urgency === 'live' || urgency === 'imminent' || urgency === 'soon';
+    });
+    if (active) return active;
+    return (
+      todaysAppointments.find((a) => {
+        const start = new Date(a.starts_at).getTime();
+        return start >= nowMs && a.status !== 'completed';
+      }) ?? null
+    );
+  }, [todaysAppointments, nowMs]);
 
   const attention = useMemo((): AttentionItem[] => {
     const items: AttentionItem[] = [];
@@ -315,6 +415,110 @@ export default function AdminDashboardPage() {
         <LoadingState label="Loading operations…" />
       ) : (
         <>
+          {focusAppointment ? (
+            <UpNextBanner appointment={focusAppointment} nowMs={nowMs} />
+          ) : board ? (
+            <div className="rounded-2xl border border-dashed border-zinc-300 bg-white/70 px-4 py-3 text-sm text-zinc-600">
+              No upcoming bookings on today&apos;s board right now.
+            </div>
+          ) : null}
+
+          <div className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <IndicatorChip
+              label="On board"
+              value={formatNumber(board?.summary.total ?? 0)}
+              tone="zinc"
+              href="/admin/bookings"
+            />
+            <IndicatorChip
+              label="Confirmed"
+              value={formatNumber(board?.summary.by_status.confirmed ?? 0)}
+              tone="emerald"
+              href="/admin/bookings"
+            />
+            <IndicatorChip
+              label="Checked in"
+              value={formatNumber(board?.summary.by_status.checked_in ?? 0)}
+              tone="emerald"
+              href="/admin/bookings"
+            />
+            <IndicatorChip
+              label="Walk-ins"
+              value={formatNumber(board?.summary.walk_ins_waiting ?? 0)}
+              tone={(board?.summary.walk_ins_waiting ?? 0) > 0 ? 'amber' : 'zinc'}
+              href="/admin/bookings/walk-ins"
+            />
+            {attention.map((item) => (
+              <IndicatorChip
+                key={item.label}
+                label={item.label}
+                value={item.value}
+                tone={item.tone === 'red' ? 'red' : item.tone === 'amber' ? 'amber' : 'zinc'}
+                href={item.href}
+              />
+            ))}
+          </div>
+
+          <AnalyticsSectionCard title="Today’s schedule" href="/admin/bookings">
+            {board ? (
+              <>
+                <div className="mb-3 flex flex-wrap gap-2 text-xs text-zinc-600">
+                  <span className="rounded-md bg-zinc-100 px-2 py-1">
+                    {formatNumber(board.summary.total)} booked
+                  </span>
+                  <span className="rounded-md bg-zinc-100 px-2 py-1">
+                    {formatNumber(board.summary.by_status.confirmed ?? 0)} confirmed
+                  </span>
+                  <span className="rounded-md bg-zinc-100 px-2 py-1">
+                    {formatNumber(board.summary.by_status.checked_in ?? 0)} checked in
+                  </span>
+                  <span className="rounded-md bg-zinc-100 px-2 py-1">
+                    {formatNumber(board.summary.walk_ins_waiting)} waiting walk-ins
+                  </span>
+                </div>
+                {todaysAppointments.length === 0 ? (
+                  <p className="text-sm text-zinc-500">No appointments on the board for today.</p>
+                ) : (
+                  <ul className="space-y-2">
+                    {todaysAppointments.slice(0, 12).map((appt) => (
+                      <ScheduleRow key={appt.id} appointment={appt} nowMs={nowMs} />
+                    ))}
+                  </ul>
+                )}
+              </>
+            ) : (
+              <p className="text-sm text-zinc-500">Day board unavailable.</p>
+            )}
+          </AnalyticsSectionCard>
+
+          {attention.length > 0 ? (
+            <AnalyticsSectionCard title="Needs attention">
+              <ul className="space-y-2">
+                {attention.map((item) => (
+                  <li key={item.label}>
+                    <Link
+                      href={item.href}
+                      className="flex items-center justify-between rounded-lg border border-zinc-200 px-3 py-2 text-sm hover:bg-zinc-50"
+                    >
+                      <span className="text-zinc-700">{item.label}</span>
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                          item.tone === 'red'
+                            ? 'bg-red-100 text-red-800'
+                            : item.tone === 'amber'
+                              ? 'bg-amber-100 text-amber-900'
+                              : 'bg-zinc-100 text-zinc-700'
+                        }`}
+                      >
+                        {item.value}
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </AnalyticsSectionCard>
+          ) : null}
+
           {overview ? (
             <>
               <p className="text-xs text-zinc-500">
@@ -368,110 +572,50 @@ export default function AdminDashboardPage() {
             </div>
           ) : null}
 
-              <div className="grid gap-4 lg:grid-cols-5">
-                <div className="lg:col-span-3">
-                  <DashboardTrendChart
-                    daily={bookingsAnalytics?.daily ?? []}
-                    title="Booking trend"
-                  />
-                </div>
-                <div className="lg:col-span-2">
-                  <AnalyticsSectionCard title="Needs attention">
-                    {attention.length === 0 ? (
-                      <p className="text-sm text-zinc-500">Nothing urgent right now.</p>
-                    ) : (
-                      <ul className="space-y-2">
-                        {attention.map((item) => (
-                          <li key={item.label}>
-                            <Link
-                              href={item.href}
-                              className="flex items-center justify-between rounded-lg border border-zinc-200 px-3 py-2 text-sm hover:bg-zinc-50"
-                            >
-                              <span className="text-zinc-700">{item.label}</span>
-                              <span
-                                className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
-                                  item.tone === 'red'
-                                    ? 'bg-red-100 text-red-800'
-                                    : item.tone === 'amber'
-                                      ? 'bg-amber-100 text-amber-900'
-                                      : 'bg-zinc-100 text-zinc-700'
-                                }`}
-                              >
-                                {item.value}
-                              </span>
-                            </Link>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </AnalyticsSectionCard>
-                </div>
-              </div>
-
-              <div className="grid gap-4 lg:grid-cols-5">
-                <div className="lg:col-span-3">
-                  <AnalyticsSectionCard title="Today’s schedule" href="/admin/bookings">
-                    {board ? (
-                      <>
-                        <div className="mb-3 flex flex-wrap gap-2 text-xs text-zinc-600">
-                          <span className="rounded-md bg-zinc-100 px-2 py-1">
-                            {formatNumber(board.summary.total)} booked
-                          </span>
-                          <span className="rounded-md bg-zinc-100 px-2 py-1">
-                            {formatNumber(board.summary.by_status.confirmed ?? 0)} confirmed
-                          </span>
-                          <span className="rounded-md bg-zinc-100 px-2 py-1">
-                            {formatNumber(board.summary.by_status.checked_in ?? 0)} checked in
-                          </span>
-                          <span className="rounded-md bg-zinc-100 px-2 py-1">
-                            {formatNumber(board.summary.walk_ins_waiting)} waiting walk-ins
-                          </span>
-                        </div>
-                        {todaysAppointments.length === 0 ? (
-                          <p className="text-sm text-zinc-500">No appointments on the board for today.</p>
-                        ) : (
-                          <ul className="divide-y divide-zinc-100">
-                            {todaysAppointments.map((appt) => (
-                              <ScheduleRow key={appt.id} appointment={appt} />
-                            ))}
-                          </ul>
-                        )}
-                      </>
-                    ) : (
-                      <p className="text-sm text-zinc-500">Day board unavailable.</p>
-                    )}
-                  </AnalyticsSectionCard>
-                </div>
-
-                <div className="grid gap-4 lg:col-span-2">
-                  {overview ? (
-                    <AnalyticsSectionCard title="Pulse" href="/admin/analytics">
-                      <dl className="grid gap-2 text-sm">
-                        <PulseRow
-                          label="No-shows"
-                          value={formatNumber(overview.bookings.no_show_appointments)}
-                        />
-                        <PulseRow
-                          label="Walk-ins (period)"
-                          value={formatNumber(overview.bookings.walk_in_appointments)}
-                        />
-                        <PulseRow
-                          label="Active memberships"
-                          value={formatNumber(overview.memberships.active_memberships)}
-                        />
-                        <PulseRow
-                          label="Notifications sent"
-                          value={formatNumber(overview.notifications.messages_sent_count)}
-                        />
-                        <PulseRow
-                          label="Marketing sent"
-                          value={formatNumber(overview.marketing.messages_sent_count)}
-                        />
-                      </dl>
-                    </AnalyticsSectionCard>
-                  ) : null}
-                </div>
-              </div>
+          <div className="grid gap-4 lg:grid-cols-5">
+            <div className="lg:col-span-3">
+              <DashboardTrendChart
+                daily={bookingsAnalytics?.daily ?? []}
+                title="Booking trend"
+              />
+            </div>
+            <div className="lg:col-span-2">
+              {overview ? (
+                <AnalyticsSectionCard title="Pulse" href="/admin/analytics">
+                  <dl className="grid gap-2 text-sm">
+                    <PulseRow
+                      label="No-shows"
+                      value={formatNumber(overview.bookings.no_show_appointments)}
+                    />
+                    <PulseRow
+                      label="Walk-ins (period)"
+                      value={formatNumber(overview.bookings.walk_in_appointments)}
+                    />
+                    <PulseRow
+                      label="Active memberships"
+                      value={formatNumber(overview.memberships.active_memberships)}
+                    />
+                    <PulseRow
+                      label="Notifications sent"
+                      value={formatNumber(overview.notifications.messages_sent_count)}
+                    />
+                    <PulseRow
+                      label="Marketing sent"
+                      value={formatNumber(overview.marketing.messages_sent_count)}
+                    />
+                  </dl>
+                </AnalyticsSectionCard>
+              ) : (
+                <AnalyticsSectionCard title="Needs attention">
+                  {attention.length === 0 ? (
+                    <p className="text-sm text-zinc-500">Nothing urgent right now.</p>
+                  ) : (
+                    <p className="text-sm text-zinc-500">See attention chips above.</p>
+                  )}
+                </AnalyticsSectionCard>
+              )}
+            </div>
+          </div>
 
           {board && board.workspace_occupancy.length > 0 ? (
             <AnalyticsSectionCard title="Workspace load today">
@@ -497,18 +641,30 @@ export default function AdminDashboardPage() {
   );
 }
 
-function ScheduleRow({ appointment }: { appointment: Appointment }) {
+function UpNextBanner({
+  appointment,
+  nowMs,
+}: {
+  appointment: Appointment;
+  nowMs: number;
+}) {
+  const urgency = appointmentUrgency(appointment, nowMs);
+  const styles = urgencyStyles(urgency);
+
   return (
-    <li>
-      <Link
-        href={`/admin/bookings/${appointment.id}`}
-        className="flex items-start justify-between gap-3 py-2.5 hover:bg-zinc-50"
-      >
+    <Link
+      href={`/admin/bookings/${appointment.id}`}
+      className={`block rounded-2xl border px-4 py-4 shadow-sm transition hover:brightness-[0.99] ${styles.card}`}
+    >
+      <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate text-sm font-medium text-zinc-900">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-zinc-600">
+            {urgency === 'live' ? 'Happening now' : 'Up next'}
+          </p>
+          <p className="mt-1 truncate text-lg font-semibold tracking-tight text-zinc-900">
             {appointment.client?.resolved_display_name ?? 'Client'}
           </p>
-          <p className="truncate text-xs text-zinc-500">
+          <p className="mt-0.5 truncate text-sm text-zinc-600">
             {formatTime(appointment.starts_at)}–{formatTime(appointment.ends_at)}
             {appointment.team_member?.display_name
               ? ` · ${appointment.team_member.display_name}`
@@ -518,9 +674,111 @@ function ScheduleRow({ appointment }: { appointment: Appointment }) {
               : ''}
           </p>
         </div>
-        <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium capitalize ${statusTone(appointment.status)}`}>
-          {appointment.status.replace('_', ' ')}
-        </span>
+        <div className="shrink-0 text-right">
+          <span
+            className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${styles.badge} ${
+              urgency === 'live' || urgency === 'imminent' ? 'animate-pulse' : ''
+            }`}
+          >
+            {styles.label}
+          </span>
+          <p className="mt-2 text-sm font-bold tabular-nums text-zinc-900">
+            {formatCountdown(appointment, nowMs)}
+          </p>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+function IndicatorChip({
+  label,
+  value,
+  tone,
+  href,
+}: {
+  label: string;
+  value: string;
+  tone: 'zinc' | 'emerald' | 'amber' | 'red';
+  href: string;
+}) {
+  const toneClass =
+    tone === 'red'
+      ? 'border-red-200 bg-red-50 text-red-900'
+      : tone === 'amber'
+        ? 'border-amber-200 bg-amber-50 text-amber-950'
+        : tone === 'emerald'
+          ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
+          : 'border-zinc-200 bg-white text-zinc-800';
+
+  return (
+    <Link
+      href={href}
+      className={`inline-flex min-w-[7.5rem] shrink-0 flex-col rounded-xl border px-3 py-2 ${toneClass}`}
+    >
+      <span className="text-[10px] font-semibold uppercase tracking-[0.12em] opacity-70">
+        {label}
+      </span>
+      <span className="mt-0.5 text-lg font-semibold tabular-nums leading-none">{value}</span>
+    </Link>
+  );
+}
+
+function ScheduleRow({
+  appointment,
+  nowMs,
+}: {
+  appointment: Appointment;
+  nowMs: number;
+}) {
+  const urgency = appointmentUrgency(appointment, nowMs);
+  const styles = urgencyStyles(urgency);
+
+  return (
+    <li>
+      <Link
+        href={`/admin/bookings/${appointment.id}`}
+        className={`flex items-start justify-between gap-3 rounded-xl border px-3 py-2.5 transition hover:brightness-[0.99] ${styles.card}`}
+      >
+        <div className="min-w-0">
+          <p className="truncate text-sm font-medium text-zinc-900">
+            {appointment.client?.resolved_display_name ?? 'Client'}
+          </p>
+          <p className="truncate text-xs text-zinc-600">
+            {formatTime(appointment.starts_at)}–{formatTime(appointment.ends_at)}
+            {appointment.team_member?.display_name
+              ? ` · ${appointment.team_member.display_name}`
+              : ''}
+            {appointment.services?.[0]?.service_name
+              ? ` · ${appointment.services[0].service_name}`
+              : ''}
+          </p>
+          <p
+            className={`mt-1 text-xs font-semibold tabular-nums ${
+              urgency === 'live' || urgency === 'imminent'
+                ? 'text-rose-700'
+                : urgency === 'soon'
+                  ? 'text-amber-800'
+                  : 'text-zinc-500'
+            }`}
+          >
+            {formatCountdown(appointment, nowMs)}
+          </p>
+        </div>
+        <div className="flex shrink-0 flex-col items-end gap-1">
+          <span
+            className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${styles.badge} ${
+              urgency === 'live' || urgency === 'imminent' ? 'animate-pulse' : ''
+            }`}
+          >
+            {styles.label}
+          </span>
+          <span
+            className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${statusTone(appointment.status)}`}
+          >
+            {appointment.status.replace('_', ' ')}
+          </span>
+        </div>
       </Link>
     </li>
   );
