@@ -74,6 +74,12 @@ final class ProviderCredentialValidator
                 'has_auth_token' => ! empty($credentials['auth_token']),
                 'from_number' => $credentials['from_number'] ?? $account->phone_number,
             ],
+            ProviderDriver::GENIUS => [
+                'driver' => $account->driver,
+                'has_api_key' => ! empty($credentials['api_key']),
+                'has_session_id' => ! empty($credentials['session_id']),
+                'base_url' => $credentials['base_url'] ?? config('whatsapp.genius.base_url'),
+            ],
             ProviderDriver::STRIPE => [
                 'driver' => $account->driver,
                 'has_secret_key' => ! empty($credentials['secret_key']),
@@ -95,6 +101,7 @@ final class ProviderCredentialValidator
         return match ($driver) {
             ProviderDriver::MAILGUN => ['api_key', 'domain'],
             ProviderDriver::TWILIO => ['account_sid', 'auth_token', 'from_number'],
+            ProviderDriver::GENIUS => ['api_key', 'session_id'],
             ProviderDriver::STRIPE => ['secret_key'],
             default => [],
         };

@@ -33,6 +33,7 @@ export function ExitIntentTrialModal({
   const [step, setStep] = useState<Step>('prompt');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [whatsapp, setWhatsapp] = useState('');
   const [website, setWebsite] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -68,6 +69,7 @@ export function ExitIntentTrialModal({
         email: email.trim(),
         referral_code: ref,
         website,
+        whatsapp: whatsapp.trim() || undefined,
       });
       setMessage(result.message);
       setTempPassword(result.temporary_password ?? null);
@@ -178,7 +180,8 @@ export function ExitIntentTrialModal({
                 {source === 'exit' ? "Don't Go Yet! — claim 30 days free" : 'Claim your trial'}
               </h2>
               <p className="mt-1 text-sm text-stone-600">
-                Enter your name and email. We will send a login link and a temporary password.
+                Enter your details. We will send a login link and temporary password by email and
+                WhatsApp.
               </p>
               <form onSubmit={handleSubmit} className="mt-5 space-y-3">
                 <label className="block text-sm">
@@ -203,6 +206,18 @@ export function ExitIntentTrialModal({
                     autoComplete="email"
                   />
                 </label>
+                <label className="block text-sm">
+                  <span className="font-medium text-stone-700">WhatsApp (E.164)</span>
+                  <input
+                    type="tel"
+                    className={inputClass}
+                    value={whatsapp}
+                    onChange={(e) => setWhatsapp(e.target.value)}
+                    required
+                    placeholder="+447700900123"
+                    autoComplete="tel"
+                  />
+                </label>
                 <label className="absolute left-[-9999px] h-0 w-0 overflow-hidden" aria-hidden>
                   Website
                   <input
@@ -222,7 +237,8 @@ export function ExitIntentTrialModal({
                   </Button>
                 </div>
                 <p className="text-[11px] leading-relaxed text-stone-400">
-                  By continuing you agree to receive your trial login credentials by email.
+                  By continuing you agree to receive your trial login credentials by email and
+                  WhatsApp.
                 </p>
               </form>
             </>

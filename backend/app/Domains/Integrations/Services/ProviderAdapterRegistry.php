@@ -2,6 +2,7 @@
 
 namespace App\Domains\Integrations\Services;
 
+use App\Domains\Integrations\Adapters\GeniusWhatsAppAdapter;
 use App\Domains\Integrations\Adapters\MailgunEmailAdapter;
 use App\Domains\Integrations\Adapters\StripePaymentLinkAdapter;
 use App\Domains\Integrations\Adapters\TwilioSmsAdapter;
@@ -16,9 +17,10 @@ final class ProviderAdapterRegistry
     public function __construct(
         MailgunEmailAdapter $mailgun,
         TwilioSmsAdapter $twilio,
+        GeniusWhatsAppAdapter $genius,
         StripePaymentLinkAdapter $stripe,
     ) {
-        $this->adapters = collect([$mailgun, $twilio, $stripe]);
+        $this->adapters = collect([$mailgun, $twilio, $genius, $stripe]);
     }
 
     public function resolve(string $driver): ?ProviderOutboundAdapterContract

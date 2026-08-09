@@ -178,10 +178,59 @@ nginx -t && nginx -s reload
 
 ---
 
-## Scheduler cron (once)
+## Scheduler cron (once — required for T-20 SOS + reminders)
 
 ```bash
 * * * * * cd /www/wwwroot/neatmeet.prohost.cloud/backend && /www/server/php/83/bin/php artisan schedule:run >> /dev/null 2>&1
+```
+
+Verify the crontab exists and Laravel sees scheduled jobs:
+
+```bash
+crontab -l | grep schedule:run
+cd /www/wwwroot/neatmeet.prohost.cloud/backend
+/www/server/php/83/bin/php artisan schedule:list
+```
+
+Expect `booking:dispatch-approaching-sos` every minute (raises staff SOS ~20 minutes before appointments), plus booking reminders / marketing / analytics jobs.
+
+Manual smoke:
+
+```bash
+/www/server/php/83/bin/php artisan booking:dispatch-approaching-sos --lead=20 --window=2
+```
+
+---
+
+## Platform WhatsApp (Genius)
+
+Configure in **Platform → Settings → WhatsApp outbound (Genius)** (not in git):
+
+| Field | Example |
+|-------|---------|
+| Enabled | on |
+| Provider | `genius` |
+| API key | from Genius dashboard (`x-api-key`) |
+| Session ID | `session_…` |
+| Base URL | `https://restapi.geniusdevel.com` |
+
+Optional env fallbacks (backend `.env`):
+
+```bash
+WHATSAPP_PROVIDER=genius
+WHATSAPP_GENIUS_API_KEY=
+WHATSAPP_GENIUS_SESSION_ID=
+WHATSAPP_GENIUS_BASE_URL=https://restapi.geniusdevel.com
+```
+
+Use **Send test message** with an E.164 phone after saving. Booking WhatsApp delivery also requires the guest to opt in on `/book/{slug}` (`allow_whatsapp`).
+
+Owner SOS push needs VAPID keys + the admin “Enable SOS push” prompt:
+
+```bash
+VAPID_SUBJECT=mailto:ops@example.com
+VAPID_PUBLIC_KEY=…
+VAPID_PRIVATE_KEY=…
 ```
 
 ---

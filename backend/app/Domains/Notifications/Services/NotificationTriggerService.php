@@ -9,11 +9,13 @@ use App\Domains\Crm\Models\ClientReferralSetting;
 use App\Domains\Memberships\Models\ClientMembership;
 use App\Domains\Notifications\Enums\NotificationCategory;
 use App\Domains\Notifications\Enums\NotificationChannel;
+use App\Domains\Notifications\Enums\NotificationPreferenceCategory;
 use App\Domains\Notifications\Enums\NotificationPurpose;
 use App\Domains\Notifications\Enums\NotificationSourceType;
 use App\Domains\Notifications\Models\NotificationMessage;
 use App\Domains\Payments\Models\PaymentTransaction;
 use App\Shared\Tenancy\TenantContext;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -30,6 +32,7 @@ class NotificationTriggerService
         private readonly NotificationMessageService $messageService,
         private readonly NotificationTemplateService $templateService,
         private readonly NotificationAutomationSettingService $settingService,
+        private readonly NotificationPreferenceService $preferences,
         private readonly TenantContext $tenantContext,
     ) {}
 
@@ -70,6 +73,16 @@ class NotificationTriggerService
         return $this->sendForAppointment(
             $appointment,
             NotificationPurpose::BOOKING_CANCELLATION,
+            NotificationCategory::BOOKING,
+            $context,
+        );
+    }
+
+    public function sendBookingReschedule(Appointment $appointment, array $context = []): ?NotificationMessage
+    {
+        return $this->sendForAppointment(
+            $appointment,
+            NotificationPurpose::BOOKING_RESCHEDULE,
             NotificationCategory::BOOKING,
             $context,
         );
@@ -462,7 +475,7 @@ HTML;
         }
 
         $client = $this->scope->findClient($appointment->client_id);
-        $defaults = $this->defaultBookingCopy($appointment, $purpose);
+        $defaults = $this->defaultBookingCopy($appointment, $purpose, $context);
 
         return $this->create($client, [
             'source_type' => NotificationSourceType::BOOKING,
@@ -482,9 +495,10 @@ HTML;
     }
 
     /**
+     * @param  array<string, mixed>  $context
      * @return array{subject: string, body_text: string, metadata: array<string, mixed>}
      */
-    private function defaultBookingCopy(Appointment $appointment, string $purpose): array
+    private function defaultBookingCopy(Appointment $appointment, string $purpose, array $context = []): array
     {
         $appointment->loadMissing(['location', 'teamMember', 'serviceLines']);
         $when = $appointment->starts_at?->toDayDateTimeString() ?? 'your scheduled time';
@@ -516,12 +530,41 @@ HTML;
                 'body_text' => "Your appointment ({$ref}) scheduled for {$when} has been cancelled.",
                 'metadata' => $metadata,
             ],
+            NotificationPurpose::BOOKING_RESCHEDULE => [
+                'subject' => "Booking rescheduled ({$ref})",
+                'body_text' => $this->rescheduleBody($appointment, $when, $ref, $manageLine, $context),
+                'metadata' => $metadata,
+            ],
             default => [
                 'subject' => "Booking update ({$ref})",
                 'body_text' => "Update for booking {$ref} at {$when}.",
                 'metadata' => $metadata,
             ],
         };
+    }
+
+    /**
+     * @param  array<string, mixed>  $context
+     */
+    private function rescheduleBody(
+        Appointment $appointment,
+        string $when,
+        string $ref,
+        string $manageLine,
+        array $context,
+    ): string {
+        $shift = isset($context['shift_minutes']) ? (int) $context['shift_minutes'] : null;
+        $prev = isset($context['previous_starts_at'])
+            ? Carbon::parse((string) $context['previous_starts_at'])->toDayDateTimeString()
+            : null;
+
+        $intro = $shift
+            ? "We've moved your appointment forward by {$shift} minutes."
+            : 'Your appointment has been rescheduled.';
+
+        $prevLine = $prev ? " Previous time: {$prev}." : '';
+
+        return "{$intro} New time: {$when}. Reference {$ref}.{$prevLine}{$manageLine}";
     }
 
     /**
@@ -614,17 +657,26 @@ HTML;
 
     private function preferredChannel(Client $client): string
     {
+        $phone = trim((string) ($client->phone ?? ''));
+        if ($phone !== ''
+            && $this->preferences->allowsDelivery(
+                $client,
+                NotificationChannel::WHATSAPP,
+                NotificationPreferenceCategory::BOOKING,
+            )
+        ) {
+            return NotificationChannel::WHATSAPP;
+        }
+
         $email = trim((string) ($client->email ?? ''));
         if ($email !== '') {
             return NotificationChannel::EMAIL;
         }
 
-        $phone = trim((string) ($client->phone ?? ''));
         if ($phone !== '') {
             return NotificationChannel::SMS;
         }
 
-        // Fall back to in-app when no external contact is available.
         return NotificationChannel::IN_APP;
     }
 }

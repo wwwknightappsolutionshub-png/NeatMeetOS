@@ -48,20 +48,38 @@ self.addEventListener('push', (event) => {
   let title = 'NeatMeet OS';
   let body = 'You have a platform update.';
   let url = '/admin/dashboard';
+  let payload = {};
   try {
     const data = event.data ? event.data.json() : null;
     if (data?.title) title = data.title;
     if (data?.body) body = data.body;
     if (data?.url) url = data.url;
+    if (data?.data && typeof data.data === 'object') payload = data.data;
+    else if (data && typeof data === 'object') payload = data;
   } catch {
     if (event.data) body = event.data.text();
   }
+
+  const isSos = Boolean(payload && (payload.type === 'staff_sos' || payload.sos || payload.require_ack));
+
   event.waitUntil(
-    self.registration.showNotification(title, {
-      body,
-      icon: '/admin-icons/icon-192.svg',
-      data: { url },
-    }),
+    (async () => {
+      if (isSos) {
+        const clientsList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+        for (const client of clientsList) {
+          client.postMessage({ type: 'staff_sos', ...payload });
+        }
+      }
+      await self.registration.showNotification(title, {
+        body,
+        icon: '/admin-icons/icon-192.svg',
+        requireInteraction: isSos,
+        vibrate: isSos ? [500, 200, 500, 200, 500] : undefined,
+        tag: isSos ? `staff-sos-${payload.alert_id || 'active'}` : undefined,
+        renotify: isSos,
+        data: { url, ...payload },
+      });
+    })(),
   );
 });
 
@@ -72,6 +90,9 @@ self.addEventListener('notificationclick', (event) => {
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
       for (const client of clients) {
         if ('focus' in client && client.url.includes('/admin')) {
+          if (event.notification.data?.type === 'staff_sos' || event.notification.data?.sos) {
+            client.postMessage({ type: 'staff_sos', ...(event.notification.data || {}) });
+          }
           client.navigate(target);
           return client.focus();
         }

@@ -27,6 +27,11 @@ import { AiHairstyleLandingGate } from '@/components/booking/AiHairstyleLandingG
 import { SocialFooterIcons } from '@/components/public/SocialFooterIcons';
 import { loadMemberSession } from '@/services/member-portal.service';
 
+const VoiceBookingConcierge = dynamic(
+  () =>
+    import('@/components/booking/VoiceBookingConcierge').then((m) => m.VoiceBookingConcierge),
+  { ssr: false },
+);
 const BookingReviewsSection = dynamic(
   () =>
     import('@/components/booking/BookingReviewsSection').then((m) => m.BookingReviewsSection),
@@ -447,6 +452,7 @@ function OnlineBookingPageInner() {
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  const [whatsappOptIn, setWhatsappOptIn] = useState(false);
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -562,6 +568,7 @@ function OnlineBookingPageInner() {
         last_name: lastName.trim(),
         email: email.trim(),
         phone: phone.trim() || undefined,
+        whatsapp_opt_in: Boolean(whatsappOptIn && phone.trim()),
         client_notes: notes.trim() || undefined,
         pricing_tier: pricingTier,
         member_token: pricingTier !== 'regular' ? member?.token : undefined,
@@ -613,6 +620,7 @@ function OnlineBookingPageInner() {
     setLastName('');
     setEmail('');
     setPhone('');
+    setWhatsappOptIn(false);
     setNotes('');
   }
 
@@ -1201,13 +1209,37 @@ function OnlineBookingPageInner() {
                     </label>
                     <label className="block text-sm sm:col-span-2">
                       <span className="mb-1.5 block font-semibold text-[var(--book-muted)]">
-                        Phone (optional)
+                        Mobile / WhatsApp
                       </span>
                       <input
                         className={fieldClass()}
                         value={phone}
-                        onChange={(e) => setPhone(e.target.value)}
+                        onChange={(e) => {
+                          setPhone(e.target.value);
+                          if (!e.target.value.trim()) setWhatsappOptIn(false);
+                        }}
+                        placeholder="+44…"
+                        inputMode="tel"
+                        autoComplete="tel"
                       />
+                    </label>
+                    <label className="flex items-start gap-3 text-sm sm:col-span-2">
+                      <input
+                        type="checkbox"
+                        className="mt-1"
+                        checked={whatsappOptIn}
+                        disabled={!phone.trim()}
+                        onChange={(e) => setWhatsappOptIn(e.target.checked)}
+                      />
+                      <span className="text-[var(--book-muted)]">
+                        <span className="font-semibold text-[var(--book-ink)]">
+                          Send booking updates on WhatsApp
+                        </span>
+                        <span className="mt-0.5 block text-xs leading-relaxed">
+                          Confirmations, cancellations, and running-late reschedules. You can stop
+                          anytime by messaging the salon. Requires a mobile number.
+                        </span>
+                      </span>
                     </label>
                     <label className="block text-sm sm:col-span-2">
                       <span className="mb-1.5 block font-semibold text-[var(--book-muted)]">
@@ -1225,10 +1257,18 @@ function OnlineBookingPageInner() {
                   <button
                     type="button"
                     className={`${primaryBtnClass(
-                      submitting || !firstName.trim() || !lastName.trim() || !email.trim(),
+                      submitting ||
+                        !firstName.trim() ||
+                        !lastName.trim() ||
+                        !email.trim() ||
+                        (whatsappOptIn && !phone.trim()),
                     )} mt-5`}
                     disabled={
-                      submitting || !firstName.trim() || !lastName.trim() || !email.trim()
+                      submitting ||
+                      !firstName.trim() ||
+                      !lastName.trim() ||
+                      !email.trim() ||
+                      (whatsappOptIn && !phone.trim())
                     }
                     onClick={() => void handleBook()}
                   >
@@ -1375,6 +1415,15 @@ function OnlineBookingPageInner() {
           </div>
         </footer>
       </main>
+
+      {catalog && !loadError ? (
+        <VoiceBookingConcierge
+          tenantSlug={tenantSlug}
+          catalog={catalog}
+          locationId={locationId || catalog.locations[0]?.id || ''}
+          salonName={salonName}
+        />
+      ) : null}
     </div>
   );
 }

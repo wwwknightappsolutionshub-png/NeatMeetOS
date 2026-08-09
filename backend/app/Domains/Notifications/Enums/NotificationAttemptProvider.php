@@ -14,6 +14,8 @@ final class NotificationAttemptProvider
 
     public const WHATSAPP_LINK = 'whatsapp_link';
 
+    public const GENIUS = 'genius';
+
     public const IN_APP = 'in_app';
 
     public static function all(): array
@@ -24,6 +26,7 @@ final class NotificationAttemptProvider
             self::EMAIL_LINK,
             self::SMS_LINK,
             self::WHATSAPP_LINK,
+            self::GENIUS,
             self::IN_APP,
         ];
     }

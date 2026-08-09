@@ -10,6 +10,8 @@ final class NotificationPurpose
 
     public const BOOKING_CANCELLATION = 'booking_cancellation';
 
+    public const BOOKING_RESCHEDULE = 'booking_reschedule';
+
     public const WAITLIST_CONTACT = 'waitlist_contact';
 
     public const PAYMENT_LINK = 'payment_link';
@@ -36,6 +38,7 @@ final class NotificationPurpose
             self::BOOKING_CONFIRMATION,
             self::BOOKING_REMINDER,
             self::BOOKING_CANCELLATION,
+            self::BOOKING_RESCHEDULE,
             self::WAITLIST_CONTACT,
             self::PAYMENT_LINK,
             self::PAYMENT_REMINDER,
@@ -55,7 +58,7 @@ final class NotificationPurpose
     public static function preferenceCategory(string $purpose): string
     {
         return match ($purpose) {
-            self::BOOKING_CONFIRMATION, self::BOOKING_REMINDER, self::BOOKING_CANCELLATION, self::WAITLIST_CONTACT => NotificationPreferenceCategory::BOOKING,
+            self::BOOKING_CONFIRMATION, self::BOOKING_REMINDER, self::BOOKING_CANCELLATION, self::BOOKING_RESCHEDULE, self::WAITLIST_CONTACT => NotificationPreferenceCategory::BOOKING,
             self::PAYMENT_LINK, self::PAYMENT_REMINDER => NotificationPreferenceCategory::PAYMENT,
             self::MEMBERSHIP_RENEWAL_NOTICE, self::MEMBERSHIP_EXPIRY_NOTICE => NotificationPreferenceCategory::MEMBERSHIP,
             self::CRM_JOIN_WELCOME, self::REFERRAL_THANK_YOU, self::REFERRAL_INVITE => NotificationPreferenceCategory::GENERAL,

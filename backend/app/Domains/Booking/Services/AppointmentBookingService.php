@@ -235,7 +235,11 @@ class AppointmentBookingService
         return $reference;
     }
 
-    public function update(Appointment $appointment, array $data): Appointment
+    /**
+     * @param  array<string, mixed>  $data
+     * @param  array<string, mixed>  $notifyContext  Extra context for reschedule client notifications
+     */
+    public function update(Appointment $appointment, array $data, array $notifyContext = []): Appointment
     {
         $this->scope->assertTenantModel($appointment);
 
@@ -251,6 +255,9 @@ class AppointmentBookingService
             ? $data['workspace_id']
             : $appointment->workspace_id;
 
+        $previousStartsAt = $appointment->starts_at?->copy();
+        $previousTeamMemberId = $appointment->team_member_id;
+
         $startsAt = isset($data['starts_at'])
             ? Carbon::parse($data['starts_at'])
             : $appointment->starts_at->copy();
@@ -258,11 +265,16 @@ class AppointmentBookingService
         if (isset($data['services'])) {
             $resolved = $this->catalogService->resolveServiceLines($data['services']);
             $endsAt = $startsAt->copy()->addMinutes($resolved['total_minutes']);
+        } elseif (isset($data['ends_at'])) {
+            $resolved = null;
+            $endsAt = Carbon::parse($data['ends_at']);
+        } elseif (isset($data['starts_at'])) {
+            $resolved = null;
+            $duration = max(1, (int) $appointment->starts_at->diffInMinutes($appointment->ends_at));
+            $endsAt = $startsAt->copy()->addMinutes($duration);
         } else {
             $resolved = null;
-            $endsAt = isset($data['ends_at'])
-                ? Carbon::parse($data['ends_at'])
-                : $appointment->ends_at->copy();
+            $endsAt = $appointment->ends_at->copy();
         }
 
         $this->schedulingValidator->validate(
@@ -310,6 +322,18 @@ class AppointmentBookingService
 
             return $appointment->fresh()->load(['client', 'teamMember', 'location', 'workspace', 'serviceLines']);
         });
+
+        $timeChanged = $previousStartsAt === null
+            || ! $previousStartsAt->equalTo($appointment->starts_at);
+        $providerChanged = $previousTeamMemberId !== $appointment->team_member_id;
+
+        if ($timeChanged || $providerChanged) {
+            $this->notificationTriggers->safe(
+                fn () => $this->notificationTriggers->sendBookingReschedule($appointment, array_merge([
+                    'previous_starts_at' => $previousStartsAt?->toIso8601String(),
+                ], $notifyContext))
+            );
+        }
 
         BookingBoardBroadcaster::forAppointment($appointment);
 

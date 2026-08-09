@@ -5,6 +5,7 @@ namespace App\Domains\Notifications\Services;
 use App\Domains\Integrations\Enums\ProviderAttemptStatus;
 use App\Domains\Integrations\Services\ProviderDispatchBridge;
 use App\Domains\Notifications\Enums\NotificationAttemptProvider;
+use App\Domains\Notifications\Enums\NotificationChannel;
 use App\Domains\Notifications\Enums\NotificationMessageStatus;
 use App\Domains\Notifications\Models\NotificationMessage;
 use App\Domains\Notifications\Models\NotificationMessageAttempt;
@@ -26,6 +27,7 @@ class NotificationDispatchSimulationService
         private readonly AuditLogger $auditLogger,
         private readonly ProviderDispatchBridge $providerBridge,
         private readonly NotificationNativeChannelDispatchService $nativeDispatch,
+        private readonly PlatformWhatsAppSettingsService $platformWhatsApp,
     ) {}
 
     /**
@@ -75,6 +77,10 @@ class NotificationDispatchSimulationService
                 ], null, NotificationAttemptProvider::IN_APP);
 
                 return $this->nativeDispatch->dispatch($message, $attempt);
+            }
+
+            if ($message->channel === NotificationChannel::WHATSAPP && $this->platformWhatsApp->isGeniusReady()) {
+                return $this->dispatchViaPlatformGenius($message);
             }
 
             if ($this->shouldForceDomainFailure($message)) {
@@ -151,6 +157,69 @@ class NotificationDispatchSimulationService
 
             return ['message' => $message->fresh('attempts'), 'attempt' => $attempt, 'simulated' => $result->simulated];
         });
+    }
+
+    /**
+     * Platform Genius WhatsApp (KhayaOS-style) — preferred path when Super Admin enabled Genius.
+     *
+     * @return array{message: NotificationMessage, attempt: NotificationMessageAttempt, simulated: bool}
+     */
+    private function dispatchViaPlatformGenius(NotificationMessage $message): array
+    {
+        $to = (string) ($message->recipient_address ?? '');
+        $body = (string) ($message->body_text ?? $message->subject ?? '');
+        $send = $this->platformWhatsApp->sendOperational($to, $body, [
+            'type' => 'notification',
+            'purpose' => $message->purpose,
+            'notification_message_id' => $message->id,
+            'tenant_id' => $message->tenant_id,
+        ]);
+
+        if (! ($send['ok'] ?? false)) {
+            $message->status = NotificationMessageStatus::FAILED;
+            $message->failed_at = now();
+            $message->failure_reason = $send['error'] ?? 'Genius WhatsApp send failed.';
+            $message->save();
+
+            $attempt = $this->recordAttempt($message, NotificationMessageStatus::FAILED, [
+                'outcome' => 'failed',
+                'reason' => $message->failure_reason,
+                'provider' => NotificationAttemptProvider::GENIUS,
+            ], null, NotificationAttemptProvider::GENIUS);
+
+            $this->auditLogger->log('notification_message.failed', $message, null, [
+                'channel' => $message->channel,
+                'purpose' => $message->purpose,
+                'provider' => NotificationAttemptProvider::GENIUS,
+            ]);
+
+            $this->providerBridge->recordNotificationDispatch($message, null, NotificationMessageStatus::FAILED);
+
+            return ['message' => $message->fresh('attempts'), 'attempt' => $attempt, 'simulated' => false];
+        }
+
+        $message->status = NotificationMessageStatus::SENT;
+        $message->sent_at = now();
+        $message->failure_reason = null;
+        $message->save();
+
+        $reference = 'genius:'.substr(md5($to.now()->timestamp), 0, 12);
+        $attempt = $this->recordAttempt($message, NotificationMessageStatus::SENT, [
+            'outcome' => 'sent',
+            'reference' => $reference,
+            'provider' => NotificationAttemptProvider::GENIUS,
+            'simulated' => false,
+        ], $reference, NotificationAttemptProvider::GENIUS);
+
+        $this->auditLogger->log('notification_message.sent', $message, null, [
+            'channel' => $message->channel,
+            'purpose' => $message->purpose,
+            'provider' => NotificationAttemptProvider::GENIUS,
+            'provider_reference' => $reference,
+            'simulated' => false,
+        ]);
+
+        return ['message' => $message->fresh('attempts'), 'attempt' => $attempt, 'simulated' => false];
     }
 
     private function recordAttempt(

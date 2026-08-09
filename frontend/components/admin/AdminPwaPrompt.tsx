@@ -80,10 +80,64 @@ export function AdminPwaPrompt({ vapidPublicKey }: AdminPwaPromptProps) {
   const askedRef = useRef(false);
   const snoozeTimerRef = useRef<number | null>(null);
 
+  const [pushStatus, setPushStatus] = useState<'unknown' | 'ready' | 'needs_permission' | 'needs_vapid' | 'unsupported'>('unknown');
+  const [pushBusy, setPushBusy] = useState(false);
+  const [pushNote, setPushNote] = useState<string | null>(null);
+
   useEffect(() => {
     void registerAdminServiceWorker();
   }, []);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) {
+      setPushStatus('unsupported');
+      return;
+    }
+    if (!vapidPublicKey) {
+      setPushStatus('needs_vapid');
+      return;
+    }
+    void (async () => {
+      try {
+        const reg = await navigator.serviceWorker.ready;
+        const sub = await reg.pushManager.getSubscription();
+        if (Notification.permission === 'granted' && sub) {
+          setPushStatus('ready');
+        } else {
+          setPushStatus('needs_permission');
+        }
+      } catch {
+        setPushStatus('needs_permission');
+      }
+    })();
+  }, [vapidPublicKey, installed]);
+
+  async function enableSosPush() {
+    if (!vapidPublicKey) {
+      setPushNote('VAPID keys are not configured on this server.');
+      return;
+    }
+    setPushBusy(true);
+    setPushNote(null);
+    try {
+      if (Notification.permission === 'default') {
+        await Notification.requestPermission();
+      }
+      if (Notification.permission !== 'granted') {
+        setPushNote('Notification permission blocked. Enable it in browser settings.');
+        setPushStatus('needs_permission');
+        return;
+      }
+      await subscribeOwnerPush(vapidPublicKey);
+      setPushStatus('ready');
+      setPushNote('SOS push alerts enabled for this device.');
+    } catch {
+      setPushNote('Could not subscribe this device. Try again on HTTPS.');
+    } finally {
+      setPushBusy(false);
+    }
+  }
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
@@ -184,13 +238,38 @@ export function AdminPwaPrompt({ vapidPublicKey }: AdminPwaPromptProps) {
     }, SNOOZE_MS);
   }
 
+  if (installed && pushStatus !== 'ready' && pushStatus !== 'unsupported' && pushStatus !== 'unknown') {
+    return (
+      <div className="fixed bottom-4 right-4 z-50 max-w-sm rounded-xl border border-red-200 bg-white p-4 shadow-lg">
+        <p className="text-sm font-semibold text-stone-900">Enable SOS booking alerts</p>
+        <p className="mt-1 text-xs text-stone-500">
+          Turn on owner push so new online bookings and 20-minute warnings vibrate this device even
+          when the tab is in the background.
+        </p>
+        {pushStatus === 'needs_vapid' ? (
+          <p className="mt-2 text-xs text-amber-700">Server VAPID keys are missing — ask platform admin.</p>
+        ) : (
+          <button
+            type="button"
+            disabled={pushBusy}
+            onClick={() => void enableSosPush()}
+            className="mt-3 rounded-lg bg-[var(--admin-accent)] px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+          >
+            {pushBusy ? 'Enabling…' : 'Enable SOS push'}
+          </button>
+        )}
+        {pushNote ? <p className="mt-2 text-xs text-stone-600">{pushNote}</p> : null}
+      </div>
+    );
+  }
+
   if (!visible || installed) return null;
 
   return (
     <div className="fixed bottom-4 right-4 z-50 max-w-sm rounded-xl border border-stone-200 bg-white p-4 shadow-lg">
       <p className="text-sm font-semibold text-stone-900">Install NeatMeet workspace</p>
       <p className="mt-1 text-xs text-stone-500">
-        Add the admin app to your device for faster access and platform reminders.
+        Add the admin app for faster access, SOS vibration alerts, and platform reminders.
       </p>
       <label className="mt-3 flex items-start gap-2 text-xs text-stone-700">
         <input
@@ -199,7 +278,7 @@ export function AdminPwaPrompt({ vapidPublicKey }: AdminPwaPromptProps) {
           checked={enableNotifications}
           onChange={(e) => setEnableNotifications(e.target.checked)}
         />
-        <span>Enable push notifications after install (recommended)</span>
+        <span>Enable SOS / booking push notifications after install (recommended)</span>
       </label>
       <div className="mt-3 flex gap-2">
         <button

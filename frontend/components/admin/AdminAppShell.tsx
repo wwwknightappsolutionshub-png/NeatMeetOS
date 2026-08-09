@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { AdminTopBar } from '@/components/admin/AdminTopBar';
 import { AdminPwaPrompt } from '@/components/admin/AdminPwaPrompt';
 import { AdminReferralNudge } from '@/components/admin/AdminReferralNudge';
+import { StaffSosOverlay } from '@/components/admin/StaffSosOverlay';
 import { ModuleUpgradeGate } from '@/components/admin/ModuleUpgradeGate';
 import { NeatMeetLogo } from '@/components/brand/NeatMeetLogo';
 import { api, getStoredTenantSlug, getStoredToken } from '@/lib/api-client';
@@ -371,6 +372,7 @@ export function AdminAppShell({ children }: AdminAppShellProps) {
       <div className="flex min-w-0 flex-1 flex-col">
         <AdminTopBar onMenuClick={() => setNavOpen(true)} />
         <AdminPwaPrompt vapidPublicKey={vapidPublicKey} />
+        <StaffSosOverlay />
         <AdminReferralNudge />
         <main className="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-8">
           {routeLocked && lockedUpgrade ? (

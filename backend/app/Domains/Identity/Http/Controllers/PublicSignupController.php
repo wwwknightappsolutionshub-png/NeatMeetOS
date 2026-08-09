@@ -101,6 +101,7 @@ class PublicSignupController extends Controller
             'email' => ['required', 'email', 'max:160'],
             'referral_code' => ['nullable', 'string', 'max:32'],
             'website' => ['nullable', 'string', 'max:200'],
+            'whatsapp' => ['nullable', 'string', 'min:8', 'max:40'],
         ]);
 
         $result = $this->signup->captureLead($data);

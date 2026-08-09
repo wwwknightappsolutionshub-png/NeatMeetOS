@@ -26,6 +26,7 @@ final class ProviderDriverCompatibility
         ],
         ProviderDriver::MAILGUN => [ProviderCategory::EMAIL],
         ProviderDriver::TWILIO => [ProviderCategory::SMS],
+        ProviderDriver::GENIUS => [ProviderCategory::SMS],
         ProviderDriver::STRIPE => [ProviderCategory::PAYMENT_GATEWAY],
         ProviderDriver::CUSTOM => [
             ProviderCategory::EMAIL,

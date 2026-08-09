@@ -16,6 +16,11 @@ const links = [
     match: (p: string) => p === '/admin/integrations',
   },
   {
+    href: '/admin/integrations/whatsapp',
+    label: 'Salon WhatsApp',
+    match: (p: string) => p.startsWith('/admin/integrations/whatsapp'),
+  },
+  {
     href: '/admin/integrations/provider-accounts',
     label: 'Provider Accounts',
     match: (p: string) => p.startsWith('/admin/integrations/provider-accounts'),

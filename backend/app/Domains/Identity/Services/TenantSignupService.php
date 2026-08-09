@@ -15,6 +15,7 @@ use App\Domains\Identity\Models\User;
 use App\Domains\Identity\Models\Workspace;
 use App\Domains\Identity\Support\SignupServiceCatalogue;
 use App\Domains\Lookbook\Services\LookbookSeedService;
+use App\Jobs\SendTenantSignupWelcomeWhatsAppJob;
 use App\Shared\Audit\AuditLogger;
 use App\Shared\Tenancy\TenantContext;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -44,7 +45,7 @@ class TenantSignupService
     /**
      * Marketing lead capture: provisional user + temp password email (no tenant yet).
      *
-     * @param  array{name: string, email: string, referral_code?: string|null, website?: string|null}  $data
+     * @param  array{name: string, email: string, referral_code?: string|null, website?: string|null, whatsapp?: string|null}  $data
      * @return array{status: string, message: string, login_url: string, temporary_password?: string|null}
      */
     public function captureLead(array $data): array
@@ -61,6 +62,7 @@ class TenantSignupService
         $name = trim((string) ($data['name'] ?? ''));
         $email = strtolower(trim((string) ($data['email'] ?? '')));
         $referralCode = strtoupper(trim((string) ($data['referral_code'] ?? '')));
+        $whatsapp = $this->normalizeOptionalWhatsapp($data['whatsapp'] ?? null);
 
         if ($name === '' || strlen($name) < 2) {
             throw ValidationException::withMessages(['name' => ['Please enter your name.']]);
@@ -87,6 +89,9 @@ class TenantSignupService
             if ($referralCode !== '') {
                 $meta['referral_code'] = $referralCode;
             }
+            if ($whatsapp !== null) {
+                $meta['whatsapp'] = $whatsapp;
+            }
             $existing->forceFill([
                 'name' => $name,
                 'password' => $plainPassword,
@@ -99,6 +104,7 @@ class TenantSignupService
                 'email' => $email,
                 'has_referral' => $referralCode !== '',
                 'mail_sent' => $mailSent,
+                'whatsapp_welcome_queued' => $whatsapp !== null,
             ], $existing);
 
             return [
@@ -119,6 +125,7 @@ class TenantSignupService
             'workspace_status' => User::WORKSPACE_PROVISIONAL,
             'signup_meta' => array_filter([
                 'referral_code' => $referralCode !== '' ? $referralCode : null,
+                'whatsapp' => $whatsapp,
                 'captured_at' => now()->toIso8601String(),
                 'source' => 'marketing_landing',
             ]),
@@ -129,6 +136,7 @@ class TenantSignupService
             'email' => $email,
             'has_referral' => $referralCode !== '',
             'mail_sent' => $mailSent,
+            'whatsapp_welcome_queued' => $whatsapp !== null,
         ], $user);
 
         return [
@@ -146,13 +154,43 @@ class TenantSignupService
     {
         try {
             $this->mail->sendWelcomeTrial($user, $plainPassword);
+            $this->queueSignupWelcomeWhatsAppTrial($user, $plainPassword);
 
             return true;
         } catch (\Throwable $e) {
             report($e);
+            // Still attempt WhatsApp even if mail fails.
+            $this->queueSignupWelcomeWhatsAppTrial($user, $plainPassword);
 
             return false;
         }
+    }
+
+    private function queueSignupWelcomeWhatsAppTrial(User $user, string $plainPassword): void
+    {
+        try {
+            SendTenantSignupWelcomeWhatsAppJob::dispatchTrial($user, $plainPassword);
+        } catch (Throwable $e) {
+            Log::error('signup.welcome_whatsapp_dispatch_failed', [
+                'user_id' => $user->id,
+                'message' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    private function normalizeOptionalWhatsapp(mixed $value): ?string
+    {
+        $phone = preg_replace('/\s+/', '', trim((string) ($value ?? ''))) ?? '';
+        if ($phone === '') {
+            return null;
+        }
+        if (! str_starts_with($phone, '+') || strlen($phone) < 8) {
+            throw ValidationException::withMessages([
+                'whatsapp' => ['WhatsApp must be E.164, e.g. +447700900123.'],
+            ]);
+        }
+
+        return $phone;
     }
 
     /**
@@ -528,6 +566,20 @@ class TenantSignupService
             $this->mail->sendTenantActivation($created['user'], $created['plainToken'], $created['tenant']->name);
         } catch (Throwable $e) {
             Log::error('signup.activation_mail_failed', [
+                'tenant_id' => $created['tenant']->id,
+                'user_id' => $created['user']->id,
+                'message' => $e->getMessage(),
+            ]);
+        }
+
+        try {
+            SendTenantSignupWelcomeWhatsAppJob::dispatchActivation(
+                $created['user'],
+                $created['tenant'],
+                $created['plainToken'],
+            );
+        } catch (Throwable $e) {
+            Log::error('signup.activation_whatsapp_dispatch_failed', [
                 'tenant_id' => $created['tenant']->id,
                 'user_id' => $created['user']->id,
                 'message' => $e->getMessage(),

@@ -368,6 +368,165 @@ export async function updatePlatformAiHairstyleSettings(payload: {
   });
 }
 
+export interface PlatformWhatsAppSettings {
+  enabled: boolean;
+  provider: string;
+  active_provider: string;
+  has_api_key: boolean;
+  session_id: string | null;
+  base_url: string;
+  meta_phone_number_id: string | null;
+  has_meta_access_token: boolean;
+  twilio_account_sid: string | null;
+  has_twilio_auth_token: boolean;
+  twilio_from: string | null;
+  configured: boolean;
+  queue?: {
+    pending_jobs: number;
+    reserved_jobs: number;
+    failed_jobs: number;
+    stale_messages: number;
+    markers: string[];
+    older_than_hours: number;
+  };
+  signup_welcome?: {
+    enabled: boolean;
+    trial_body: string;
+    activation_body: string;
+    placeholders: {
+      trial: string[];
+      activation: string[];
+    };
+    banner: {
+      path: string | null;
+      url: string | null;
+      mime: string | null;
+      has_data: boolean;
+    };
+    defaults: {
+      trial_body: string;
+      activation_body: string;
+    };
+  };
+  providers: Array<{ key: string; label: string; live: boolean }>;
+}
+
+export async function fetchPlatformWhatsAppSettings(): Promise<PlatformWhatsAppSettings> {
+  const data = await api<{ whatsapp: PlatformWhatsAppSettings }>('/platform/whatsapp-settings', {
+    auth: true,
+    tenant: false,
+  });
+  return data.whatsapp;
+}
+
+export async function updatePlatformWhatsAppSettings(
+  payload: Partial<{
+    enabled: boolean;
+    provider: string;
+    api_key: string;
+    session_id: string | null;
+    base_url: string | null;
+    meta_phone_number_id: string | null;
+    meta_access_token: string;
+    twilio_account_sid: string | null;
+    twilio_auth_token: string;
+    twilio_from: string | null;
+    signup_welcome_enabled: boolean;
+    signup_welcome_trial_body: string | null;
+    signup_welcome_activation_body: string | null;
+  }>,
+): Promise<PlatformWhatsAppSettings> {
+  const data = await api<{ whatsapp: PlatformWhatsAppSettings }>('/platform/whatsapp-settings', {
+    method: 'PUT',
+    auth: true,
+    tenant: false,
+    body: JSON.stringify(payload),
+  });
+  return data.whatsapp;
+}
+
+export async function uploadPlatformSignupWelcomeBanner(
+  file: File,
+): Promise<PlatformWhatsAppSettings> {
+  const form = new FormData();
+  form.append('image', file);
+  const data = await api<{ whatsapp: PlatformWhatsAppSettings }>(
+    '/platform/whatsapp-settings/signup-welcome-banner',
+    {
+      method: 'POST',
+      auth: true,
+      tenant: false,
+      body: form,
+    },
+  );
+  return data.whatsapp;
+}
+
+export async function clearPlatformSignupWelcomeBanner(): Promise<PlatformWhatsAppSettings> {
+  const data = await api<{ whatsapp: PlatformWhatsAppSettings }>(
+    '/platform/whatsapp-settings/signup-welcome-banner',
+    {
+      method: 'DELETE',
+      auth: true,
+      tenant: false,
+    },
+  );
+  return data.whatsapp;
+}
+
+export async function testPlatformWhatsApp(payload: {
+  phone: string;
+  message?: string;
+}): Promise<{ sent: boolean; phone: string; provider: string; message: string; error?: string }> {
+  return api('/platform/whatsapp-settings/test', {
+    method: 'POST',
+    auth: true,
+    tenant: false,
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function fetchPlatformWhatsAppQueue(olderThanHours = 1): Promise<{
+  pending_jobs: number;
+  reserved_jobs: number;
+  failed_jobs: number;
+  stale_messages: number;
+  markers: string[];
+  older_than_hours: number;
+}> {
+  const data = await api<{
+    queue: {
+      pending_jobs: number;
+      reserved_jobs: number;
+      failed_jobs: number;
+      stale_messages: number;
+      markers: string[];
+      older_than_hours: number;
+    };
+  }>(`/platform/whatsapp-settings/queue?older_than_hours=${olderThanHours}`, {
+    auth: true,
+    tenant: false,
+  });
+  return data.queue;
+}
+
+export async function purgePlatformWhatsAppStale(payload?: {
+  include_failed_jobs?: boolean;
+  include_stale_messages?: boolean;
+  older_than_hours?: number;
+}): Promise<{
+  deleted_jobs: number;
+  deleted_failed_jobs: number;
+  cancelled_messages: number;
+}> {
+  return api('/platform/whatsapp-settings/purge', {
+    method: 'POST',
+    auth: true,
+    tenant: false,
+    body: JSON.stringify(payload ?? {}),
+  });
+}
+
 export async function pokeTenant(
   tenantId: string,
   message?: string,

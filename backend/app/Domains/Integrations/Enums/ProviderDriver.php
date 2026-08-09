@@ -10,6 +10,8 @@ final class ProviderDriver
 
     public const TWILIO = 'twilio';
 
+    public const GENIUS = 'genius';
+
     public const STRIPE = 'stripe';
 
     public const MANUAL = 'manual';
@@ -25,6 +27,7 @@ final class ProviderDriver
             self::SIMULATION,
             self::MAILGUN,
             self::TWILIO,
+            self::GENIUS,
             self::STRIPE,
             self::MANUAL,
             self::CUSTOM,

@@ -9,6 +9,7 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command('notifications:dispatch-booking-reminders')->everyFiveMinutes();
+Schedule::command('booking:dispatch-approaching-sos')->everyMinute();
 Schedule::command('marketing:run-scheduled')->everyFiveMinutes();
 Schedule::command('analytics:run-scheduled')->everyFiveMinutes();
 Schedule::command('platform:dispatch-upgrade-campaigns')->hourly();

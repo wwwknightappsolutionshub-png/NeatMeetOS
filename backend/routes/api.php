@@ -1,6 +1,9 @@
 <?php
 
 use App\Domains\AiHairstyle\Http\Controllers\Admin\AdminAiHairstyleController;
+use App\Domains\Notifications\Http\Controllers\Admin\TenantWhatsAppSettingsController;
+use App\Domains\Notifications\Http\Controllers\Platform\PlatformSignupWhatsAppWelcomeImageController;
+use App\Domains\Notifications\Http\Controllers\Platform\PlatformWhatsAppSettingsController;
 use App\Domains\AiHairstyle\Http\Controllers\Platform\PlatformAiHairstyleSettingController;
 use App\Domains\AiHairstyle\Http\Controllers\PublicBook\PublicAiHairstyleController;
 use App\Domains\Booking\Http\Controllers\Admin\AppointmentCommerceController;
@@ -14,6 +17,7 @@ use App\Domains\Booking\Http\Controllers\Admin\WalkInController;
 use App\Domains\Booking\Http\Controllers\PublicBooking\OnlineBookingController;
 use App\Domains\Booking\Http\Controllers\PublicBooking\PublicSalonReviewController;
 use App\Domains\Booking\Http\Controllers\Admin\SalonReviewController;
+use App\Domains\Booking\Http\Controllers\Admin\StaffSosAlertController;
 use App\Domains\Ecommerce\Http\Controllers\Admin\EcommerceOrderController;
 use App\Domains\Ecommerce\Http\Controllers\Admin\EcommerceProductController;
 use App\Domains\Ecommerce\Http\Controllers\ShopController;
@@ -120,6 +124,7 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('v1')->group(function () {
     Route::get('/health', HealthController::class);
     Route::get('/version', VersionController::class);
+    Route::get('/public/whatsapp/signup-welcome-banner', [PlatformSignupWhatsAppWelcomeImageController::class, 'show']);
 
     Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:auth-login');
     Route::post('/auth/magic-link', [AuthLinkController::class, 'requestMagic'])->middleware('throttle:public-signup');
@@ -248,6 +253,7 @@ Route::prefix('v1')->group(function () {
 
         Route::get('/referral-settings', [PlatformReferralSettingController::class, 'show']);
         Route::get('/ai-hairstyle-settings', [PlatformAiHairstyleSettingController::class, 'show']);
+        Route::get('/whatsapp-settings', [PlatformWhatsAppSettingsController::class, 'show']);
 
         Route::get('/signup-forms', [PlatformSignupFormController::class, 'index']);
         Route::get('/signup-forms/{id}', [PlatformSignupFormController::class, 'show']);
@@ -273,6 +279,12 @@ Route::prefix('v1')->group(function () {
             Route::post('/broadcasts', [PlatformTenantBroadcastController::class, 'store']);
             Route::put('/referral-settings', [PlatformReferralSettingController::class, 'update']);
             Route::put('/ai-hairstyle-settings', [PlatformAiHairstyleSettingController::class, 'update']);
+            Route::put('/whatsapp-settings', [PlatformWhatsAppSettingsController::class, 'update']);
+            Route::post('/whatsapp-settings/test', [PlatformWhatsAppSettingsController::class, 'test']);
+            Route::get('/whatsapp-settings/queue', [PlatformWhatsAppSettingsController::class, 'queueStatus']);
+            Route::post('/whatsapp-settings/purge', [PlatformWhatsAppSettingsController::class, 'purge']);
+            Route::post('/whatsapp-settings/signup-welcome-banner', [PlatformWhatsAppSettingsController::class, 'uploadSignupWelcomeBanner']);
+            Route::delete('/whatsapp-settings/signup-welcome-banner', [PlatformWhatsAppSettingsController::class, 'clearSignupWelcomeBanner']);
 
             Route::post('/signup-forms', [PlatformSignupFormController::class, 'store']);
             Route::put('/signup-forms/{id}', [PlatformSignupFormController::class, 'update']);
@@ -401,6 +413,7 @@ Route::prefix('v1')->group(function () {
             Route::get('/waitlist', [WaitlistController::class, 'index']);
             Route::get('/waitlist/{id}', [WaitlistController::class, 'show']);
             Route::get('/reviews', [SalonReviewController::class, 'index']);
+            Route::get('/staff-sos-alerts', [StaffSosAlertController::class, 'index']);
         });
 
         Route::middleware('permission:booking.manage')->group(function () {
@@ -427,6 +440,8 @@ Route::prefix('v1')->group(function () {
             Route::post('/waitlist', [WaitlistController::class, 'store']);
             Route::put('/waitlist/{id}', [WaitlistController::class, 'update']);
             Route::post('/waitlist/{id}/fulfill', [WaitlistController::class, 'fulfill']);
+            Route::post('/staff-sos-alerts/{id}/acknowledge', [StaffSosAlertController::class, 'acknowledge']);
+            Route::post('/staff-sos-alerts/{id}/shift', [StaffSosAlertController::class, 'shift']);
         });
 
         Route::middleware('permission:payments.reporting.view')->group(function () {
@@ -792,6 +807,7 @@ Route::prefix('v1')->group(function () {
             Route::get('/integrations/provider-attempts/{id}', [ProviderDeliveryAttemptController::class, 'show']);
             Route::get('/integrations/provider-events', [ProviderWebhookEventController::class, 'index']);
             Route::get('/integrations/provider-events/{id}', [ProviderWebhookEventController::class, 'show']);
+            Route::get('/integrations/whatsapp', [TenantWhatsAppSettingsController::class, 'show']);
         });
 
         Route::middleware('permission:integrations.manage')->group(function () {
@@ -803,6 +819,10 @@ Route::prefix('v1')->group(function () {
             Route::patch('/integrations/provider-accounts/{id}/set-default', [ProviderAccountController::class, 'setDefault']);
             Route::post('/integrations/provider-accounts/{id}/test', [ProviderAccountController::class, 'test']);
             Route::post('/integrations/provider-attempts/{id}/retry', [ProviderDeliveryAttemptController::class, 'retry']);
+            Route::post('/integrations/whatsapp/session/init', [TenantWhatsAppSettingsController::class, 'initSession']);
+            Route::post('/integrations/whatsapp/session/activate', [TenantWhatsAppSettingsController::class, 'activateSession']);
+            Route::post('/integrations/whatsapp/session/refresh', [TenantWhatsAppSettingsController::class, 'refreshSession']);
+            Route::post('/integrations/whatsapp/session/disconnect', [TenantWhatsAppSettingsController::class, 'disconnectSession']);
         });
     });
 });

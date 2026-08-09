@@ -10,6 +10,8 @@ use App\Domains\Crm\Services\MemberPortalAuthService;
 use App\Domains\Identity\Models\Location;
 use App\Domains\Identity\Models\TeamMember;
 use App\Domains\Identity\Services\TenantEntitlementService;
+use App\Domains\Notifications\Enums\NotificationChannel;
+use App\Domains\Notifications\Services\NotificationPreferenceService;
 use App\Domains\Staff\Models\StaffAbsence;
 use App\Domains\Staff\Models\StaffAvailabilityRule;
 use App\Domains\Staff\Models\StaffProfile;
@@ -32,6 +34,8 @@ class OnlineBookingService
         private readonly ClientService $clients,
         private readonly MemberPortalAuthService $memberPortal,
         private readonly TenantEntitlementService $entitlements,
+        private readonly StaffSosAlertService $staffSos,
+        private readonly NotificationPreferenceService $notificationPreferences,
     ) {}
 
     /**
@@ -78,6 +82,7 @@ class OnlineBookingService
                 'id' => $tenant?->id,
                 'name' => $tenant?->name,
                 'slug' => $tenant?->slug,
+                'owner_whatsapp' => $tenant?->owner_whatsapp,
                 'branding' => $this->publicBranding($tenant?->getBranding() ?? []),
             ],
             'locations' => $locations,
@@ -256,7 +261,16 @@ class OnlineBookingService
         $priced = $this->resolveTierPrice($service, $tier, $payload['member_token'] ?? null, $client);
         $client = $priced['client'];
 
-        return $this->appointments->create([
+        if (filter_var($payload['whatsapp_opt_in'] ?? false, FILTER_VALIDATE_BOOLEAN)
+            && filled(trim((string) ($client->phone ?? $payload['phone'] ?? '')))
+        ) {
+            $this->notificationPreferences->update($client, [
+                'allow_whatsapp' => true,
+                'preferred_channel' => NotificationChannel::WHATSAPP,
+            ]);
+        }
+
+        $appointment = $this->appointments->create([
             'client_id' => $client->id,
             'team_member_id' => $payload['team_member_id'],
             'location_id' => $payload['location_id'],
@@ -274,6 +288,14 @@ class OnlineBookingService
                 ],
             ],
         ]);
+
+        try {
+            $this->staffSos->raiseForNewOnlineBooking($appointment);
+        } catch (\Throwable) {
+            // SOS must not block a successful online booking.
+        }
+
+        return $appointment;
     }
 
     /**
@@ -363,6 +385,9 @@ class OnlineBookingService
         if ($existing !== null) {
             $updates = [];
             if (! empty($payload['phone']) && empty($existing->phone)) {
+                $updates['phone'] = $payload['phone'];
+            }
+            if (! empty($payload['phone']) && filter_var($payload['whatsapp_opt_in'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
                 $updates['phone'] = $payload['phone'];
             }
             if ($updates !== []) {

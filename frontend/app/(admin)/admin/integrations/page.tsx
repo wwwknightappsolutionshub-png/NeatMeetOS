@@ -23,6 +23,11 @@ import {
 
 const quickLinks = [
   {
+    href: '/admin/integrations/whatsapp',
+    label: 'Salon WhatsApp',
+    description: 'Scan your number; platform API key powers delivery with salon fallback',
+  },
+  {
     href: '/admin/integrations/provider-accounts',
     label: 'Provider accounts',
     description: 'Configure email, SMS, payment gateway, and webhook providers',

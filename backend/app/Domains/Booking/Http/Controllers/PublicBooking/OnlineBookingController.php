@@ -78,6 +78,7 @@ class OnlineBookingController extends Controller
             'last_name' => ['required', 'string', 'max:100'],
             'email' => ['required', 'email', 'max:255'],
             'phone' => ['nullable', 'string', 'max:40'],
+            'whatsapp_opt_in' => ['nullable', 'boolean'],
             'client_notes' => ['nullable', 'string', 'max:2000'],
             'pricing_tier' => ['nullable', 'string', 'in:regular,membership,loyalty'],
             'member_token' => ['nullable', 'string', 'max:128'],

@@ -185,6 +185,7 @@ export interface OnlineBookingCatalog {
     id: string | null;
     name: string | null;
     slug: string | null;
+    owner_whatsapp?: string | null;
     branding?: {
       brand_display_name?: string | null;
       logo_url?: string | null;
@@ -227,6 +228,8 @@ export interface OnlineBookPayload {
   last_name: string;
   email: string;
   phone?: string;
+  /** Guest opted in to WhatsApp booking updates. */
+  whatsapp_opt_in?: boolean;
   client_notes?: string;
   pricing_tier?: 'regular' | 'membership' | 'loyalty';
   member_token?: string;
