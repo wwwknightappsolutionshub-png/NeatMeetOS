@@ -17,140 +17,228 @@ interface AdminAppShellProps {
   children: ReactNode;
 }
 
-const operationLinks: {
+type NavLink = {
   href: string;
   label: string;
   match: (p: string) => boolean;
   feature?: string;
   /** When set, nav item is hidden unless the shell permissions include this slug. */
   permission?: string;
-}[] = [
-  { href: '/admin/dashboard', label: 'Dashboard', match: (p) => p === '/admin/dashboard' },
+};
+
+type NavGroupId = 'front_desk' | 'commerce' | 'experience' | 'growth' | 'settings';
+
+type NavGroup = {
+  id: NavGroupId;
+  label: string;
+  links: NavLink[];
+};
+
+const navGroups: NavGroup[] = [
   {
-    href: '/admin/clients',
-    label: 'Clients',
-    match: (p) => p.startsWith('/admin/clients'),
-    feature: 'crm',
-  },
-  { href: '/admin/staff', label: 'Staff', match: (p) => p.startsWith('/admin/staff') },
-  {
-    href: '/admin/bookings/services',
-    label: 'Services',
-    match: (p) =>
-      p.startsWith('/admin/bookings/services') || p.startsWith('/admin/bookings/reviews'),
-    feature: 'booking',
-  },
-  {
-    href: '/admin/bookings',
-    label: 'Bookings',
-    match: (p) =>
-      p === '/admin/bookings' ||
-      p.startsWith('/admin/bookings/walk-ins') ||
-      p.startsWith('/admin/bookings/waitlist'),
-    feature: 'booking_board',
-  },
-  {
-    href: '/admin/payments',
-    label: 'Payments',
-    match: (p) => p.startsWith('/admin/payments'),
-    feature: 'payments',
-  },
-  {
-    href: '/admin/inventory',
-    label: 'Inventory',
-    match: (p) => p.startsWith('/admin/inventory'),
-    feature: 'inventory',
-  },
-  {
-    href: '/admin/pos',
-    label: 'POS',
-    match: (p) => p.startsWith('/admin/pos'),
-    feature: 'pos',
+    id: 'front_desk',
+    label: 'Front desk',
+    links: [
+      { href: '/admin/dashboard', label: 'Dashboard', match: (p) => p === '/admin/dashboard' },
+      {
+        href: '/admin/clients',
+        label: 'Clients',
+        match: (p) => p.startsWith('/admin/clients'),
+        feature: 'crm',
+      },
+      { href: '/admin/staff', label: 'Staff', match: (p) => p.startsWith('/admin/staff') },
+      {
+        href: '/admin/bookings/services',
+        label: 'Services',
+        match: (p) =>
+          p.startsWith('/admin/bookings/services') || p.startsWith('/admin/bookings/reviews'),
+        feature: 'booking',
+      },
+      {
+        href: '/admin/bookings',
+        label: 'Bookings',
+        match: (p) =>
+          p === '/admin/bookings' ||
+          p.startsWith('/admin/bookings/walk-ins') ||
+          p.startsWith('/admin/bookings/waitlist'),
+        feature: 'booking_board',
+      },
+    ],
   },
   {
-    href: '/admin/ecommerce',
-    label: 'Shop',
-    match: (p) => p.startsWith('/admin/ecommerce'),
-    feature: 'ecommerce',
+    id: 'commerce',
+    label: 'Commerce',
+    links: [
+      {
+        href: '/admin/payments',
+        label: 'Payments',
+        match: (p) => p.startsWith('/admin/payments'),
+        feature: 'payments',
+      },
+      {
+        href: '/admin/inventory',
+        label: 'Inventory',
+        match: (p) => p.startsWith('/admin/inventory'),
+        feature: 'inventory',
+      },
+      {
+        href: '/admin/pos',
+        label: 'POS',
+        match: (p) => p.startsWith('/admin/pos'),
+        feature: 'pos',
+      },
+      {
+        href: '/admin/ecommerce',
+        label: 'Shop',
+        match: (p) => p.startsWith('/admin/ecommerce'),
+        feature: 'ecommerce',
+      },
+    ],
   },
   {
-    href: '/admin/gallery',
-    label: 'Gallery',
-    match: (p) => p.startsWith('/admin/gallery'),
-    feature: 'gallery',
+    id: 'experience',
+    label: 'Experience',
+    links: [
+      {
+        href: '/admin/gallery',
+        label: 'Gallery',
+        match: (p) => p.startsWith('/admin/gallery'),
+        feature: 'gallery',
+      },
+      {
+        href: '/admin/lookbook',
+        label: 'Lookbook',
+        match: (p) => p.startsWith('/admin/lookbook'),
+        feature: 'lookbook',
+      },
+      {
+        href: '/admin/ai-hairstyle',
+        label: 'Approved Looks',
+        match: (p) => p.startsWith('/admin/ai-hairstyle'),
+        feature: 'ai_hairstyle',
+        permission: 'ai_hairstyle.view',
+      },
+      {
+        href: '/admin/next-visit',
+        label: 'Next visit',
+        match: (p) => p.startsWith('/admin/next-visit'),
+        feature: 'next_visit',
+      },
+    ],
   },
   {
-    href: '/admin/lookbook',
-    label: 'Lookbook',
-    match: (p) => p.startsWith('/admin/lookbook'),
-    feature: 'lookbook',
+    id: 'growth',
+    label: 'Growth',
+    links: [
+      {
+        href: '/admin/memberships',
+        label: 'Memberships',
+        match: (p) => p.startsWith('/admin/memberships'),
+        feature: 'memberships',
+      },
+      {
+        href: '/admin/marketing',
+        label: 'Marketing',
+        match: (p) => p.startsWith('/admin/marketing'),
+        feature: 'marketing',
+      },
+      {
+        href: '/admin/notifications',
+        label: 'Notifications',
+        match: (p) => p.startsWith('/admin/notifications'),
+        feature: 'notifications',
+      },
+      {
+        href: '/admin/analytics',
+        label: 'Analytics',
+        match: (p) => p.startsWith('/admin/analytics'),
+        feature: 'analytics',
+      },
+      {
+        href: '/admin/integrations',
+        label: 'Integrations',
+        // WhatsApp scan moved to Settings (not plan-gated).
+        match: (p) =>
+          p.startsWith('/admin/integrations') && !p.startsWith('/admin/integrations/whatsapp'),
+        feature: 'integrations',
+      },
+    ],
   },
   {
-    href: '/admin/ai-hairstyle',
-    label: 'Approved Looks',
-    match: (p) => p.startsWith('/admin/ai-hairstyle'),
-    feature: 'ai_hairstyle',
-    permission: 'ai_hairstyle.view',
-  },
-  {
-    href: '/admin/next-visit',
-    label: 'Next visit',
-    match: (p) => p.startsWith('/admin/next-visit'),
-    feature: 'next_visit',
-  },
-  {
-    href: '/admin/memberships',
-    label: 'Memberships',
-    match: (p) => p.startsWith('/admin/memberships'),
-    feature: 'memberships',
-  },
-  {
-    href: '/admin/marketing',
-    label: 'Marketing',
-    match: (p) => p.startsWith('/admin/marketing'),
-    feature: 'marketing',
-  },
-  {
-    href: '/admin/notifications',
-    label: 'Notifications',
-    match: (p) => p.startsWith('/admin/notifications'),
-    feature: 'notifications',
-  },
-  {
-    href: '/admin/analytics',
-    label: 'Analytics',
-    match: (p) => p.startsWith('/admin/analytics'),
-    feature: 'analytics',
-  },
-  {
-    href: '/admin/integrations',
-    label: 'Integrations',
-    // WhatsApp scan moved to Settings (not plan-gated).
-    match: (p) =>
-      p.startsWith('/admin/integrations') && !p.startsWith('/admin/integrations/whatsapp'),
-    feature: 'integrations',
+    id: 'settings',
+    label: 'Settings',
+    links: [
+      {
+        href: '/admin/settings/account',
+        label: 'Account',
+        match: (p) => p.startsWith('/admin/settings/account'),
+      },
+      {
+        href: '/admin/settings/branding',
+        label: 'Branding',
+        match: (p) => p.startsWith('/admin/settings/branding'),
+      },
+      {
+        href: '/admin/settings/whatsapp',
+        label: 'Salon WhatsApp',
+        match: (p) => p.startsWith('/admin/settings/whatsapp'),
+      },
+      {
+        href: '/admin/settings/booking-qr',
+        label: 'Booking QR',
+        match: (p) => p.startsWith('/admin/settings/booking-qr'),
+      },
+      {
+        href: '/admin/settings/crm-join-qr',
+        label: 'CRM join QR',
+        match: (p) => p.startsWith('/admin/settings/crm-join-qr'),
+      },
+      {
+        href: '/admin/settings/locations',
+        label: 'Locations',
+        match: (p) => p.startsWith('/admin/settings/locations'),
+      },
+      {
+        href: '/admin/settings/workspaces',
+        label: 'Workspaces',
+        match: (p) => p.startsWith('/admin/settings/workspaces'),
+      },
+      {
+        href: '/admin/settings/team',
+        label: 'Team',
+        match: (p) => p.startsWith('/admin/settings/team'),
+      },
+      {
+        href: '/admin/settings/access',
+        label: 'Access',
+        match: (p) => p.startsWith('/admin/settings/access'),
+      },
+      {
+        href: '/admin/settings/subscription',
+        label: 'Subscription',
+        match: (p) => p.startsWith('/admin/settings/subscription'),
+      },
+      {
+        href: '/admin/settings/referrals',
+        label: 'Refer & reward',
+        match: (p) => p.startsWith('/admin/settings/referrals'),
+      },
+    ],
   },
 ];
 
-const settingsLinks = [
-  { href: '/admin/settings/account', label: 'Account' },
-  { href: '/admin/settings/branding', label: 'Branding' },
-  { href: '/admin/settings/whatsapp', label: 'Salon WhatsApp' },
-  { href: '/admin/settings/booking-qr', label: 'Booking QR' },
-  { href: '/admin/settings/crm-join-qr', label: 'CRM join QR' },
-  { href: '/admin/settings/locations', label: 'Locations' },
-  { href: '/admin/settings/workspaces', label: 'Workspaces' },
-  { href: '/admin/settings/team', label: 'Team' },
-  { href: '/admin/settings/access', label: 'Access' },
-  {
-    href: '/admin/settings/subscription',
-    label: 'Subscription',
-  },
-  {
-    href: '/admin/settings/referrals',
-    label: 'Refer & reward',
-  },
-];
+const allOperationLinks = navGroups
+  .filter((g) => g.id !== 'settings')
+  .flatMap((g) => g.links);
+
+function activeNavGroupId(pathname: string): NavGroupId {
+  if (pathname.startsWith('/admin/settings')) return 'settings';
+  for (const group of navGroups) {
+    if (group.id === 'settings') continue;
+    if (group.links.some((link) => link.match(pathname))) return group.id;
+  }
+  return 'front_desk';
+}
 
 function navClass(active: boolean, locked = false): string {
   return [
@@ -174,7 +262,7 @@ function featureEnabled(
 
 function routeFeature(pathname: string): string | undefined {
   // Prefer the most specific nav match (Services before Bookings).
-  const match = operationLinks.find((link) => link.feature && link.match(pathname));
+  const match = allOperationLinks.find((link) => link.feature && link.match(pathname));
   return match?.feature;
 }
 
@@ -187,6 +275,8 @@ export function AdminAppShell({ children }: AdminAppShellProps) {
   const [lockedModules, setLockedModules] = useState<ModuleUpgradePayload[]>([]);
   const [vapidPublicKey, setVapidPublicKey] = useState<string | null>(null);
   const [navOpen, setNavOpen] = useState(false);
+  const routeGroupId = activeNavGroupId(pathname);
+  const [openGroupId, setOpenGroupId] = useState<NavGroupId | null>(routeGroupId);
 
   useEffect(() => {
     if (!getStoredToken()) {
@@ -231,7 +321,9 @@ export function AdminAppShell({ children }: AdminAppShellProps) {
 
   useEffect(() => {
     setNavOpen(false);
-  }, [pathname]);
+    // Auto-collapse: only the category for the current page stays open.
+    setOpenGroupId(routeGroupId);
+  }, [pathname, routeGroupId]);
 
   useEffect(() => {
     if (!navOpen) return;
@@ -260,7 +352,7 @@ export function AdminAppShell({ children }: AdminAppShellProps) {
       lockedModules.find((m) => m.module === requiredFeature) ?? {
         module: requiredFeature,
         module_label:
-          operationLinks.find((l) => l.feature === requiredFeature)?.label ??
+          allOperationLinks.find((l) => l.feature === requiredFeature)?.label ??
           requiredFeature,
         available_on: [
           { slug: 'pro', name: 'Pro' },
@@ -271,6 +363,11 @@ export function AdminAppShell({ children }: AdminAppShellProps) {
       }
     );
   }, [lockedModules, requiredFeature, routeLocked]);
+
+  function toggleGroup(id: NavGroupId) {
+    // Accordion: one open section at a time; tap again to collapse.
+    setOpenGroupId((current) => (current === id ? null : id));
+  }
 
   return (
     <div className="flex min-h-full bg-[linear-gradient(165deg,#f7f5f1_0%,#efebe4_48%,#f3f1ec_100%)] text-[var(--admin-ink)]">
@@ -308,68 +405,81 @@ export function AdminAppShell({ children }: AdminAppShellProps) {
             </button>
           </div>
         </div>
-        <nav className="flex-1 overflow-y-auto px-2.5 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-4">
-          <p className="mb-1.5 px-2.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/40">
-            Operations
-          </p>
-          <ul className="space-y-0.5">
-            {operationLinks
-              .filter((link) => {
+        <nav className="flex-1 overflow-y-auto px-2.5 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3">
+          <div className="space-y-1">
+            {navGroups.map((group) => {
+              const links = group.links.filter((link) => {
                 if (!link.permission) return true;
-                // Until shell loads, keep the item visible; after load, require the slug.
                 if (permissions === null) return true;
                 return permissions.includes(link.permission);
-              })
-              .map((link) => {
-              const locked = !featureEnabled(features, link.feature);
+              });
+              if (links.length === 0) return null;
+
+              const open = openGroupId === group.id;
+              const containsActive = group.links.some((link) => link.match(pathname));
+
               return (
-                <li key={link.href}>
-                  <Link
-                    href={link.href}
-                    onClick={() => setNavOpen(false)}
-                    className={navClass(link.match(pathname), locked)}
+                <div key={group.id}>
+                  <button
+                    type="button"
+                    onClick={() => toggleGroup(group.id)}
+                    aria-expanded={open}
+                    className={[
+                      'flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left transition',
+                      containsActive
+                        ? 'bg-white/10 text-white'
+                        : 'text-white/55 hover:bg-white/5 hover:text-white/80',
+                    ].join(' ')}
                   >
-                    <span className="flex items-center justify-between gap-2">
-                      <span>{link.label}</span>
-                      {locked ? (
-                        <span className="rounded bg-white/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white/55">
-                          Upgrade
-                        </span>
-                      ) : null}
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.16em]">
+                      {group.label}
                     </span>
-                  </Link>
-                </li>
+                    <ChevronIcon open={open} />
+                  </button>
+                  {open ? (
+                    <ul className="mt-0.5 space-y-0.5 pb-1">
+                      {links.map((link) => {
+                        const locked = !featureEnabled(features, link.feature);
+                        return (
+                          <li key={link.href}>
+                            <Link
+                              href={link.href}
+                              onClick={() => setNavOpen(false)}
+                              className={navClass(link.match(pathname), locked)}
+                            >
+                              <span className="flex items-center justify-between gap-2">
+                                <span>{link.label}</span>
+                                {locked ? (
+                                  <span className="rounded bg-white/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white/55">
+                                    Upgrade
+                                  </span>
+                                ) : null}
+                              </span>
+                            </Link>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  ) : null}
+                </div>
               );
             })}
-          </ul>
-          <p className="mb-1.5 mt-5 px-2.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/40">
-            Settings
-          </p>
-          <ul className="space-y-0.5">
-            {settingsLinks.map((link) => (
-              <li key={link.href}>
-                <Link
-                  href={link.href}
-                  onClick={() => setNavOpen(false)}
-                  className={navClass(pathname === link.href)}
-                >
-                  {link.label}
-                </Link>
-              </li>
-            ))}
-          </ul>
-          <p className="mb-1.5 mt-5 px-2.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/40">
-            Public
-          </p>
-          <Link
-            href={`/book/${bookSlug}`}
-            onClick={() => setNavOpen(false)}
-            className={navClass(false)}
-            target="_blank"
-            rel="noreferrer"
-          >
-            Book online
-          </Link>
+          </div>
+
+          <div className="mt-3 border-t border-white/10 pt-3">
+            <p className="mb-1.5 px-2.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/40">
+              Public
+            </p>
+            <Link
+              href={`/book/${bookSlug}`}
+              onClick={() => setNavOpen(false)}
+              className={navClass(false)}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Book online
+            </Link>
+          </div>
         </nav>
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">
@@ -397,6 +507,30 @@ function CloseIcon() {
         stroke="currentColor"
         strokeWidth="1.75"
         strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function ChevronIcon({ open }: { open: boolean }) {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden
+      className={[
+        'shrink-0 text-current/70 transition-transform duration-200',
+        open ? 'rotate-180' : '',
+      ].join(' ')}
+    >
+      <path
+        d="M6 9l6 6 6-6"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
       />
     </svg>
   );
