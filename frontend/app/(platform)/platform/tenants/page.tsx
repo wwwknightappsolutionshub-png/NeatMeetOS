@@ -1,15 +1,18 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { ErrorAlert, LoadingState } from '@/components/admin/ui';
 import { TenantModulesPanel } from '@/components/platform/TenantModulesPanel';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import type { PlatformTenantRow } from '@/lib/types';
 import {
+  fetchPlatformProfile,
   fetchPlatformTenants,
   pokeTenant,
+  purgePlatformTenant,
   unlockTenantTiers,
+  type PlatformStaffUser,
 } from '@/services/platform.service';
 
 function statusClass(status: string): string {
@@ -55,6 +58,25 @@ function formatLastSeen(iso: string | null | undefined): string {
   }
 }
 
+function TrashIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      className={className}
+      aria-hidden
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M4.5 7.5h15M9.5 7.5V6a1.5 1.5 0 0 1 1.5-1.5h2A1.5 1.5 0 0 1 14.5 6v1.5m2 0V18a1.5 1.5 0 0 1-1.5 1.5h-6A1.5 1.5 0 0 1 7.5 18V7.5m2 3.5v6m3-6v6"
+      />
+    </svg>
+  );
+}
+
 export default function PlatformTenantsPage() {
   const [tenants, setTenants] = useState<PlatformTenantRow[]>([]);
   const [search, setSearch] = useState('');
@@ -70,6 +92,13 @@ export default function PlatformTenantsPage() {
   const [unlockPlanByTenant, setUnlockPlanByTenant] = useState<
     Record<string, 'basic' | 'pro' | 'diamond'>
   >({});
+  const [profile, setProfile] = useState<PlatformStaffUser | null>(null);
+  const [purgeTenant, setPurgeTenant] = useState<PlatformTenantRow | null>(null);
+  const [purgeSlugConfirm, setPurgeSlugConfirm] = useState('');
+  const [purging, setPurging] = useState(false);
+  const [purgeNotice, setPurgeNotice] = useState<string | null>(null);
+
+  const canPurge = profile?.platform_role === 'owner';
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -91,6 +120,12 @@ export default function PlatformTenantsPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    fetchPlatformProfile()
+      .then((data) => setProfile(data.user))
+      .catch(() => setProfile(null));
+  }, []);
 
   async function handleUnlock(tenant: PlatformTenantRow) {
     setUnlockingId(tenant.id);
@@ -124,6 +159,30 @@ export default function PlatformTenantsPage() {
       setError(e instanceof Error ? e.message : 'Poke failed');
     } finally {
       setPokingId(null);
+    }
+  }
+
+  async function handlePurge(e: FormEvent) {
+    e.preventDefault();
+    if (!purgeTenant) return;
+    setPurging(true);
+    setError(null);
+    setPurgeNotice(null);
+    try {
+      const result = await purgePlatformTenant(purgeTenant.id, {
+        confirmation_slug: purgeSlugConfirm.trim(),
+        confirm: true,
+      });
+      setPurgeNotice(
+        `Permanently deleted ${result.name} (${result.slug}) and all related data.`,
+      );
+      setPurgeTenant(null);
+      setPurgeSlugConfirm('');
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Permanent delete failed');
+    } finally {
+      setPurging(false);
     }
   }
 
@@ -181,6 +240,11 @@ export default function PlatformTenantsPage() {
       {pokeNotice ? (
         <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
           {pokeNotice}
+        </div>
+      ) : null}
+      {purgeNotice ? (
+        <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
+          {purgeNotice}
         </div>
       ) : null}
       {loading ? <LoadingState label="Loading tenants…" /> : null}
@@ -308,6 +372,21 @@ export default function PlatformTenantsPage() {
                           >
                             Modules
                           </Button>
+                          {canPurge ? (
+                            <button
+                              type="button"
+                              title="Permanently delete tenant"
+                              aria-label={`Permanently delete ${t.trading_name || t.name}`}
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-red-500/40 bg-red-500/10 text-red-300 transition hover:bg-red-500/20"
+                              onClick={() => {
+                                setPurgeTenant(t);
+                                setPurgeSlugConfirm('');
+                                setError(null);
+                              }}
+                            >
+                              <TrashIcon className="h-4 w-4" />
+                            </button>
+                          ) : null}
                           <a
                             href={`/book/${t.slug}`}
                             target="_blank"
@@ -333,6 +412,62 @@ export default function PlatformTenantsPage() {
           tenantName={modulesTenant.trading_name || modulesTenant.name}
           onClose={() => setModulesTenant(null)}
         />
+      ) : null}
+
+      {purgeTenant ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-950/70 p-4 backdrop-blur-sm">
+          <Card className="w-full max-w-md border-red-500/30 bg-[#1a1714] p-5">
+            <h2 className="text-lg font-semibold text-white">Permanently delete tenant</h2>
+            <p className="mt-2 text-sm text-stone-300">
+              This permanently deletes{' '}
+              <span className="font-semibold text-white">
+                {purgeTenant.trading_name || purgeTenant.name}
+              </span>{' '}
+              (
+              <span className="font-mono text-xs text-amber-200">{purgeTenant.slug}</span>
+              ) and all related salon data from the database. This cannot be undone.
+            </p>
+            <form onSubmit={(e) => void handlePurge(e)} className="mt-4 space-y-3">
+              <label className="block text-sm">
+                <span className="mb-1 block text-stone-400">
+                  Type slug “{purgeTenant.slug}” to confirm
+                </span>
+                <input
+                  value={purgeSlugConfirm}
+                  onChange={(e) => setPurgeSlugConfirm(e.target.value)}
+                  className="w-full rounded-lg border border-white/15 bg-stone-950/40 px-3 py-2 text-sm text-white outline-none focus:border-red-400"
+                  placeholder={purgeTenant.slug}
+                  autoComplete="off"
+                  autoFocus
+                />
+              </label>
+              <div className="flex flex-wrap gap-2 pt-1">
+                <Button
+                  type="submit"
+                  disabled={
+                    purging ||
+                    purgeSlugConfirm.trim().toLowerCase() !==
+                      purgeTenant.slug.toLowerCase()
+                  }
+                  className="!bg-red-600 !px-3 !py-2 !text-sm hover:!bg-red-500"
+                >
+                  {purging ? 'Deleting…' : 'Delete forever'}
+                </Button>
+                <Button
+                  type="button"
+                  disabled={purging}
+                  className="!border !border-white/15 !bg-transparent !px-3 !py-2 !text-sm !text-stone-100"
+                  onClick={() => {
+                    setPurgeTenant(null);
+                    setPurgeSlugConfirm('');
+                  }}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          </Card>
+        </div>
       ) : null}
     </div>
   );

@@ -104,14 +104,31 @@ export async function api<T>(
     credentials: 'omit',
   });
 
-  const payload = (await response.json()) as ApiResponse<T> | ApiError;
+  const raw = await response.text();
+  let payload: ApiResponse<T> | ApiError | null = null;
+  try {
+    payload = raw ? (JSON.parse(raw) as ApiResponse<T> | ApiError) : null;
+  } catch {
+    const looksHtml = raw.trimStart().startsWith('<!') || raw.includes('<html');
+    throw new ApiRequestError(
+      looksHtml
+        ? `API returned HTML instead of JSON (${response.status}). The route may be missing — clear Laravel route cache on the server.`
+        : `Invalid JSON response (${response.status}).`,
+      { status: response.status },
+    );
+  }
 
-  if (!response.ok || !('success' in payload) || !payload.success) {
+  if (!payload || !response.ok || !('success' in payload) || !payload.success) {
     let message =
-      'message' in payload ? payload.message : 'Request failed';
+      payload && 'message' in payload ? payload.message : 'Request failed';
     if (response.status === 419) {
       message =
         'Session expired. Refresh the page and try again.';
+    } else if (response.status === 404) {
+      message =
+        message && message !== 'Request failed'
+          ? message
+          : 'API route not found (404). Clear Laravel route cache after deploy.';
     } else if (
       response.status >= 500 &&
       (!message || message === 'Server Error')
@@ -119,7 +136,9 @@ export async function api<T>(
       message = 'Something went wrong on the server. Please try again.';
     }
     const code =
-      'code' in payload && typeof payload.code === 'string' ? payload.code : null;
+      payload && 'code' in payload && typeof payload.code === 'string'
+        ? payload.code
+        : null;
     const upgrade =
       code === 'module_upgrade_required' &&
       payload &&

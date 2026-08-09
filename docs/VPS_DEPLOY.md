@@ -66,12 +66,19 @@ Always stop the frontend before rebuilding `.next`:
 ```bash
 cd /www/wwwroot/neatmeet.prohost.cloud
 git -c safe.directory=/www/wwwroot/neatmeet.prohost.cloud pull origin main
-cd backend && /www/server/php/83/bin/php artisan migrate --force && /www/server/php/83/bin/php artisan config:cache
+git -c safe.directory=/www/wwwroot/neatmeet.prohost.cloud log -1 --oneline
+cd backend
+/www/server/php/83/bin/php artisan migrate --force
+/www/server/php/83/bin/php artisan route:clear
+/www/server/php/83/bin/php artisan config:cache
+/www/server/php/83/bin/php artisan route:cache
 pm2 stop neatmeet-frontend
 cd ../frontend && npm install && rm -rf .next && npm run build
 pm2 start neatmeet-frontend
 pm2 restart neatmeet-queue
 ```
+
+> **Route cache:** Always `route:clear` then `route:cache` after pull. Stale route cache makes new endpoints (e.g. `/platform/whatsapp-settings`) return HTML 404 and breaks the platform settings UI.
 
 If the landing page loads in your browser, you’re done with this deploy.
 
@@ -85,6 +92,7 @@ git -c safe.directory=/www/wwwroot/neatmeet.prohost.cloud log -1 --oneline
 cd backend
 COMPOSER_ALLOW_SUPERUSER=1 composer install --no-dev --optimize-autoloader --no-interaction
 /www/server/php/83/bin/php artisan migrate --force
+/www/server/php/83/bin/php artisan route:clear
 /www/server/php/83/bin/php artisan config:cache
 /www/server/php/83/bin/php artisan route:cache
 

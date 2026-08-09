@@ -292,6 +292,7 @@ Route::prefix('v1')->group(function () {
         });
 
         Route::middleware('platform.role:owner')->group(function () {
+            Route::post('/tenants/{id}/purge', [PlatformAdminController::class, 'purgeTenant']);
             Route::get('/staff', [PlatformStaffController::class, 'index']);
             Route::post('/staff', [PlatformStaffController::class, 'store']);
             Route::put('/staff/{id}', [PlatformStaffController::class, 'update']);

@@ -34,10 +34,14 @@ export default function PlatformSettingsPage() {
   const [currentPassword, setCurrentPassword] = useState('');
   const [password, setPassword] = useState('');
   const [passwordConfirmation, setPasswordConfirmation] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [loadingProfile, setLoadingProfile] = useState(true);
+  const [loadingWa, setLoadingWa] = useState(true);
+  const [loadingAi, setLoadingAi] = useState(true);
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [waError, setWaError] = useState<string | null>(null);
+  const [aiError, setAiError] = useState<string | null>(null);
   const [profileSaved, setProfileSaved] = useState(false);
   const [passwordSaved, setPasswordSaved] = useState(false);
 
@@ -75,33 +79,52 @@ export default function PlatformSettingsPage() {
   const canManageAi =
     user?.platform_role === 'owner' || user?.platform_role === 'manager';
 
+  function applyWhatsAppSettings(whatsapp: PlatformWhatsAppSettings) {
+    setWa(whatsapp);
+    setWaEnabled(whatsapp.enabled);
+    setWaProvider(whatsapp.provider);
+    setWaSessionId(whatsapp.session_id ?? '');
+    setWaBaseUrl(whatsapp.base_url || 'https://restapi.geniusdevel.com');
+    setWaMetaPhoneId(whatsapp.meta_phone_number_id ?? '');
+    setWaTwilioSid(whatsapp.twilio_account_sid ?? '');
+    setWaTwilioFrom(whatsapp.twilio_from ?? '');
+    setWaSignupEnabled(whatsapp.signup_welcome?.enabled ?? true);
+    setWaTrialBody(whatsapp.signup_welcome?.trial_body ?? '');
+    setWaActivationBody(whatsapp.signup_welcome?.activation_body ?? '');
+    setWaBannerUrl(whatsapp.signup_welcome?.banner.url ?? null);
+  }
+
   useEffect(() => {
-    Promise.all([
-      fetchPlatformProfile(),
-      fetchPlatformAiHairstyleSettings(),
-      fetchPlatformWhatsAppSettings(),
-    ])
-      .then(([profile, ai, whatsapp]) => {
+    setLoadingProfile(true);
+    fetchPlatformProfile()
+      .then((profile) => {
         setUser(profile.user);
         setName(profile.user.name);
         setEmail(profile.user.email);
+      })
+      .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load profile'))
+      .finally(() => setLoadingProfile(false));
+
+    setLoadingWa(true);
+    setWaError(null);
+    fetchPlatformWhatsAppSettings()
+      .then((whatsapp) => applyWhatsAppSettings(whatsapp))
+      .catch((e) =>
+        setWaError(e instanceof Error ? e.message : 'Failed to load WhatsApp settings'),
+      )
+      .finally(() => setLoadingWa(false));
+
+    setLoadingAi(true);
+    setAiError(null);
+    fetchPlatformAiHairstyleSettings()
+      .then((ai) => {
         setAiSettings(ai);
         setAiProvider(ai.provider);
-        setWa(whatsapp);
-        setWaEnabled(whatsapp.enabled);
-        setWaProvider(whatsapp.provider);
-        setWaSessionId(whatsapp.session_id ?? '');
-        setWaBaseUrl(whatsapp.base_url || 'https://restapi.geniusdevel.com');
-        setWaMetaPhoneId(whatsapp.meta_phone_number_id ?? '');
-        setWaTwilioSid(whatsapp.twilio_account_sid ?? '');
-        setWaTwilioFrom(whatsapp.twilio_from ?? '');
-        setWaSignupEnabled(whatsapp.signup_welcome?.enabled ?? true);
-        setWaTrialBody(whatsapp.signup_welcome?.trial_body ?? '');
-        setWaActivationBody(whatsapp.signup_welcome?.activation_body ?? '');
-        setWaBannerUrl(whatsapp.signup_welcome?.banner.url ?? null);
       })
-      .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load settings'))
-      .finally(() => setLoading(false));
+      .catch((e) =>
+        setAiError(e instanceof Error ? e.message : 'Failed to load AI settings'),
+      )
+      .finally(() => setLoadingAi(false));
   }, []);
 
   async function handleProfile(e: FormEvent) {
@@ -183,18 +206,10 @@ export default function PlatformSettingsPage() {
       if (waTwilioToken.trim()) payload.twilio_auth_token = waTwilioToken.trim();
 
       const next = await updatePlatformWhatsAppSettings(payload);
-      setWa(next);
-      setWaEnabled(next.enabled);
-      setWaProvider(next.provider);
-      setWaSessionId(next.session_id ?? '');
-      setWaBaseUrl(next.base_url);
+      applyWhatsAppSettings(next);
       setWaApiKey('');
       setWaMetaToken('');
       setWaTwilioToken('');
-      setWaSignupEnabled(next.signup_welcome?.enabled ?? true);
-      setWaTrialBody(next.signup_welcome?.trial_body ?? '');
-      setWaActivationBody(next.signup_welcome?.activation_body ?? '');
-      setWaBannerUrl(next.signup_welcome?.banner.url ?? null);
       setWaSaved(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'WhatsApp settings update failed');
@@ -288,7 +303,7 @@ export default function PlatformSettingsPage() {
       ) : null}
 
       <PlatformCard title="Profile">
-        {loading ? (
+        {loadingProfile ? (
           <p className="text-sm text-stone-400">Loading…</p>
         ) : (
           <form onSubmit={handleProfile} className="space-y-3">
@@ -327,17 +342,54 @@ export default function PlatformSettingsPage() {
         )}
       </PlatformCard>
 
-      <PlatformCard title="WhatsApp outbound (Genius)">
-        {loading || !wa ? (
+      <PlatformCard title="WhatsApp platform sender">
+        {loadingWa ? (
           <p className="text-sm text-stone-400">Loading…</p>
+        ) : waError || !wa ? (
+          <div className="space-y-2">
+            <p className="text-sm text-red-300">
+              {waError || 'WhatsApp settings could not be loaded.'}
+            </p>
+            <p className="text-xs text-stone-500">
+              If this is a 404 after deploy, run{' '}
+              <code className="text-stone-300">php artisan route:clear</code> then{' '}
+              <code className="text-stone-300">php artisan route:cache</code> on the VPS.
+            </p>
+            <PlatformButton
+              type="button"
+              onClick={() => {
+                setLoadingWa(true);
+                setWaError(null);
+                fetchPlatformWhatsAppSettings()
+                  .then((whatsapp) => applyWhatsAppSettings(whatsapp))
+                  .catch((e) =>
+                    setWaError(
+                      e instanceof Error ? e.message : 'Failed to load WhatsApp settings',
+                    ),
+                  )
+                  .finally(() => setLoadingWa(false));
+              }}
+            >
+              Retry
+            </PlatformButton>
+          </div>
         ) : (
           <div className="space-y-4">
             <p className="text-sm text-stone-400">
-              Platform-wide WhatsApp for booking confirm / cancel / reschedule. Genius uses{' '}
-              <code className="text-stone-300">POST /api/send</code> with header{' '}
-              <code className="text-stone-300">x-api-key</code>. Leave API key blank to keep the
-              current secret.
+              Platform fallback for booking confirm / cancel / reschedule and signup welcome when a
+              salon has not connected its own WhatsApp session. Genius API is the default provider (
+              <code className="text-stone-300">POST /api/send</code> with{' '}
+              <code className="text-stone-300">x-api-key</code>).
             </p>
+            <span
+              className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                wa.enabled && wa.configured
+                  ? 'bg-emerald-500/15 text-emerald-300'
+                  : 'bg-white/10 text-stone-300'
+              }`}
+            >
+              {wa.enabled && wa.configured ? `Active · ${wa.provider}` : `Inactive · ${wa.provider}`}
+            </span>
             <form onSubmit={handleWhatsApp} className="space-y-3">
               <label className="flex items-center gap-2 text-sm text-stone-200">
                 <input
@@ -365,15 +417,15 @@ export default function PlatformSettingsPage() {
               </PlatformField>
 
               {waProvider === 'genius' ? (
-                <>
-                  <PlatformField label="Genius API key">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <PlatformField label="API key (leave blank to keep)">
                     <input
                       type="password"
                       className={platformInputClass}
                       value={waApiKey}
                       disabled={!canManageAi}
                       onChange={(e) => setWaApiKey(e.target.value)}
-                      placeholder={wa.has_api_key ? '•••••••• (saved)' : 'api-…'}
+                      placeholder={wa.has_api_key ? 'api-… (saved)' : 'api-…'}
                       autoComplete="off"
                     />
                   </PlatformField>
@@ -386,16 +438,18 @@ export default function PlatformSettingsPage() {
                       placeholder="session_xxxxxxxxxxx"
                     />
                   </PlatformField>
-                  <PlatformField label="Base URL">
-                    <input
-                      className={platformInputClass}
-                      value={waBaseUrl}
-                      disabled={!canManageAi}
-                      onChange={(e) => setWaBaseUrl(e.target.value)}
-                      placeholder="https://restapi.geniusdevel.com"
-                    />
-                  </PlatformField>
-                </>
+                  <div className="sm:col-span-2">
+                    <PlatformField label="Base URL">
+                      <input
+                        className={platformInputClass}
+                        value={waBaseUrl}
+                        disabled={!canManageAi}
+                        onChange={(e) => setWaBaseUrl(e.target.value)}
+                        placeholder="https://restapi.geniusdevel.com"
+                      />
+                    </PlatformField>
+                  </div>
+                </div>
               ) : null}
 
               {waProvider === 'meta' ? (
@@ -473,28 +527,37 @@ export default function PlatformSettingsPage() {
             </form>
 
             {canManageAi && waProvider === 'genius' ? (
-              <form onSubmit={handleWhatsAppTest} className="space-y-3 border-t border-stone-700/60 pt-4">
-                <p className="text-sm font-medium text-stone-200">Test WhatsApp connection</p>
-                <PlatformField label="Test phone (E.164)">
-                  <input
-                    className={platformInputClass}
-                    value={waTestPhone}
-                    onChange={(e) => setWaTestPhone(e.target.value)}
-                    placeholder="+447700900123"
-                    required
-                  />
-                </PlatformField>
-                <PlatformField label="Optional test message">
-                  <input
-                    className={platformInputClass}
-                    value={waTestMessage}
-                    onChange={(e) => setWaTestMessage(e.target.value)}
-                    placeholder="Leave blank for default platform test copy"
-                  />
-                </PlatformField>
+              <form
+                onSubmit={handleWhatsAppTest}
+                className="space-y-3 rounded-lg border border-stone-700/60 bg-stone-950/30 p-4"
+              >
+                <p className="text-sm font-medium text-stone-200">Send test message</p>
+                <p className="text-xs text-stone-500">
+                  Uses the saved platform credentials (same path as signup welcome WhatsApp). Save
+                  settings before testing if you just changed keys.
+                </p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <PlatformField label="Phone (E.164)">
+                    <input
+                      className={platformInputClass}
+                      value={waTestPhone}
+                      onChange={(e) => setWaTestPhone(e.target.value)}
+                      placeholder="+447700900123"
+                      required
+                    />
+                  </PlatformField>
+                  <PlatformField label="Message (optional)">
+                    <input
+                      className={platformInputClass}
+                      value={waTestMessage}
+                      onChange={(e) => setWaTestMessage(e.target.value)}
+                      placeholder="NeatMeet OS platform WhatsApp test…"
+                    />
+                  </PlatformField>
+                </div>
                 <div className="flex items-center gap-3">
                   <PlatformButton type="submit" disabled={testingWa || !waTestPhone.trim()}>
-                    {testingWa ? 'Sending…' : 'Send test message'}
+                    {testingWa ? 'Sending…' : 'Send test WhatsApp'}
                   </PlatformButton>
                   {waTestNote ? <span className="text-sm text-emerald-400">{waTestNote}</span> : null}
                 </div>
@@ -597,8 +660,10 @@ export default function PlatformSettingsPage() {
       </PlatformCard>
 
       <PlatformCard title="AI Hairstyle provider">
-        {loading || !aiSettings ? (
+        {loadingAi ? (
           <p className="text-sm text-stone-400">Loading…</p>
+        ) : aiError || !aiSettings ? (
+          <p className="text-sm text-red-300">{aiError || 'AI settings could not be loaded.'}</p>
         ) : (
           <form onSubmit={handleAi} className="space-y-3">
             <p className="text-sm text-stone-400">

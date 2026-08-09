@@ -64,6 +64,18 @@ export async function unlockTenantTiers(
   );
 }
 
+export async function purgePlatformTenant(
+  tenantId: string,
+  payload: { confirmation_slug: string; confirm: boolean },
+): Promise<{ purged: boolean; tenant_id: string; slug: string; name: string }> {
+  return api(`/platform/tenants/${tenantId}/purge`, {
+    method: 'POST',
+    auth: true,
+    tenant: false,
+    body: JSON.stringify(payload),
+  });
+}
+
 export async function fetchPlatformNotifications(): Promise<{
   items: PlatformNotificationItem[];
   unread_count: number;

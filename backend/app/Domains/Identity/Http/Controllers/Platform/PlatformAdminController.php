@@ -7,10 +7,12 @@ use App\Domains\Identity\Models\PlatformInvoice;
 use App\Domains\Identity\Models\Tenant;
 use App\Domains\Identity\Services\PlatformAdminService;
 use App\Domains\Identity\Services\PlatformBillingService;
+use App\Domains\Identity\Services\TenantPurgeService;
 use App\Domains\Identity\Services\TenantTierService;
 use App\Shared\Support\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 class PlatformAdminController extends Controller
 {
@@ -18,6 +20,7 @@ class PlatformAdminController extends Controller
         private readonly PlatformAdminService $platform,
         private readonly TenantTierService $tiers,
         private readonly PlatformBillingService $billing,
+        private readonly TenantPurgeService $purge,
     ) {}
 
     public function overview(): JsonResponse
@@ -87,6 +90,27 @@ class PlatformAdminController extends Controller
             'suspended_at' => null,
             'suspension_reason' => null,
         ], 'Tenant unsuspended');
+    }
+
+    public function purgeTenant(Request $request, string $id): JsonResponse
+    {
+        $tenant = Tenant::query()->findOrFail($id);
+        $data = $request->validate([
+            'confirmation_slug' => ['required', 'string', 'max:100'],
+            'confirm' => ['required', 'boolean'],
+        ]);
+
+        try {
+            $result = $this->purge->purge($tenant, $data, $request->user());
+        } catch (ValidationException $e) {
+            return ApiResponse::error(
+                collect($e->errors())->flatten()->first() ?: 'Validation failed',
+                422,
+                $e->errors(),
+            );
+        }
+
+        return ApiResponse::success($result, 'Tenant permanently deleted');
     }
 
     public function impersonateTenant(Request $request, string $id): JsonResponse
