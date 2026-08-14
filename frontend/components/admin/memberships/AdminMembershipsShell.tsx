@@ -9,42 +9,39 @@ interface AdminMembershipsShellProps {
   children: ReactNode;
 }
 
+/**
+ * Simplified IA for busy salonists:
+ * Overview → Offers (create) → Client benefits (allocate/deduct/renew) → Settings
+ * Old deep links (plans, packages, subscriptions, etc.) still work; nav highlights the parent step.
+ */
 const links = [
-  { href: '/admin/memberships', label: 'Summary', match: (p: string) => p === '/admin/memberships' },
   {
-    href: '/admin/memberships/plans',
-    label: 'Plans',
-    match: (p: string) => p.startsWith('/admin/memberships/plans'),
+    href: '/admin/memberships',
+    label: 'Overview',
+    match: (p: string) => p === '/admin/memberships',
   },
   {
-    href: '/admin/memberships/packages',
-    label: 'Packages',
-    match: (p: string) => p.startsWith('/admin/memberships/packages'),
+    href: '/admin/memberships/offers',
+    label: '1. Offers',
+    match: (p: string) =>
+      p.startsWith('/admin/memberships/offers') ||
+      p.startsWith('/admin/memberships/plans') ||
+      p.startsWith('/admin/memberships/packages'),
   },
   {
-    href: '/admin/memberships/subscriptions',
-    label: 'Subscriptions',
-    match: (p: string) => p.startsWith('/admin/memberships/subscriptions'),
-  },
-  {
-    href: '/admin/memberships/wallet',
-    label: 'Wallet',
-    match: (p: string) => p.startsWith('/admin/memberships/wallet'),
-  },
-  {
-    href: '/admin/memberships/loyalty',
-    label: 'Loyalty',
-    match: (p: string) => p === '/admin/memberships/loyalty',
+    href: '/admin/memberships/clients',
+    label: '2. Client benefits',
+    match: (p: string) =>
+      p.startsWith('/admin/memberships/clients') ||
+      p.startsWith('/admin/memberships/subscriptions') ||
+      p.startsWith('/admin/memberships/client-packages') ||
+      p.startsWith('/admin/memberships/wallet') ||
+      p === '/admin/memberships/loyalty',
   },
   {
     href: '/admin/memberships/loyalty-settings',
-    label: 'Loyalty redemption',
+    label: 'Settings',
     match: (p: string) => p.startsWith('/admin/memberships/loyalty-settings'),
-  },
-  {
-    href: '/admin/memberships/client-packages',
-    label: 'Client packages',
-    match: (p: string) => p.startsWith('/admin/memberships/client-packages'),
   },
 ];
 
@@ -53,7 +50,7 @@ export function AdminMembershipsShell({ title, children }: AdminMembershipsShell
 
   return (
     <AdminModuleChrome
-      eyebrow="Memberships"
+      eyebrow="Client rewards"
       title={title}
       links={links.map((link) => ({
         href: link.href,

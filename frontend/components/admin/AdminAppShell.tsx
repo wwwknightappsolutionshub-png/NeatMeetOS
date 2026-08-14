@@ -132,7 +132,7 @@ const navGroups: NavGroup[] = [
     links: [
       {
         href: '/admin/memberships',
-        label: 'Memberships',
+        label: 'Client rewards',
         match: (p) => p.startsWith('/admin/memberships'),
         feature: 'memberships',
       },

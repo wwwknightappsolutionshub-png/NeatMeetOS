@@ -56,10 +56,17 @@ export default function MembershipPlansPage() {
   }
 
   return (
-    <AdminMembershipsShell title="Membership plans">
+    <AdminMembershipsShell title="Memberships">
+      <p className="mb-4 text-sm text-zinc-600">
+        Recurring offers clients can enroll in. After creating one, enroll a client under{' '}
+        <a href="/admin/memberships/subscriptions" className="font-medium underline">
+          Client benefits → Enroll members
+        </a>
+        .
+      </p>
       {error ? <ErrorAlert message={error} /> : null}
       <div className="mb-4 grid gap-4 md:grid-cols-2">
-        <Card title="New plan">
+        <Card title="New membership">
           <form onSubmit={handleCreate} className="grid gap-2">
             <Field label="Name"><input className={inputClass} value={name} onChange={(e) => setName(e.target.value)} required /></Field>
             <Field label="Price (Pound)">
@@ -70,7 +77,7 @@ export default function MembershipPlansPage() {
                 {MEMBERSHIP_BILLING_FREQUENCIES.map((f) => <option key={f} value={f}>{f}</option>)}
               </select>
             </Field>
-            <Field label="Included wallet (Pound)">
+            <Field label="Included store credit (Pound)">
               <input className={inputClass} type="number" min="0" step="0.01" value={walletCredit} onChange={(e) => setWalletCredit(e.target.value)} placeholder="e.g. 10.00" />
             </Field>
             <Field label="Included loyalty points"><input className={inputClass} value={loyaltyPoints} onChange={(e) => setLoyaltyPoints(e.target.value)} /></Field>
@@ -78,12 +85,12 @@ export default function MembershipPlansPage() {
               <input type="checkbox" checked={isPublic} onChange={(e) => setIsPublic(e.target.checked)} />
               Show on public memberships page
             </label>
-            <Button type="submit">Create plan</Button>
+            <Button type="submit">Create membership</Button>
           </form>
         </Card>
       </div>
       {loading ? <LoadingState /> : (
-        <Card title="Plans">
+        <Card title="Your memberships">
           <table className="w-full text-left text-sm">
             <thead><tr className="border-b text-zinc-500"><th className="py-2">Name</th><th>Frequency</th><th>Price</th><th>Benefits</th><th>Public</th><th>Status</th><th /></tr></thead>
             <tbody>
@@ -93,8 +100,9 @@ export default function MembershipPlansPage() {
                   <td>{p.billing_frequency}</td>
                   <td>{formatMoneyCents(p.price_cents)}</td>
                   <td className="text-zinc-600">
-                    {(p.included_wallet_credit_cents ?? 0) > 0 ? `Wallet ${formatMoneyCents(p.included_wallet_credit_cents!)}` : null}
+                    {(p.included_wallet_credit_cents ?? 0) > 0 ? `Credit ${formatMoneyCents(p.included_wallet_credit_cents!)}` : null}
                     {(p.included_loyalty_points ?? 0) > 0 ? ` · ${p.included_loyalty_points} pts` : null}
+                    {(p.included_wallet_credit_cents ?? 0) === 0 && (p.included_loyalty_points ?? 0) === 0 ? '—' : null}
                   </td>
                   <td>{p.is_public ? 'Yes' : 'No'}</td>
                   <td>{p.status}</td>

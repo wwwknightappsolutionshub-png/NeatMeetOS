@@ -51,10 +51,18 @@ export default function SubscriptionsPage() {
   }
 
   return (
-    <AdminMembershipsShell title="Client subscriptions">
+    <AdminMembershipsShell title="Enroll members">
+      <p className="mb-4 text-sm text-zinc-600">
+        Put a client on a membership. Use Pause / Resume / Cancel when they renew or leave. Need a
+        membership first?{' '}
+        <a href="/admin/memberships/plans" className="font-medium underline">
+          Create one under Offers
+        </a>
+        .
+      </p>
       {error ? <ErrorAlert message={error} /> : null}
       <div className="mb-4">
-        <Card title="Assign membership">
+        <Card title="Enroll a client">
         <form onSubmit={handleAssign} className="flex flex-wrap gap-2">
           <Field label="Client">
             <select className={inputClass} value={clientId} onChange={(e) => setClientId(e.target.value)} required>
@@ -62,20 +70,20 @@ export default function SubscriptionsPage() {
               {clients.map((c) => <option key={c.id} value={c.id}>{c.resolved_display_name}</option>)}
             </select>
           </Field>
-          <Field label="Plan">
+          <Field label="Membership">
             <select className={inputClass} value={planId} onChange={(e) => setPlanId(e.target.value)} required>
-              <option value="">Select plan</option>
+              <option value="">Select membership</option>
               {plans.map((p) => <option key={p.id} value={p.id}>{p.name} · {formatMoneyCents(p.price_cents)}</option>)}
             </select>
           </Field>
-          <div className="flex items-end"><Button type="submit">Assign</Button></div>
+          <div className="flex items-end"><Button type="submit">Enroll</Button></div>
         </form>
         </Card>
       </div>
       {loading ? <LoadingState /> : (
-        <Card title="Subscriptions">
+        <Card title="Active & past members">
           <table className="w-full text-left text-sm">
-            <thead><tr className="border-b text-zinc-500"><th className="py-2">Client</th><th>Plan</th><th>Status</th><th>Period end</th><th>Actions</th></tr></thead>
+            <thead><tr className="border-b text-zinc-500"><th className="py-2">Client</th><th>Membership</th><th>Status</th><th>Renews / ends</th><th>Actions</th></tr></thead>
             <tbody>
               {subs.map((s) => (
                 <tr key={s.id} className="border-b border-zinc-100">

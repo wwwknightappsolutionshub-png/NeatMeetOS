@@ -50,10 +50,14 @@ export default function WalletPage() {
   }
 
   return (
-    <AdminMembershipsShell title="Wallet ledger">
+    <AdminMembershipsShell title="Store credit">
+      <p className="mb-4 text-sm text-zinc-600">
+        Money credit on a client’s account (not visit counts). Top up or deduct here; use at POS as
+        store credit.
+      </p>
       {error ? <ErrorAlert message={error} /> : null}
       <div className="mb-4 grid gap-4 md:grid-cols-2">
-        <Card title="Filter / balance">
+        <Card title="Client balance">
           <Field label="Client">
             <select className={inputClass} value={selectedClient} onChange={(e) => setSelectedClient(e.target.value)}>
               <option value="">All clients</option>
@@ -62,32 +66,32 @@ export default function WalletPage() {
           </Field>
           {balance !== null ? <p className="mt-2 text-lg font-semibold">Balance: {formatMoneyCents(balance)}</p> : null}
         </Card>
-        <Card title="Manual adjustment">
+        <Card title="Adjust credit">
           <form onSubmit={handlePost} className="grid gap-2">
-            <Field label="Direction">
+            <Field label="Action">
               <select className={inputClass} value={direction} onChange={(e) => setDirection(e.target.value as 'credit' | 'debit')}>
-                <option value="credit">Credit</option>
-                <option value="debit">Debit</option>
+                <option value="credit">Add credit</option>
+                <option value="debit">Remove credit</option>
               </select>
             </Field>
           <Field label="Amount (Pound)">
             <input className={inputClass} value={amount} onChange={(e) => setAmount(e.target.value)} required placeholder="e.g. 10.00" />
           </Field>
             <Field label="Notes"><input className={inputClass} value={notes} onChange={(e) => setNotes(e.target.value)} /></Field>
-            <Button type="submit" disabled={!selectedClient}>Post entry</Button>
+            <Button type="submit" disabled={!selectedClient}>Save</Button>
           </form>
         </Card>
       </div>
       {loading ? <LoadingState /> : (
-        <Card title="Entries">
+        <Card title="Credit history">
           <table className="w-full text-left text-sm">
-            <thead><tr className="border-b text-zinc-500"><th className="py-2">Client</th><th>Type</th><th>Direction</th><th>Amount</th><th>Notes</th></tr></thead>
+            <thead><tr className="border-b text-zinc-500"><th className="py-2">Client</th><th>Type</th><th>Action</th><th>Amount</th><th>Notes</th></tr></thead>
             <tbody>
               {entries.map((e) => (
                 <tr key={e.id} className="border-b border-zinc-100">
                   <td className="py-2">{e.client_name}</td>
                   <td>{e.entry_type}</td>
-                  <td>{e.direction}</td>
+                  <td>{e.direction === 'credit' ? 'Added' : 'Removed'}</td>
                   <td>{formatMoneyCents(e.amount_cents)}</td>
                   <td className="text-zinc-600">{e.notes}</td>
                 </tr>

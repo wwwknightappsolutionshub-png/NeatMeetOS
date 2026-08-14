@@ -49,10 +49,17 @@ export default function LoyaltyPage() {
   }
 
   return (
-    <AdminMembershipsShell title="Loyalty ledger">
+    <AdminMembershipsShell title="Loyalty points">
+      <p className="mb-4 text-sm text-zinc-600">
+        Points on a client’s account (separate from store credit). Set how points convert to money in{' '}
+        <a href="/admin/memberships/loyalty-settings" className="font-medium underline">
+          Settings
+        </a>
+        .
+      </p>
       {error ? <ErrorAlert message={error} /> : null}
       <div className="mb-4 grid gap-4 md:grid-cols-2">
-        <Card title="Filter / balance">
+        <Card title="Client points">
           <Field label="Client">
             <select className={inputClass} value={selectedClient} onChange={(e) => setSelectedClient(e.target.value)}>
               <option value="">All clients</option>
@@ -61,29 +68,29 @@ export default function LoyaltyPage() {
           </Field>
           {balance !== null ? <p className="mt-2 text-lg font-semibold">{balance} points</p> : null}
         </Card>
-        <Card title="Manual adjustment">
+        <Card title="Adjust points">
           <form onSubmit={handlePost} className="grid gap-2">
-            <Field label="Direction">
+            <Field label="Action">
               <select className={inputClass} value={direction} onChange={(e) => setDirection(e.target.value as 'credit' | 'debit')}>
                 <option value="credit">Award</option>
                 <option value="debit">Deduct</option>
               </select>
             </Field>
             <Field label="Points"><input className={inputClass} value={points} onChange={(e) => setPoints(e.target.value)} required /></Field>
-            <Button type="submit" disabled={!selectedClient}>Post entry</Button>
+            <Button type="submit" disabled={!selectedClient}>Save</Button>
           </form>
         </Card>
       </div>
       {loading ? <LoadingState /> : (
-        <Card title="Entries">
+        <Card title="Points history">
           <table className="w-full text-left text-sm">
-            <thead><tr className="border-b text-zinc-500"><th className="py-2">Client</th><th>Type</th><th>Direction</th><th>Points</th></tr></thead>
+            <thead><tr className="border-b text-zinc-500"><th className="py-2">Client</th><th>Type</th><th>Action</th><th>Points</th></tr></thead>
             <tbody>
               {entries.map((e) => (
                 <tr key={e.id} className="border-b border-zinc-100">
                   <td className="py-2">{e.client_name}</td>
                   <td>{e.entry_type}</td>
-                  <td>{e.direction}</td>
+                  <td>{e.direction === 'credit' ? 'Awarded' : 'Deducted'}</td>
                   <td>{e.points}</td>
                 </tr>
               ))}

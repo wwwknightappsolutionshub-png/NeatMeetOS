@@ -24,16 +24,16 @@ export default function LoyaltyRedemptionSettingsPage() {
 
   if (!settings) {
     return (
-      <AdminMembershipsShell title="Loyalty redemption">
+      <AdminMembershipsShell title="Settings">
         <p className="text-sm text-zinc-500">{error ?? 'Loading…'}</p>
       </AdminMembershipsShell>
     );
   }
 
   return (
-    <AdminMembershipsShell title="Loyalty redemption">
+    <AdminMembershipsShell title="Settings">
       {error ? <ErrorAlert message={error} /> : null}
-      <Card title="POS redemption rule">
+      <Card title="How points work at POS">
         <form
           className="grid max-w-md gap-4"
           onSubmit={async (e) => {
@@ -56,7 +56,7 @@ export default function LoyaltyRedemptionSettingsPage() {
               checked={settings.is_loyalty_redemption_enabled}
               onChange={(e) => setSettings({ ...settings, is_loyalty_redemption_enabled: e.target.checked })}
             />
-            Enable loyalty redemption at POS
+            Allow clients to spend loyalty points at POS
           </label>
           <Field label="Points per block">
             <input
@@ -85,7 +85,7 @@ export default function LoyaltyRedemptionSettingsPage() {
           <p className="text-xs text-zinc-500">
             Example: {settings.points_per_redemption_block} points = £{(settings.value_cents_per_block / 100).toFixed(2)}
           </p>
-          <Field label="CRM signup loyalty points">
+          <Field label="Points when a new client joins (CRM signup)">
             <input
               type="number"
               min={0}
