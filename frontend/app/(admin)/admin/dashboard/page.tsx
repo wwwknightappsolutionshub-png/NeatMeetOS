@@ -394,42 +394,6 @@ export default function AdminDashboardPage() {
 
           <DashboardBookingCalendar />
 
-          <div className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            <IndicatorChip
-              label="On board"
-              value={formatNumber(board?.summary.total ?? 0)}
-              tone="zinc"
-              href="/admin/bookings"
-            />
-            <IndicatorChip
-              label="Confirmed"
-              value={formatNumber(board?.summary.by_status.confirmed ?? 0)}
-              tone="emerald"
-              href="/admin/bookings"
-            />
-            <IndicatorChip
-              label="Checked in"
-              value={formatNumber(board?.summary.by_status.checked_in ?? 0)}
-              tone="emerald"
-              href="/admin/bookings"
-            />
-            <IndicatorChip
-              label="Walk-ins"
-              value={formatNumber(board?.summary.walk_ins_waiting ?? 0)}
-              tone={(board?.summary.walk_ins_waiting ?? 0) > 0 ? 'amber' : 'zinc'}
-              href="/admin/bookings/walk-ins"
-            />
-            {attention.map((item) => (
-              <IndicatorChip
-                key={item.label}
-                label={item.label}
-                value={item.value}
-                tone={item.tone === 'red' ? 'red' : item.tone === 'amber' ? 'amber' : 'zinc'}
-                href={item.href}
-              />
-            ))}
-          </div>
-
           {attention.length > 0 ? (
             <AnalyticsSectionCard title="Needs attention">
               <ul className="space-y-2">
@@ -466,7 +430,7 @@ export default function AdminDashboardPage() {
                   ? ` · Updated ${refreshedAt.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}`
                   : ''}
               </p>
-              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 <AnalyticsStatCard
                   label="Appointments"
                   value={formatNumber(overview.bookings.total_appointments)}
@@ -482,33 +446,8 @@ export default function AdminDashboardPage() {
                   value={formatNumber(overview.clients.new_clients_in_period)}
                   hint={`${formatNumber(overview.clients.total_clients)} total clients`}
                 />
-                <AnalyticsStatCard
-                  label="Today on board"
-                  value={formatNumber(board?.summary.total ?? 0)}
-                  hint={`${formatNumber(board?.summary.walk_ins_waiting ?? 0)} walk-ins waiting`}
-                />
               </div>
             </>
-          ) : board ? (
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              <AnalyticsStatCard
-                label="Today on board"
-                value={formatNumber(board.summary.total)}
-                hint={`${formatNumber(board.summary.walk_ins_waiting)} walk-ins waiting`}
-              />
-              <AnalyticsStatCard
-                label="Confirmed"
-                value={formatNumber(board.summary.by_status.confirmed ?? 0)}
-              />
-              <AnalyticsStatCard
-                label="Checked in"
-                value={formatNumber(board.summary.by_status.checked_in ?? 0)}
-              />
-              <AnalyticsStatCard
-                label="Completed"
-                value={formatNumber(board.summary.by_status.completed ?? 0)}
-              />
-            </div>
           ) : null}
 
           <div className="grid gap-4 lg:grid-cols-5">
@@ -549,7 +488,7 @@ export default function AdminDashboardPage() {
                   {attention.length === 0 ? (
                     <p className="text-sm text-zinc-500">Nothing urgent right now.</p>
                   ) : (
-                    <p className="text-sm text-zinc-500">See attention chips above.</p>
+                    <p className="text-sm text-zinc-500">See attention list above.</p>
                   )}
                 </AnalyticsSectionCard>
               )}
@@ -626,39 +565,6 @@ function UpNextBanner({
           </p>
         </div>
       </div>
-    </Link>
-  );
-}
-
-function IndicatorChip({
-  label,
-  value,
-  tone,
-  href,
-}: {
-  label: string;
-  value: string;
-  tone: 'zinc' | 'emerald' | 'amber' | 'red';
-  href: string;
-}) {
-  const toneClass =
-    tone === 'red'
-      ? 'border-red-200 bg-red-50 text-red-900'
-      : tone === 'amber'
-        ? 'border-amber-200 bg-amber-50 text-amber-950'
-        : tone === 'emerald'
-          ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
-          : 'border-zinc-200 bg-white text-zinc-800';
-
-  return (
-    <Link
-      href={href}
-      className={`inline-flex min-w-[7.5rem] shrink-0 flex-col rounded-xl border px-3 py-2 ${toneClass}`}
-    >
-      <span className="text-[10px] font-semibold uppercase tracking-[0.12em] opacity-70">
-        {label}
-      </span>
-      <span className="mt-0.5 text-lg font-semibold tabular-nums leading-none">{value}</span>
     </Link>
   );
 }

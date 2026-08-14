@@ -317,6 +317,7 @@ Route::prefix('v1')->group(function () {
             Route::get('/subscription', [SubscriptionController::class, 'show']);
             Route::get('/subscription/plans', [SubscriptionController::class, 'plans']);
             Route::get('/owner-notices', [TenantOwnerNoticeController::class, 'index']);
+            Route::post('/owner-notices/{id}/read', [TenantOwnerNoticeController::class, 'markRead']);
             Route::get('/platform-referral', [TenantPlatformReferralController::class, 'show']);
             Route::post('/presence/heartbeat', [TenantPresenceController::class, 'heartbeat']);
         });
@@ -336,7 +337,6 @@ Route::prefix('v1')->group(function () {
             Route::put('/team-members/{id}', [TeamMemberController::class, 'update']);
             Route::patch('/team-members/{id}/status', [TeamMemberController::class, 'updateStatus']);
             Route::post('/subscription/change-plan', [SubscriptionController::class, 'changePlan']);
-            Route::post('/owner-notices/{id}/read', [TenantOwnerNoticeController::class, 'markRead']);
             Route::post('/owner-push-subscriptions', [TenantOwnerPushSubscriptionController::class, 'store']);
             Route::delete('/owner-push-subscriptions', [TenantOwnerPushSubscriptionController::class, 'destroy']);
         });

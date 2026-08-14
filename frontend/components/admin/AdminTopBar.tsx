@@ -119,7 +119,7 @@ export function AdminTopBar({ onMenuClick }: AdminTopBarProps = {}) {
 
   return (
     <>
-      <header className="sticky top-0 z-20 flex h-14 items-center gap-1.5 overflow-hidden border-b border-[var(--admin-line)] bg-white/90 px-3 backdrop-blur sm:gap-2 sm:px-6">
+      <header className="sticky top-0 z-30 flex h-14 items-center gap-1.5 border-b border-[var(--admin-line)] bg-white/90 px-3 backdrop-blur sm:gap-2 sm:px-6">
         <div className="flex shrink-0 items-center gap-1.5">
           {onMenuClick ? (
             <button
@@ -219,12 +219,17 @@ export function AdminTopBar({ onMenuClick }: AdminTopBarProps = {}) {
             <button
               type="button"
               onClick={() => {
-                setNotifOpen((v) => !v);
+                setNotifOpen((v) => {
+                  const next = !v;
+                  if (next) void loadShellAndAlerts();
+                  return next;
+                });
                 setProfileOpen(false);
               }}
               className="relative inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--admin-line)] bg-white text-[var(--admin-ink)] hover:bg-[var(--admin-wash)]"
               title="Notifications"
               aria-label="Notifications"
+              aria-expanded={notifOpen}
             >
               <BellIcon />
               {unreadHint > 0 ? (
@@ -234,7 +239,7 @@ export function AdminTopBar({ onMenuClick }: AdminTopBarProps = {}) {
               ) : null}
             </button>
             {notifOpen ? (
-              <div className="absolute right-0 mt-2 w-80 overflow-hidden rounded-xl border border-[var(--admin-line)] bg-white shadow-lg sm:w-96">
+              <div className="absolute right-0 z-50 mt-2 w-[min(22rem,calc(100vw-1.5rem))] overflow-hidden rounded-xl border border-[var(--admin-line)] bg-white shadow-lg sm:w-96">
                 <div className="flex items-center justify-between border-b border-[var(--admin-line)] px-3 py-2">
                   <p className="text-sm font-semibold">Notifications</p>
                   <Link
@@ -246,6 +251,11 @@ export function AdminTopBar({ onMenuClick }: AdminTopBarProps = {}) {
                   </Link>
                 </div>
                 <ul className="max-h-96 overflow-y-auto">
+                  {notices.length === 0 && messages.length === 0 ? (
+                    <li className="px-3 py-6 text-center text-sm text-[var(--admin-muted)]">
+                      No recent notifications
+                    </li>
+                  ) : null}
                   {notices.map((n) => (
                     <li key={n.id} className="border-b border-stone-50 last:border-0">
                       <button
@@ -274,45 +284,29 @@ export function AdminTopBar({ onMenuClick }: AdminTopBarProps = {}) {
                       </button>
                     </li>
                   ))}
-                  {messages.length === 0 && notices.length === 0 ? (
-                    <li className="px-3 py-6 text-center text-sm text-[var(--admin-muted)]">
-                      No recent messages
+                  {messages.map((m) => (
+                    <li key={m.id} className="border-b border-stone-50 last:border-0">
+                      <Link
+                        href={`/admin/notifications/messages/${m.id}`}
+                        className="block px-3 py-2.5 hover:bg-[var(--admin-wash)]"
+                        onClick={() => setNotifOpen(false)}
+                      >
+                        <p className="truncate text-sm font-medium text-[var(--admin-ink)]">
+                          {m.subject || purposeLabel(m.purpose)}
+                        </p>
+                        <p className="truncate text-xs text-[var(--admin-muted)]">
+                          {m.body_text || m.client?.display_name || m.status}
+                        </p>
+                        <p className="mt-0.5 text-[11px] text-stone-400">
+                          {formatDateTime(m.created_at)}
+                        </p>
+                      </Link>
                     </li>
-                  ) : (
-                    messages.map((m) => (
-                      <li key={m.id} className="border-b border-stone-50 last:border-0">
-                        <Link
-                          href={`/admin/notifications/messages/${m.id}`}
-                          className="block px-3 py-2.5 hover:bg-[var(--admin-wash)]"
-                          onClick={() => setNotifOpen(false)}
-                        >
-                          <p className="truncate text-sm font-medium text-[var(--admin-ink)]">
-                            {m.subject || purposeLabel(m.purpose)}
-                          </p>
-                          <p className="truncate text-xs text-[var(--admin-muted)]">
-                            {m.body_text || m.client?.display_name || m.status}
-                          </p>
-                          <p className="mt-0.5 text-[11px] text-stone-400">
-                            {formatDateTime(m.created_at)}
-                          </p>
-                        </Link>
-                      </li>
-                    ))
-                  )}
+                  ))}
                 </ul>
               </div>
             ) : null}
           </div>
-
-          <button
-            type="button"
-            disabled={signingOut}
-            onClick={() => void handleSignOut()}
-            className="inline-flex h-9 shrink-0 items-center justify-center rounded-lg border border-[var(--admin-line)] bg-white px-2 text-xs font-semibold text-[var(--admin-ink)] hover:bg-[var(--admin-wash)] disabled:opacity-50 sm:px-2.5 sm:text-sm"
-            title="Sign out"
-          >
-            {signingOut ? '…' : 'Sign out'}
-          </button>
 
           <div className="relative" ref={profileRef}>
             <button
@@ -332,7 +326,7 @@ export function AdminTopBar({ onMenuClick }: AdminTopBarProps = {}) {
               </span>
             </button>
             {profileOpen ? (
-              <div className="absolute right-0 mt-2 w-56 overflow-hidden rounded-xl border border-[var(--admin-line)] bg-white shadow-lg">
+              <div className="absolute right-0 z-50 mt-2 w-56 overflow-hidden rounded-xl border border-[var(--admin-line)] bg-white shadow-lg">
                 <div className="border-b border-[var(--admin-line)] px-3 py-2">
                   <p className="truncate text-sm font-semibold">{shell?.user?.name ?? 'User'}</p>
                   <p className="truncate text-xs text-[var(--admin-muted)]">{shell?.user?.email}</p>
