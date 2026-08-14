@@ -48,13 +48,13 @@ class SendTenantSignupWelcomeWhatsAppJob implements ShouldQueue
             return;
         }
 
-        self::dispatch(PlatformSignupWhatsAppWelcomeService::TYPE_TRIAL, [
+        self::release(new self(PlatformSignupWhatsAppWelcomeService::TYPE_TRIAL, [
             'name' => $user->name,
             'email' => $user->email,
             'password' => $plainPassword,
             'link' => rtrim((string) config('app.frontend_url'), '/').'/login?tab=signup&email='.urlencode($user->email),
             'phone' => $phone,
-        ]);
+        ]));
     }
 
     public static function dispatchActivation(User $user, Tenant $tenant, string $plainToken): void
@@ -64,14 +64,28 @@ class SendTenantSignupWelcomeWhatsAppJob implements ShouldQueue
             return;
         }
 
-        self::dispatch(PlatformSignupWhatsAppWelcomeService::TYPE_ACTIVATION, [
+        self::release(new self(PlatformSignupWhatsAppWelcomeService::TYPE_ACTIVATION, [
             'name' => $user->name,
             'email' => $user->email,
             'salon' => $tenant->trading_name ?: $tenant->name,
             'link' => rtrim((string) config('app.frontend_url'), '/').'/login?activate='.urlencode($plainToken),
             'phone' => $phone,
             'tenant_id' => $tenant->id,
-        ]);
+        ]));
+    }
+
+    private static function release(self $job): void
+    {
+        if (app()->runningUnitTests()) {
+            dispatch($job);
+
+            return;
+        }
+
+        // Run after the HTTP response so welcome WhatsApp is not blocked if the queue worker is idle.
+        dispatch(function () use ($job) {
+            $job->handle(app(PlatformSignupWhatsAppWelcomeService::class));
+        })->afterResponse();
     }
 
     public function handle(PlatformSignupWhatsAppWelcomeService $welcome): void

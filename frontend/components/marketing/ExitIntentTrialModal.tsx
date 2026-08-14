@@ -34,11 +34,12 @@ export function ExitIntentTrialModal({
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
-  const [website, setWebsite] = useState('');
+  const [hpTrap, setHpTrap] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [tempPassword, setTempPassword] = useState<string | null>(null);
+  const [loginUrl, setLoginUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -47,6 +48,7 @@ export function ExitIntentTrialModal({
       setError(null);
       setMessage(null);
       setTempPassword(null);
+      setLoginUrl(null);
     }
   }, [open, source]);
 
@@ -68,11 +70,12 @@ export function ExitIntentTrialModal({
         name: name.trim(),
         email: email.trim(),
         referral_code: ref,
-        website,
+        hp_trap: hpTrap,
         whatsapp: whatsapp.trim() || undefined,
       });
       setMessage(result.message);
       setTempPassword(result.temporary_password ?? null);
+      setLoginUrl(result.login_url ?? null);
       setStep('done');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not start your trial');
@@ -219,12 +222,13 @@ export function ExitIntentTrialModal({
                   />
                 </label>
                 <label className="absolute left-[-9999px] h-0 w-0 overflow-hidden" aria-hidden>
-                  Website
+                  Company fax
                   <input
                     tabIndex={-1}
                     autoComplete="off"
-                    value={website}
-                    onChange={(e) => setWebsite(e.target.value)}
+                    name="nm_hp_trap"
+                    value={hpTrap}
+                    onChange={(e) => setHpTrap(e.target.value)}
                   />
                 </label>
                 {error ? <p className="text-sm text-red-600">{error}</p> : null}
@@ -271,10 +275,10 @@ export function ExitIntentTrialModal({
               ) : null}
               <div className="mt-6 flex flex-col gap-2 sm:flex-row">
                 <a
-                  href="mailto:"
+                  href={loginUrl || '/login?tab=signup'}
                   className="inline-flex flex-1 items-center justify-center rounded-lg bg-[#2f5a45] px-4 py-2.5 text-sm font-semibold text-white"
                 >
-                  Check email
+                  Continue to signup
                 </a>
                 <Button type="button" variant="secondary" onClick={onClose}>
                   Close

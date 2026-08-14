@@ -55,6 +55,7 @@ export async function captureSignupLead(payload: {
   email: string;
   referral_code?: string | null;
   website?: string;
+  hp_trap?: string;
   whatsapp?: string | null;
 }): Promise<SignupLeadResponse> {
   return api<SignupLeadResponse>('/signup/lead', {
@@ -64,6 +65,7 @@ export async function captureSignupLead(payload: {
       email: payload.email,
       referral_code: payload.referral_code || undefined,
       website: payload.website || '',
+      hp_trap: payload.hp_trap || '',
       whatsapp: payload.whatsapp || undefined,
     }),
     tenant: false,

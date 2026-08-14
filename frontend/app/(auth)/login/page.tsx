@@ -18,6 +18,7 @@ import {
   UPGRADE_TOAST,
 } from '@/components/auth/SignupServiceCatalogue';
 import { PostcodeAddressField } from '@/components/auth/PostcodeAddressField';
+import { ClockTimeField, normalizeClockValue } from '@/components/auth/ClockTimeField';
 import { Toast, useToast } from '@/components/ui/Toast';
 import type {
   SignupForm,
@@ -417,6 +418,8 @@ function LoginAuthPage() {
     try {
       const payload = {
         ...answers,
+        opening_time: normalizeClockValue(answers.opening_time ?? ''),
+        closing_time: normalizeClockValue(answers.closing_time ?? ''),
         ...(referralCode ? { referral_code: referralCode } : {}),
         services: selectedServicesPayload(
           serviceDrafts.filter(
@@ -455,6 +458,8 @@ function LoginAuthPage() {
     try {
       const payload = {
         ...answers,
+        opening_time: normalizeClockValue(answers.opening_time ?? ''),
+        closing_time: normalizeClockValue(answers.closing_time ?? ''),
         ...(referralCode ? { referral_code: referralCode } : {}),
         owner_email: email || answers.owner_email,
         services: selectedServicesPayload(
@@ -877,6 +882,15 @@ function LoginAuthPage() {
                           value={answers[field.key] ?? ''}
                           onChange={(v) => setAnswer(field.key, v)}
                           onSelectAddress={applyAddressSuggestion}
+                        />
+                      ) : field.type === 'time' ? (
+                        <ClockTimeField
+                          key={field.key}
+                          label={fieldLabel(field)}
+                          value={answers[field.key] ?? ''}
+                          onChange={(v) => setAnswer(field.key, v)}
+                          required={field.required}
+                          help={field.help}
                         />
                       ) : (
                         <SignupFieldInput

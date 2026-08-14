@@ -10,6 +10,7 @@ use App\Shared\Support\PublicStorageUrl;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rules\Password;
+use Illuminate\Validation\ValidationException;
 
 class PublicSignupController extends Controller
 {
@@ -67,8 +68,8 @@ class PublicSignupController extends Controller
             'answers.city' => ['required', 'string', 'max:120'],
             'answers.postcode' => ['required', 'string', 'max:40'],
             'answers.country' => ['required', 'string', 'max:8'],
-            'answers.opening_time' => ['required', 'date_format:H:i'],
-            'answers.closing_time' => ['required', 'date_format:H:i', 'after:answers.opening_time'],
+            'answers.opening_time' => ['required', 'string', 'max:12'],
+            'answers.closing_time' => ['required', 'string', 'max:12'],
             'answers.desired_plan_slug' => ['required', 'string', 'in:basic,pro,diamond'],
             'answers.referral_code' => ['nullable', 'string', 'max:32'],
             'answers.services' => ['required', 'array', 'min:1', 'max:4'],
@@ -80,7 +81,19 @@ class PublicSignupController extends Controller
             'answers.services.*.base_price_cents' => ['required', 'integer', 'min:0'],
         ]);
 
-        $result = $this->signup->register($data['answers']);
+        try {
+            $result = $this->signup->register($data['answers']);
+        } catch (ValidationException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('signup.register_failed', [
+                'email' => $data['answers']['owner_email'] ?? null,
+                'exception' => $e::class,
+                'message' => $e->getMessage(),
+                'file' => $e->getFile().':'.$e->getLine(),
+            ]);
+            throw $e;
+        }
 
         return ApiResponse::success([
             'tenant' => [
@@ -101,6 +114,7 @@ class PublicSignupController extends Controller
             'email' => ['required', 'email', 'max:160'],
             'referral_code' => ['nullable', 'string', 'max:32'],
             'website' => ['nullable', 'string', 'max:200'],
+            'hp_trap' => ['nullable', 'string', 'max:200'],
             'whatsapp' => ['nullable', 'string', 'min:8', 'max:40'],
         ]);
 
@@ -129,8 +143,8 @@ class PublicSignupController extends Controller
             'answers.city' => ['required', 'string', 'max:120'],
             'answers.postcode' => ['required', 'string', 'max:40'],
             'answers.country' => ['required', 'string', 'max:8'],
-            'answers.opening_time' => ['required', 'date_format:H:i'],
-            'answers.closing_time' => ['required', 'date_format:H:i', 'after:answers.opening_time'],
+            'answers.opening_time' => ['required', 'string', 'max:12'],
+            'answers.closing_time' => ['required', 'string', 'max:12'],
             'answers.desired_plan_slug' => ['required', 'string', 'in:basic,pro,diamond'],
             'answers.referral_code' => ['nullable', 'string', 'max:32'],
             'answers.services' => ['required', 'array', 'min:1', 'max:4'],

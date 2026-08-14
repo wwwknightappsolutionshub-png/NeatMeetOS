@@ -50,8 +50,10 @@ class TenantSignupService
      */
     public function captureLead(array $data): array
     {
-        // Honeypot — bots fill "website"; pretend success.
-        if (trim((string) ($data['website'] ?? '')) !== '') {
+        // Honeypot — bots fill hidden trap fields; pretend success. Do not use
+        // autofill tokens like "website" (password managers fill those).
+        $honeypot = trim((string) ($data['hp_trap'] ?? $data['website'] ?? ''));
+        if ($honeypot !== '') {
             return [
                 'status' => 'created',
                 'message' => 'Check your email for your temporary password and login link.',
@@ -514,12 +516,13 @@ class TenantSignupService
             ]);
             $ownerRole->permissions()->sync($this->ownerPermissionIds());
 
-            $user = User::factory()->create([
+            $user = new User();
+            $user->forceFill([
                 'name' => trim($payload['owner_first_name'].' '.$payload['owner_last_name']),
                 'email' => $payload['owner_email'],
-                'password' => Hash::make(Str::random(40)),
+                'password' => Str::random(40),
                 'workspace_status' => User::WORKSPACE_COMPLETE,
-            ]);
+            ])->save();
 
             $teamMember = TeamMember::withoutGlobalScopes()->create([
                 'tenant_id' => $tenant->id,
@@ -672,6 +675,14 @@ class TenantSignupService
             $contactEmail = $ownerEmail;
         }
 
+        $opening = $this->normalizeClock((string) ($answers['opening_time'] ?? '09:00'));
+        $closing = $this->normalizeClock((string) ($answers['closing_time'] ?? '18:00'));
+        if ($opening >= $closing) {
+            throw ValidationException::withMessages([
+                'closing_time' => ['Closing time must be after opening time.'],
+            ]);
+        }
+
         return [
             'business_name' => $businessName,
             'trading_name' => trim((string) ($answers['trading_name'] ?? '')),
@@ -688,8 +699,8 @@ class TenantSignupService
             'city' => trim((string) ($answers['city'] ?? '')),
             'postcode' => trim((string) ($answers['postcode'] ?? '')),
             'country' => trim((string) ($answers['country'] ?? 'GB')) ?: 'GB',
-            'opening_time' => $this->normalizeClock((string) ($answers['opening_time'] ?? '09:00')),
-            'closing_time' => $this->normalizeClock((string) ($answers['closing_time'] ?? '18:00')),
+            'opening_time' => $opening,
+            'closing_time' => $closing,
             'desired_plan_slug' => strtolower(trim((string) ($answers['desired_plan_slug'] ?? 'basic'))) ?: 'basic',
             'services' => $this->normalizeServices($answers['services'] ?? []),
             'referral_code' => strtoupper(trim((string) ($answers['referral_code'] ?? ''))),
@@ -699,11 +710,18 @@ class TenantSignupService
     private function normalizeClock(string $raw): string
     {
         $raw = trim($raw);
-        if (preg_match('/^\d{2}:\d{2}$/', $raw)) {
-            return $raw;
+        if (preg_match('/^(\d{1,2}):(\d{2})(?::\d{2})?$/', $raw, $m)) {
+            $hh = min(23, (int) $m[1]);
+            $mm = min(59, (int) $m[2]);
+
+            return sprintf('%02d:%02d', $hh, $mm);
         }
-        if (preg_match('/^\d{2}:\d{2}:\d{2}$/', $raw)) {
-            return substr($raw, 0, 5);
+        $digits = preg_replace('/\D+/', '', $raw) ?? '';
+        if (strlen($digits) >= 4) {
+            $hh = min(23, (int) substr($digits, 0, 2));
+            $mm = min(59, (int) substr($digits, 2, 2));
+
+            return sprintf('%02d:%02d', $hh, $mm);
         }
 
         return '09:00';

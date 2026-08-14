@@ -147,6 +147,10 @@ export function MarketingLanding() {
     setRefCode(resolveReferralCode(searchParams.get('ref')));
   }, [searchParams]);
 
+  const signupHref = `/login?tab=signup${
+    refCode ? `&ref=${encodeURIComponent(refCode)}` : ''
+  }`;
+
   const openTrial = useCallback((source: 'exit' | 'cta') => {
     setModalSource(source);
     setModalOpen(true);
@@ -274,13 +278,12 @@ export function MarketingLanding() {
             >
               Sign in
             </Link>
-            <button
-              type="button"
-              onClick={() => openTrial('cta')}
+            <Link
+              href={signupHref}
               className="rounded-lg bg-[#2f5a45] px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-[#264a39]"
             >
               Start trial
-            </button>
+            </Link>
             <button
               type="button"
               className={[
@@ -346,13 +349,12 @@ export function MarketingLanding() {
             bookings, clients, payments, memberships, and reminders.
           </p>
           <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
-            <button
-              type="button"
-              onClick={() => openTrial('cta')}
+            <Link
+              href={signupHref}
               className="rounded-lg bg-[#2f5a45] px-6 py-3.5 text-sm font-semibold text-white transition hover:bg-[#264a39]"
             >
               Start 30-day free trial
-            </button>
+            </Link>
           </div>
           {refCode ? (
             <p className="mt-6 text-sm text-white/75">
@@ -559,13 +561,12 @@ export function MarketingLanding() {
               Creating Your Workspace — your Basic trial begins when the salon is provisioned.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                onClick={() => openTrial('cta')}
+              <Link
+                href={signupHref}
                 className="rounded-lg bg-white px-6 py-3.5 text-sm font-semibold text-[#2f5a45] transition hover:bg-[#f3f1ec]"
               >
                 Start 30-day free trial
-              </button>
+              </Link>
               <a
                 href="#product"
                 className="rounded-lg border border-white/30 px-5 py-3.5 text-sm font-semibold text-white transition hover:bg-white/10"
@@ -629,13 +630,12 @@ export function MarketingLanding() {
 
       {stickyVisible && !modalOpen ? (
         <div className="fixed inset-x-0 bottom-0 z-30 border-t border-stone-200 bg-[#f3f1ec]/95 p-3 backdrop-blur sm:hidden">
-          <button
-            type="button"
-            onClick={() => openTrial('cta')}
-            className="w-full rounded-lg bg-[#2f5a45] py-3 text-sm font-semibold text-white"
+          <Link
+            href={signupHref}
+            className="w-full rounded-lg bg-[#2f5a45] py-3 text-center text-sm font-semibold text-white"
           >
             Start 30-day free trial
-          </button>
+          </Link>
         </div>
       ) : null}
 
