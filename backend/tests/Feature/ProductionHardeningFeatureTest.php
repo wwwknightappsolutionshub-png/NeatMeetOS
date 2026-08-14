@@ -193,6 +193,19 @@ class ProductionHardeningFeatureTest extends TestCase
             ->assertJsonStructure(['data' => ['vapid_public_key']]);
     }
 
+    public function test_shell_exposes_vapid_public_key(): void
+    {
+        $ctx = $this->seedTenantContext(['identity.view']);
+
+        $key = $this->withTenantAuth($ctx['token'])
+            ->getJson('/api/v1/shell')
+            ->assertOk()
+            ->json('data.vapid_public_key');
+
+        $this->assertIsString($key);
+        $this->assertNotSame('', $key);
+    }
+
     public function test_live_mailgun_http_dispatch_from_notification_path(): void
     {
         Http::fake([

@@ -239,7 +239,7 @@ export function AdminTopBar({ onMenuClick }: AdminTopBarProps = {}) {
               ) : null}
             </button>
             {notifOpen ? (
-              <div className="absolute right-0 z-50 mt-2 w-[min(22rem,calc(100vw-1.5rem))] overflow-hidden rounded-xl border border-[var(--admin-line)] bg-white shadow-lg sm:w-96">
+              <div className="fixed inset-x-3 top-[3.75rem] z-[60] max-h-[min(70dvh,28rem)] overflow-hidden rounded-xl border border-[var(--admin-line)] bg-white shadow-lg sm:absolute sm:inset-x-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-96 sm:max-h-96">
                 <div className="flex items-center justify-between border-b border-[var(--admin-line)] px-3 py-2">
                   <p className="text-sm font-semibold">Notifications</p>
                   <Link
@@ -250,7 +250,7 @@ export function AdminTopBar({ onMenuClick }: AdminTopBarProps = {}) {
                     View all
                   </Link>
                 </div>
-                <ul className="max-h-96 overflow-y-auto">
+                <ul className="max-h-[calc(min(70dvh,28rem)-2.75rem)] overflow-y-auto sm:max-h-[22rem]">
                   {notices.length === 0 && messages.length === 0 ? (
                     <li className="px-3 py-6 text-center text-sm text-[var(--admin-muted)]">
                       No recent notifications
@@ -268,7 +268,7 @@ export function AdminTopBar({ onMenuClick }: AdminTopBarProps = {}) {
                           <img
                             src={n.image_url}
                             alt=""
-                            className="mb-2 h-28 w-full rounded-lg object-cover"
+                            className="mb-2 h-28 w-full max-w-full rounded-lg object-cover"
                           />
                         ) : null}
                         <p className="truncate text-sm font-medium text-[var(--admin-ink)]">
@@ -326,7 +326,7 @@ export function AdminTopBar({ onMenuClick }: AdminTopBarProps = {}) {
               </span>
             </button>
             {profileOpen ? (
-              <div className="absolute right-0 z-50 mt-2 w-56 overflow-hidden rounded-xl border border-[var(--admin-line)] bg-white shadow-lg">
+              <div className="fixed inset-x-3 top-[3.75rem] z-[60] overflow-hidden rounded-xl border border-[var(--admin-line)] bg-white shadow-lg sm:absolute sm:inset-x-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-56">
                 <div className="border-b border-[var(--admin-line)] px-3 py-2">
                   <p className="truncate text-sm font-semibold">{shell?.user?.name ?? 'User'}</p>
                   <p className="truncate text-xs text-[var(--admin-muted)]">{shell?.user?.email}</p>

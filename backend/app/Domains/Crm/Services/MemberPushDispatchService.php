@@ -8,6 +8,7 @@ use App\Shared\Audit\AuditLogger;
 use App\Shared\Tenancy\TenantContext;
 use Illuminate\Support\Facades\Log;
 use Minishlink\WebPush\Subscription;
+use Minishlink\WebPush\VAPID;
 use Minishlink\WebPush\WebPush;
 use Throwable;
 
@@ -23,16 +24,89 @@ class MemberPushDispatchService
 
     public function publicKey(): ?string
     {
-        $key = config('webpush.vapid.public_key');
+        $key = $this->resolvedKeys()['public'];
 
-        return is_string($key) && $key !== '' ? $key : null;
+        return $key !== '' ? $key : null;
     }
 
     public function isConfigured(): bool
     {
-        return $this->publicKey() !== null
-            && is_string(config('webpush.vapid.private_key'))
-            && config('webpush.vapid.private_key') !== '';
+        $keys = $this->resolvedKeys();
+
+        return $keys['public'] !== '' && $keys['private'] !== '';
+    }
+
+    /**
+     * Env keys first; otherwise persist a generated pair under storage so SOS push
+     * works even when VAPID_* was never added to .env / config cache.
+     *
+     * @return array{public: string, private: string}
+     */
+    private function resolvedKeys(): array
+    {
+        $public = config('webpush.vapid.public_key');
+        $private = config('webpush.vapid.private_key');
+        if (is_string($public) && $public !== '' && is_string($private) && $private !== '') {
+            return ['public' => $public, 'private' => $private];
+        }
+
+        $path = storage_path('app/webpush-vapid.json');
+        if (is_file($path)) {
+            $decoded = json_decode((string) file_get_contents($path), true);
+            if (
+                is_array($decoded)
+                && is_string($decoded['publicKey'] ?? null)
+                && $decoded['publicKey'] !== ''
+                && is_string($decoded['privateKey'] ?? null)
+                && $decoded['privateKey'] !== ''
+            ) {
+                return [
+                    'public' => $decoded['publicKey'],
+                    'private' => $decoded['privateKey'],
+                ];
+            }
+        }
+
+        if (app()->environment('testing')) {
+            return [
+                'public' => is_string($public) ? $public : '',
+                'private' => is_string($private) ? $private : '',
+            ];
+        }
+
+        try {
+            $generated = VAPID::createVapidKeys();
+            $dir = dirname($path);
+            if (! is_dir($dir)) {
+                mkdir($dir, 0755, true);
+            }
+            file_put_contents($path, json_encode([
+                'publicKey' => $generated['publicKey'],
+                'privateKey' => $generated['privateKey'],
+            ], JSON_THROW_ON_ERROR));
+
+            return [
+                'public' => $generated['publicKey'],
+                'private' => $generated['privateKey'],
+            ];
+        } catch (Throwable $e) {
+            Log::warning('web_push.vapid_generate_failed', ['message' => $e->getMessage()]);
+
+            return ['public' => '', 'private' => ''];
+        }
+    }
+
+    private function makeWebPush(): WebPush
+    {
+        $keys = $this->resolvedKeys();
+
+        return new WebPush([
+            'VAPID' => [
+                'subject' => config('webpush.vapid.subject') ?: 'mailto:ops@neatmeet.local',
+                'publicKey' => $keys['public'],
+                'privateKey' => $keys['private'],
+            ],
+        ]);
     }
 
     /**
@@ -145,16 +219,5 @@ class MemberPushDispatchService
         }
 
         return ['sent' => $sent, 'failed' => $failed, 'skipped' => 0];
-    }
-
-    private function makeWebPush(): WebPush
-    {
-        return new WebPush([
-            'VAPID' => [
-                'subject' => config('webpush.vapid.subject'),
-                'publicKey' => config('webpush.vapid.public_key'),
-                'privateKey' => config('webpush.vapid.private_key'),
-            ],
-        ]);
     }
 }

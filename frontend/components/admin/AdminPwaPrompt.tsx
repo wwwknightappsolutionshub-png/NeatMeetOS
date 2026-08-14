@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { api } from '@/lib/api-client';
+import { fetchShell } from '@/services/auth.service';
 
 const SNOOZE_KEY = 'nm_admin_pwa_snooze_until';
 const INSTALLED_KEY = 'nm_admin_pwa_installed';
@@ -83,10 +84,27 @@ export function AdminPwaPrompt({ vapidPublicKey }: AdminPwaPromptProps) {
   const [pushStatus, setPushStatus] = useState<'unknown' | 'ready' | 'needs_permission' | 'needs_vapid' | 'unsupported'>('unknown');
   const [pushBusy, setPushBusy] = useState(false);
   const [pushNote, setPushNote] = useState<string | null>(null);
+  const [resolvedVapid, setResolvedVapid] = useState<string | null | undefined>(
+    vapidPublicKey || undefined,
+  );
 
   useEffect(() => {
     void registerAdminServiceWorker();
   }, []);
+
+  useEffect(() => {
+    if (vapidPublicKey) {
+      setResolvedVapid(vapidPublicKey);
+      return;
+    }
+    void fetchShell()
+      .then((shell) => {
+        setResolvedVapid(shell.vapid_public_key ?? null);
+      })
+      .catch(() => {
+        setResolvedVapid((current) => current ?? null);
+      });
+  }, [vapidPublicKey]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -94,7 +112,11 @@ export function AdminPwaPrompt({ vapidPublicKey }: AdminPwaPromptProps) {
       setPushStatus('unsupported');
       return;
     }
-    if (!vapidPublicKey) {
+    if (resolvedVapid === undefined) {
+      setPushStatus('unknown');
+      return;
+    }
+    if (!resolvedVapid) {
       setPushStatus('needs_vapid');
       return;
     }
@@ -111,10 +133,10 @@ export function AdminPwaPrompt({ vapidPublicKey }: AdminPwaPromptProps) {
         setPushStatus('needs_permission');
       }
     })();
-  }, [vapidPublicKey, installed]);
+  }, [resolvedVapid, installed]);
 
   async function enableSosPush() {
-    if (!vapidPublicKey) {
+    if (!resolvedVapid) {
       setPushNote('VAPID keys are not configured on this server.');
       return;
     }
@@ -129,7 +151,7 @@ export function AdminPwaPrompt({ vapidPublicKey }: AdminPwaPromptProps) {
         setPushStatus('needs_permission');
         return;
       }
-      await subscribeOwnerPush(vapidPublicKey);
+      await subscribeOwnerPush(resolvedVapid);
       setPushStatus('ready');
       setPushNote('SOS push alerts enabled for this device.');
     } catch {
@@ -192,14 +214,14 @@ export function AdminPwaPrompt({ vapidPublicKey }: AdminPwaPromptProps) {
         if (Notification.permission === 'default') {
           await Notification.requestPermission();
         }
-        if (Notification.permission === 'granted' && vapidPublicKey) {
-          await subscribeOwnerPush(vapidPublicKey);
+        if (Notification.permission === 'granted' && resolvedVapid) {
+          await subscribeOwnerPush(resolvedVapid);
         }
       } catch {
         // Permission or VAPID may fail locally without keys.
       }
     })();
-  }, [installed, enableNotifications, vapidPublicKey]);
+  }, [installed, enableNotifications, resolvedVapid]);
 
   async function handleInstall() {
     setBusy(true);
@@ -240,7 +262,7 @@ export function AdminPwaPrompt({ vapidPublicKey }: AdminPwaPromptProps) {
 
   if (installed && pushStatus !== 'ready' && pushStatus !== 'unsupported' && pushStatus !== 'unknown') {
     return (
-      <div className="fixed bottom-4 right-4 z-50 max-w-sm rounded-xl border border-red-200 bg-white p-4 shadow-lg">
+      <div className="fixed bottom-4 left-3 right-3 z-50 max-w-sm rounded-xl border border-red-200 bg-white p-4 shadow-lg sm:left-auto sm:right-4">
         <p className="text-sm font-semibold text-stone-900">Enable SOS booking alerts</p>
         <p className="mt-1 text-xs text-stone-500">
           Turn on owner push so new online bookings and 20-minute warnings vibrate this device even
@@ -266,7 +288,7 @@ export function AdminPwaPrompt({ vapidPublicKey }: AdminPwaPromptProps) {
   if (!visible || installed) return null;
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 max-w-sm rounded-xl border border-stone-200 bg-white p-4 shadow-lg">
+    <div className="fixed bottom-4 left-3 right-3 z-50 max-w-sm rounded-xl border border-stone-200 bg-white p-4 shadow-lg sm:left-auto sm:right-4">
       <p className="text-sm font-semibold text-stone-900">Install NeatMeet workspace</p>
       <p className="mt-1 text-xs text-stone-500">
         Add the admin app for faster access, SOS vibration alerts, and platform reminders.
