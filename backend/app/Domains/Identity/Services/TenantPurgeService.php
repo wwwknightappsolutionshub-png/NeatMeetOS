@@ -7,6 +7,7 @@ use App\Domains\Identity\Models\Tenant;
 use App\Domains\Identity\Models\User;
 use App\Shared\Audit\AuditLogger;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
@@ -59,19 +60,51 @@ class TenantPurgeService
             ->values()
             ->all();
 
-        DB::transaction(function () use ($tenantId, $userIds) {
-            $this->wipeTenantScopedRows($tenantId);
-            $this->deleteOrphanedTenantUsers($userIds);
-            Tenant::query()->where('id', $tenantId)->delete();
-        });
+        try {
+            DB::transaction(function () use ($tenantId, $userIds) {
+                $this->wipeTenantScopedRows($tenantId);
+                $this->deleteOrphanedTenantUsers($userIds);
+
+                $deleted = Tenant::query()->where('id', $tenantId)->delete();
+                if ($deleted < 1) {
+                    // Fallback: raw delete (still cascades where FKs allow).
+                    DB::table('tenants')->where('id', $tenantId)->delete();
+                }
+
+                if (Tenant::query()->where('id', $tenantId)->exists()) {
+                    throw ValidationException::withMessages([
+                        'tenant' => ['Tenant row could not be removed. Check database foreign keys.'],
+                    ]);
+                }
+            });
+        } catch (ValidationException $e) {
+            throw $e;
+        } catch (Throwable $e) {
+            Log::error('platform.tenant.purge_failed', [
+                'tenant_id' => $tenantId,
+                'slug' => $slug,
+                'exception' => $e::class,
+                'message' => $e->getMessage(),
+            ]);
+            throw ValidationException::withMessages([
+                'tenant' => ['Permanent delete failed: '.$e->getMessage()],
+            ]);
+        }
 
         $this->bestEffortClearStorage($tenantId);
 
-        $this->auditLogger->log('platform.tenant.purged', null, null, [
-            'tenant_id' => $tenantId,
-            'slug' => $slug,
-            'name' => $name,
-        ], $actor);
+        try {
+            $this->auditLogger->log('platform.tenant.purged', null, null, [
+                'tenant_id' => $tenantId,
+                'slug' => $slug,
+                'name' => $name,
+            ], $actor);
+        } catch (Throwable $e) {
+            Log::warning('platform.tenant.purge_audit_failed', [
+                'tenant_id' => $tenantId,
+                'message' => $e->getMessage(),
+            ]);
+        }
 
         return [
             'purged' => true,
@@ -84,48 +117,84 @@ class TenantPurgeService
     private function wipeTenantScopedRows(string $tenantId): void
     {
         $tables = $this->tablesWithTenantId();
-        $remaining = $tables;
-        $maxPasses = 40;
+        $driver = DB::connection()->getDriverName();
+        $fkDisabled = false;
 
-        while ($remaining !== [] && $maxPasses-- > 0) {
-            $failed = [];
-            foreach ($remaining as $table) {
+        try {
+            if ($driver === 'pgsql') {
                 try {
-                    DB::table($table)->where('tenant_id', $tenantId)->delete();
+                    DB::statement('SET session_replication_role = replica');
+                    $fkDisabled = true;
                 } catch (Throwable) {
-                    $failed[] = $table;
+                    $fkDisabled = false;
                 }
+            } elseif (in_array($driver, ['mysql', 'mariadb'], true)) {
+                DB::statement('SET FOREIGN_KEY_CHECKS=0');
+                $fkDisabled = true;
             }
 
-            if ($failed === []) {
+            if ($fkDisabled) {
+                foreach ($tables as $table) {
+                    DB::table($table)->where('tenant_id', $tenantId)->delete();
+                }
+
                 return;
             }
 
-            if (count($failed) === count($remaining)) {
-                // Still blocked — one more attempt after a short shuffle of order.
-                $remaining = array_reverse($failed);
+            $remaining = $tables;
+            $maxPasses = 40;
+
+            while ($remaining !== [] && $maxPasses-- > 0) {
+                $failed = [];
                 foreach ($remaining as $table) {
                     try {
                         DB::table($table)->where('tenant_id', $tenantId)->delete();
-                    } catch (Throwable $e) {
-                        throw ValidationException::withMessages([
-                            'tenant' => [
-                                'Could not delete all tenant data (blocked on table '.$table.'): '.$e->getMessage(),
-                            ],
-                        ]);
+                    } catch (Throwable) {
+                        $failed[] = $table;
                     }
                 }
 
-                return;
+                if ($failed === []) {
+                    return;
+                }
+
+                if (count($failed) === count($remaining)) {
+                    $remaining = array_reverse($failed);
+                    foreach ($remaining as $table) {
+                        try {
+                            DB::table($table)->where('tenant_id', $tenantId)->delete();
+                        } catch (Throwable $e) {
+                            throw ValidationException::withMessages([
+                                'tenant' => [
+                                    'Could not delete all tenant data (blocked on table '.$table.'): '.$e->getMessage(),
+                                ],
+                            ]);
+                        }
+                    }
+
+                    return;
+                }
+
+                $remaining = $failed;
             }
 
-            $remaining = $failed;
-        }
-
-        if ($remaining !== []) {
-            throw ValidationException::withMessages([
-                'tenant' => ['Could not delete all tenant-scoped rows. Remaining tables: '.implode(', ', $remaining)],
-            ]);
+            if ($remaining !== []) {
+                throw ValidationException::withMessages([
+                    'tenant' => ['Could not delete all tenant-scoped rows. Remaining tables: '.implode(', ', $remaining)],
+                ]);
+            }
+        } finally {
+            if ($fkDisabled) {
+                try {
+                    if ($driver === 'pgsql') {
+                        DB::statement('SET session_replication_role = DEFAULT');
+                    } elseif (in_array($driver, ['mysql', 'mariadb'], true)) {
+                        DB::statement('SET FOREIGN_KEY_CHECKS=1');
+                    }
+                } catch (Throwable) {
+                    // best-effort restore
+                }
+            }
         }
     }
 
@@ -140,6 +209,8 @@ class TenantPurgeService
             if (str_contains($name, '.')) {
                 $name = (string) substr($name, strrpos($name, '.') + 1);
             }
+            // Strip Postgres quoting if present.
+            $name = trim($name, '"');
             if ($name === '' || $name === 'tenants') {
                 continue;
             }
@@ -148,7 +219,6 @@ class TenantPurgeService
             }
         }
 
-        // Prefer wiping leaf-ish tables first by putting common parents later.
         usort($tables, function (string $a, string $b): int {
             $weight = static function (string $table): int {
                 return match (true) {

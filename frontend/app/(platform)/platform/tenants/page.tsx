@@ -98,7 +98,9 @@ export default function PlatformTenantsPage() {
   const [purging, setPurging] = useState(false);
   const [purgeNotice, setPurgeNotice] = useState<string | null>(null);
 
-  const canPurge = profile?.platform_role === 'owner';
+  const canPurge =
+    profile?.platform_role === 'owner' ||
+    (profile?.is_platform_admin === true && !profile?.platform_role);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -165,20 +167,26 @@ export default function PlatformTenantsPage() {
   async function handlePurge(e: FormEvent) {
     e.preventDefault();
     if (!purgeTenant) return;
+    const targetId = purgeTenant.id;
     setPurging(true);
     setError(null);
     setPurgeNotice(null);
     try {
-      const result = await purgePlatformTenant(purgeTenant.id, {
+      const result = await purgePlatformTenant(targetId, {
         confirmation_slug: purgeSlugConfirm.trim(),
         confirm: true,
       });
+      setTenants((prev) => prev.filter((t) => t.id !== targetId));
+      setPurgeTenant(null);
+      setPurgeSlugConfirm('');
       setPurgeNotice(
         `Permanently deleted ${result.name} (${result.slug}) and all related data.`,
       );
-      setPurgeTenant(null);
-      setPurgeSlugConfirm('');
-      await load();
+      try {
+        await load();
+      } catch {
+        // List already updated optimistically — reload failure must not look like purge failure.
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Permanent delete failed');
     } finally {

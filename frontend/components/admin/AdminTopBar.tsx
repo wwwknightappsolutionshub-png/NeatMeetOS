@@ -304,6 +304,16 @@ export function AdminTopBar({ onMenuClick }: AdminTopBarProps = {}) {
             ) : null}
           </div>
 
+          <button
+            type="button"
+            disabled={signingOut}
+            onClick={() => void handleSignOut()}
+            className="inline-flex h-9 shrink-0 items-center justify-center rounded-lg border border-[var(--admin-line)] bg-white px-2 text-xs font-semibold text-[var(--admin-ink)] hover:bg-[var(--admin-wash)] disabled:opacity-50 sm:px-2.5 sm:text-sm"
+            title="Sign out"
+          >
+            {signingOut ? '…' : 'Sign out'}
+          </button>
+
           <div className="relative" ref={profileRef}>
             <button
               type="button"

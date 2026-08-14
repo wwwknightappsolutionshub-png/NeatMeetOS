@@ -9,9 +9,9 @@ import { AdminReferralNudge } from '@/components/admin/AdminReferralNudge';
 import { StaffSosOverlay } from '@/components/admin/StaffSosOverlay';
 import { ModuleUpgradeGate } from '@/components/admin/ModuleUpgradeGate';
 import { NeatMeetLogo } from '@/components/brand/NeatMeetLogo';
-import { api, getStoredTenantSlug, getStoredToken } from '@/lib/api-client';
+import { api, clearStoredSession, getStoredTenantSlug, getStoredToken } from '@/lib/api-client';
 import type { ModuleUpgradePayload, ShellStatus } from '@/lib/types';
-import { fetchShell } from '@/services/auth.service';
+import { fetchShell, logout } from '@/services/auth.service';
 
 interface AdminAppShellProps {
   children: ReactNode;
@@ -275,6 +275,7 @@ export function AdminAppShell({ children }: AdminAppShellProps) {
   const [lockedModules, setLockedModules] = useState<ModuleUpgradePayload[]>([]);
   const [vapidPublicKey, setVapidPublicKey] = useState<string | null>(null);
   const [navOpen, setNavOpen] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
   const routeGroupId = activeNavGroupId(pathname);
   const [openGroupId, setOpenGroupId] = useState<NavGroupId | null>(routeGroupId);
 
@@ -368,6 +369,33 @@ export function AdminAppShell({ children }: AdminAppShellProps) {
     // Accordion: one open section at a time; tap again to collapse.
     setOpenGroupId((current) => (current === id ? null : id));
   }
+
+  async function handleSignOut() {
+    setSigningOut(true);
+    try {
+      await logout();
+    } catch {
+      clearStoredSession();
+    }
+    router.replace('/login');
+  }
+
+  const analyticsLocked = features !== undefined && !featureEnabled(features, 'analytics');
+  const analyticsUpgrade = useMemo(() => {
+    if (!analyticsLocked) return null;
+    return (
+      lockedModules.find((m) => m.module === 'analytics') ?? {
+        module: 'analytics',
+        module_label: 'Analytics',
+        available_on: [
+          { slug: 'pro', name: 'Pro' },
+          { slug: 'diamond', name: 'Diamond' },
+        ],
+        suggested_plan_slug: 'pro',
+        upgrade_href: '/admin/settings/subscription',
+      }
+    );
+  }, [analyticsLocked, lockedModules]);
 
   return (
     <div className="flex min-h-full bg-[linear-gradient(165deg,#f7f5f1_0%,#efebe4_48%,#f3f1ec_100%)] text-[var(--admin-ink)]">
@@ -480,7 +508,51 @@ export function AdminAppShell({ children }: AdminAppShellProps) {
               Book online
             </Link>
           </div>
+
+          {analyticsUpgrade ? (
+            <div className="mt-3 rounded-xl border border-amber-400/30 bg-gradient-to-b from-amber-500/15 to-transparent p-3">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-amber-200/80">
+                Upgrade to unlock
+              </p>
+              <p className="mt-1 text-sm font-semibold text-white">
+                Analytics is ready when you are
+              </p>
+              <p className="mt-1 text-xs leading-relaxed text-white/55">
+                See booking trends, revenue, and performance dashboards. Included on{' '}
+                {analyticsUpgrade.available_on.map((p) => p.name).join(' and ')}.
+              </p>
+              <div className="mt-3 flex flex-col gap-1.5">
+                <Link
+                  href={analyticsUpgrade.upgrade_href || '/admin/settings/subscription'}
+                  onClick={() => setNavOpen(false)}
+                  className="inline-flex items-center justify-center rounded-lg bg-[var(--admin-accent)] px-3 py-2 text-xs font-semibold text-white hover:brightness-110"
+                >
+                  Upgrade to{' '}
+                  {analyticsUpgrade.available_on.find(
+                    (p) => p.slug === analyticsUpgrade.suggested_plan_slug,
+                  )?.name ?? 'Pro'}
+                </Link>
+                <Link
+                  href="/admin/settings/subscription"
+                  onClick={() => setNavOpen(false)}
+                  className="text-center text-xs font-medium text-white/60 underline-offset-2 hover:text-white hover:underline"
+                >
+                  Compare plans
+                </Link>
+              </div>
+            </div>
+          ) : null}
         </nav>
+        <div className="border-t border-white/10 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+          <button
+            type="button"
+            disabled={signingOut}
+            onClick={() => void handleSignOut()}
+            className="flex w-full items-center justify-center rounded-lg border border-white/15 bg-white/5 px-3 py-2.5 text-sm font-semibold text-white hover:bg-white/10 disabled:opacity-50"
+          >
+            {signingOut ? 'Signing out…' : 'Sign out'}
+          </button>
+        </div>
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">
         <AdminTopBar onMenuClick={() => setNavOpen(true)} />

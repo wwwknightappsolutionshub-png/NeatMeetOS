@@ -2,8 +2,8 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { DashboardBookingCalendar } from '@/components/admin/DashboardBookingCalendar';
 import { DashboardTrendChart } from '@/components/admin/DashboardTrendChart';
-import { ModuleUpgradeGate } from '@/components/admin/ModuleUpgradeGate';
 import { AnalyticsSectionCard } from '@/components/admin/analytics/AnalyticsSectionCard';
 import { AnalyticsStatCard } from '@/components/admin/analytics/AnalyticsStatCard';
 import { ErrorAlert, LoadingState } from '@/components/admin/ui';
@@ -16,13 +16,14 @@ import {
   type BookingAnalytics,
 } from '@/lib/analytics-types';
 import type { Appointment, BookingDayBoard, WaitlistEntry } from '@/lib/booking-types';
-import type { ModuleUpgradePayload, ShellStatus } from '@/lib/types';
+import type { ShellStatus } from '@/lib/types';
 import { fetchAnalyticsOverview, fetchBookingAnalytics } from '@/services/analytics.service';
 import { fetchShell } from '@/services/auth.service';
 import { fetchBookingDayBoard, fetchWaitlist } from '@/services/booking.service';
 
 function isoDate(d: Date): string {
-  return d.toISOString().slice(0, 10);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
 function lastNDaysRange(days: number): { from: string; to: string } {
@@ -37,23 +38,6 @@ function formatTime(iso: string): string {
     hour: '2-digit',
     minute: '2-digit',
   });
-}
-
-function statusTone(status: string): string {
-  switch (status) {
-    case 'confirmed':
-    case 'checked_in':
-      return 'bg-emerald-100 text-emerald-800';
-    case 'pending':
-      return 'bg-amber-100 text-amber-900';
-    case 'cancelled':
-    case 'no_show':
-      return 'bg-red-100 text-red-800';
-    case 'completed':
-      return 'bg-zinc-200 text-zinc-700';
-    default:
-      return 'bg-zinc-100 text-zinc-700';
-  }
 }
 
 type Urgency = 'live' | 'imminent' | 'soon' | 'later' | 'done';
@@ -164,9 +148,6 @@ export default function AdminDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
   const [partialErrors, setPartialErrors] = useState<string[]>([]);
-  const [analyticsUpgrade, setAnalyticsUpgrade] = useState<ModuleUpgradePayload | null>(
-    null,
-  );
   const [refreshedAt, setRefreshedAt] = useState<Date | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
 
@@ -187,7 +168,6 @@ export default function AdminDashboardPage() {
     setLoading(true);
     setAuthError(null);
     setPartialErrors([]);
-    setAnalyticsUpgrade(null);
 
     let shellData: ShellStatus;
     try {
@@ -201,9 +181,6 @@ export default function AdminDashboardPage() {
 
     const analyticsOn = Boolean(shellData.features?.analytics);
     if (!analyticsOn) {
-      const hint =
-        shellData.locked_modules?.find((m) => m.module === 'analytics') ?? null;
-      setAnalyticsUpgrade(hint);
       setOverview(null);
       setBookingsAnalytics(null);
     }
@@ -407,21 +384,15 @@ export default function AdminDashboardPage() {
         />
       ) : null}
 
-      {analyticsUpgrade ? (
-        <ModuleUpgradeGate upgrade={analyticsUpgrade} compact />
-      ) : null}
-
       {loading && !overview && !board ? (
         <LoadingState label="Loading operations…" />
       ) : (
         <>
           {focusAppointment ? (
             <UpNextBanner appointment={focusAppointment} nowMs={nowMs} />
-          ) : board ? (
-            <div className="rounded-2xl border border-dashed border-zinc-300 bg-white/70 px-4 py-3 text-sm text-zinc-600">
-              No upcoming bookings on today&apos;s board right now.
-            </div>
           ) : null}
+
+          <DashboardBookingCalendar />
 
           <div className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <IndicatorChip
@@ -458,38 +429,6 @@ export default function AdminDashboardPage() {
               />
             ))}
           </div>
-
-          <AnalyticsSectionCard title="Today’s schedule" href="/admin/bookings">
-            {board ? (
-              <>
-                <div className="mb-3 flex flex-wrap gap-2 text-xs text-zinc-600">
-                  <span className="rounded-md bg-zinc-100 px-2 py-1">
-                    {formatNumber(board.summary.total)} booked
-                  </span>
-                  <span className="rounded-md bg-zinc-100 px-2 py-1">
-                    {formatNumber(board.summary.by_status.confirmed ?? 0)} confirmed
-                  </span>
-                  <span className="rounded-md bg-zinc-100 px-2 py-1">
-                    {formatNumber(board.summary.by_status.checked_in ?? 0)} checked in
-                  </span>
-                  <span className="rounded-md bg-zinc-100 px-2 py-1">
-                    {formatNumber(board.summary.walk_ins_waiting)} waiting walk-ins
-                  </span>
-                </div>
-                {todaysAppointments.length === 0 ? (
-                  <p className="text-sm text-zinc-500">No appointments on the board for today.</p>
-                ) : (
-                  <ul className="space-y-2">
-                    {todaysAppointments.slice(0, 12).map((appt) => (
-                      <ScheduleRow key={appt.id} appointment={appt} nowMs={nowMs} />
-                    ))}
-                  </ul>
-                )}
-              </>
-            ) : (
-              <p className="text-sm text-zinc-500">Day board unavailable.</p>
-            )}
-          </AnalyticsSectionCard>
 
           {attention.length > 0 ? (
             <AnalyticsSectionCard title="Needs attention">
@@ -721,66 +660,6 @@ function IndicatorChip({
       </span>
       <span className="mt-0.5 text-lg font-semibold tabular-nums leading-none">{value}</span>
     </Link>
-  );
-}
-
-function ScheduleRow({
-  appointment,
-  nowMs,
-}: {
-  appointment: Appointment;
-  nowMs: number;
-}) {
-  const urgency = appointmentUrgency(appointment, nowMs);
-  const styles = urgencyStyles(urgency);
-
-  return (
-    <li>
-      <Link
-        href={`/admin/bookings/${appointment.id}`}
-        className={`flex items-start justify-between gap-3 rounded-xl border px-3 py-2.5 transition hover:brightness-[0.99] ${styles.card}`}
-      >
-        <div className="min-w-0">
-          <p className="truncate text-sm font-medium text-zinc-900">
-            {appointment.client?.resolved_display_name ?? 'Client'}
-          </p>
-          <p className="truncate text-xs text-zinc-600">
-            {formatTime(appointment.starts_at)}–{formatTime(appointment.ends_at)}
-            {appointment.team_member?.display_name
-              ? ` · ${appointment.team_member.display_name}`
-              : ''}
-            {appointment.services?.[0]?.service_name
-              ? ` · ${appointment.services[0].service_name}`
-              : ''}
-          </p>
-          <p
-            className={`mt-1 text-xs font-semibold tabular-nums ${
-              urgency === 'live' || urgency === 'imminent'
-                ? 'text-rose-700'
-                : urgency === 'soon'
-                  ? 'text-amber-800'
-                  : 'text-zinc-500'
-            }`}
-          >
-            {formatCountdown(appointment, nowMs)}
-          </p>
-        </div>
-        <div className="flex shrink-0 flex-col items-end gap-1">
-          <span
-            className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${styles.badge} ${
-              urgency === 'live' || urgency === 'imminent' ? 'animate-pulse' : ''
-            }`}
-          >
-            {styles.label}
-          </span>
-          <span
-            className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${statusTone(appointment.status)}`}
-          >
-            {appointment.status.replace('_', ' ')}
-          </span>
-        </div>
-      </Link>
-    </li>
   );
 }
 
