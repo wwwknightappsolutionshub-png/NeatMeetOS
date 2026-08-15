@@ -6,6 +6,7 @@ import { ErrorAlert, Field, inputClass, LoadingState } from '@/components/admin/
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import type { TenantProfile } from '@/lib/identity-types';
+import { SUPPORTED_CURRENCIES } from '@/lib/currency';
 import { fetchOrganization, updateOrganization } from '@/services/identity.service';
 
 export default function AccountSettingsPage() {
@@ -37,6 +38,7 @@ export default function AccountSettingsPage() {
         trading_name: form.trading_name,
         business_type: form.business_type,
         timezone: form.timezone,
+        currency: form.currency,
         contact_email: form.contact_email,
         contact_phone: form.contact_phone,
         status: form.status,
@@ -86,6 +88,22 @@ export default function AccountSettingsPage() {
                 value={form.timezone ?? ''}
                 onChange={(e) => setForm({ ...form, timezone: e.target.value })}
               />
+            </Field>
+            <Field label="Currency">
+              <select
+                className={inputClass}
+                value={form.currency ?? 'GBP'}
+                onChange={(e) => setForm({ ...form, currency: e.target.value })}
+              >
+                {SUPPORTED_CURRENCIES.map((code) => (
+                  <option key={code} value={code}>
+                    {code}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-zinc-500">
+                Used for service prices, deposits, and money display across your salon dashboard.
+              </p>
             </Field>
             <Field label="Contact email">
               <input

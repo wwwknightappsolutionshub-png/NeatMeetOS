@@ -44,6 +44,7 @@ class Tenant extends Model
         'suspension_reason',
         'business_type',
         'timezone',
+        'currency',
         'contact_email',
         'contact_phone',
         'owner_whatsapp',

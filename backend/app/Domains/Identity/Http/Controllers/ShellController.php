@@ -7,7 +7,9 @@ use App\Domains\Identity\Models\TeamMember;
 use App\Domains\Identity\Models\Tenant;
 use App\Domains\Identity\Services\TenantEntitlementService;
 use App\Domains\Identity\Services\TenantSignupService;
+use App\Domains\Staff\Models\StaffAvailabilityRule;
 use App\Shared\Support\ApiResponse;
+use App\Shared\Support\Currency;
 use App\Shared\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -36,12 +38,14 @@ class ShellController extends Controller
                 'id' => $tenant->id,
                 'name' => $tenant->name,
                 'slug' => $tenant->slug,
+                'currency' => Currency::normalize($tenant->currency ?? 'GBP'),
             ] : null,
             'features' => $entitlements->resolveFeatures($tenant instanceof Tenant ? $tenant : null),
             'permissions' => $this->permissionIdsForUser($user?->id, $tenant instanceof Tenant ? $tenant : null),
             'locked_modules' => $entitlements->lockedModuleHints($tenant instanceof Tenant ? $tenant : null),
             'limits' => $entitlements->resolveLimits($tenant instanceof Tenant ? $tenant : null),
             'trial' => $this->trialPayload($tenant instanceof Tenant ? $tenant : null),
+            'onboarding' => $this->onboardingPayload($tenant instanceof Tenant ? $tenant : null),
             'vapid_public_key' => $push->publicKey(),
             'workspace_surfaces' => array_values(array_filter([
                 'admin',
@@ -109,6 +113,29 @@ class ShellController extends Controller
             'total_days' => $totalDays,
             'ends_at' => $trialEnds?->toIso8601String(),
             'label' => "You are on Day {$day} / {$totalDays}",
+        ];
+    }
+
+    /**
+     * @return array{availability_set: bool, staff_path: string}
+     */
+    private function onboardingPayload(?Tenant $tenant): array
+    {
+        if ($tenant === null) {
+            return [
+                'availability_set' => true,
+                'staff_path' => '/admin/staff',
+            ];
+        }
+
+        $hasAvailability = StaffAvailabilityRule::query()
+            ->where('tenant_id', $tenant->id)
+            ->where('is_active', true)
+            ->exists();
+
+        return [
+            'availability_set' => $hasAvailability,
+            'staff_path' => '/admin/staff',
         ];
     }
 }

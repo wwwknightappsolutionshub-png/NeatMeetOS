@@ -51,6 +51,7 @@ export interface TenantSummary {
   id: string;
   name: string;
   slug: string;
+  currency?: string;
 }
 
 export interface LoginResponse {
@@ -81,6 +82,10 @@ export interface ShellStatus {
     total_days: number;
     ends_at: string | null;
     label: string;
+  };
+  onboarding?: {
+    availability_set: boolean;
+    staff_path: string;
   };
   vapid_public_key?: string | null;
 }

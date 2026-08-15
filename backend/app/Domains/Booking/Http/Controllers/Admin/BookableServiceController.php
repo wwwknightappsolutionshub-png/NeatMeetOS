@@ -26,7 +26,7 @@ class BookableServiceController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'category' => ['nullable', 'string', 'max:100'],
             'description' => ['nullable', 'string', 'max:5000'],
-            'image_url' => ['required', 'string', 'max:2048'],
+            'image_url' => ['nullable', 'string', 'max:2048'],
             'duration_minutes' => ['required', 'integer', 'min:5', 'max:480'],
             'base_price_cents' => ['nullable', 'integer', 'min:0'],
             'membership_price_cents' => ['nullable', 'integer', 'min:0'],
@@ -50,9 +50,6 @@ class BookableServiceController extends Controller
         $existing = $this->catalogService->find($id);
 
         $imageRules = ['nullable', 'string', 'max:2048'];
-        if ($existing->image_url === null || $existing->image_url === '') {
-            $imageRules = ['required', 'string', 'max:2048'];
-        }
 
         $data = $request->validate([
             'name' => ['sometimes', 'string', 'max:255'],

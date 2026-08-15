@@ -145,7 +145,7 @@ HTML;
 
     public function sendPasswordReset(User $user, string $plainToken): void
     {
-        $url = $this->frontendUrl('/login?reset='.urlencode($plainToken));
+        $url = $this->frontendResetUrl($plainToken);
         $name = e($user->name);
 
         $html = <<<HTML
@@ -167,6 +167,11 @@ HTML;
             $message->to($user->email, $user->name)
                 ->subject('Reset your NeatMeet OS password');
         });
+    }
+
+    public function frontendResetUrl(string $plainToken): string
+    {
+        return $this->frontendUrl('/login?reset='.urlencode($plainToken));
     }
 
     private function frontendUrl(string $path): string

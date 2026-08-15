@@ -19,6 +19,7 @@ import {
 } from '@/components/auth/SignupServiceCatalogue';
 import { PostcodeAddressField } from '@/components/auth/PostcodeAddressField';
 import { ClockTimeField, normalizeClockValue } from '@/components/auth/ClockTimeField';
+import { SecurePasswordField } from '@/components/auth/SecurePasswordField';
 import { Toast, useToast } from '@/components/ui/Toast';
 import type {
   SignupForm,
@@ -26,6 +27,7 @@ import type {
   SignupPlan,
   SignupServiceDraft,
 } from '@/lib/types';
+import { isPasswordSecure, passwordSecurityMessage } from '@/lib/password-rules';
 import {
   activateAccount,
   consumeMagicLink,
@@ -270,7 +272,9 @@ function LoginAuthPage() {
     setNotice(null);
     try {
       await requestPasswordReset(email);
-      setNotice('If an account exists for that email, a reset link has been sent.');
+      setNotice(
+        'If an account exists for that email, a reset link has been sent by email and WhatsApp when a registered phone number is on file.',
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not send reset link');
     } finally {
@@ -281,6 +285,14 @@ function LoginAuthPage() {
   async function handleActivate(e: FormEvent) {
     e.preventDefault();
     if (!activateToken) return;
+    if (!isPasswordSecure(password)) {
+      setError(passwordSecurityMessage(password) ?? 'Password is not strong enough.');
+      return;
+    }
+    if (password !== passwordConfirm) {
+      setError('Passwords do not match.');
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -296,6 +308,14 @@ function LoginAuthPage() {
   async function handleReset(e: FormEvent) {
     e.preventDefault();
     if (!resetToken) return;
+    if (!isPasswordSecure(password)) {
+      setError(passwordSecurityMessage(password) ?? 'Password is not strong enough.');
+      return;
+    }
+    if (password !== passwordConfirm) {
+      setError('Passwords do not match.');
+      return;
+    }
     setLoading(true);
     setError(null);
     setNotice(null);
@@ -446,8 +466,8 @@ function LoginAuthPage() {
     e.preventDefault();
     setError(null);
     setNotice(null);
-    if (password.length < 8) {
-      setError('Choose a password with at least 8 characters.');
+    if (!isPasswordSecure(password)) {
+      setError(passwordSecurityMessage(password) ?? 'Password is not strong enough.');
       return;
     }
     if (password !== passwordConfirm) {
@@ -566,31 +586,31 @@ function LoginAuthPage() {
 
           {specialMode === 'activate' ? (
             <form onSubmit={handleActivate} className="mt-6 space-y-4">
-              <label className="block text-sm">
-                <span className="font-medium text-stone-700">Password</span>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className={inputClass}
-                  required
-                  minLength={8}
-                  autoComplete="new-password"
-                />
-              </label>
-              <label className="block text-sm">
-                <span className="font-medium text-stone-700">Confirm password</span>
-                <input
-                  type="password"
-                  value={passwordConfirm}
-                  onChange={(e) => setPasswordConfirm(e.target.value)}
-                  className={inputClass}
-                  required
-                  minLength={8}
-                  autoComplete="new-password"
-                />
-              </label>
-              <Button type="submit" disabled={loading} className="w-full !bg-[#2f5a45]">
+              <SecurePasswordField
+                label="Password"
+                value={password}
+                onChange={setPassword}
+                showRules
+                autoComplete="new-password"
+              />
+              <SecurePasswordField
+                label="Confirm password"
+                value={passwordConfirm}
+                onChange={setPasswordConfirm}
+                autoComplete="new-password"
+              />
+              {passwordConfirm.length > 0 && password !== passwordConfirm ? (
+                <p className="text-xs text-red-600">Passwords do not match.</p>
+              ) : null}
+              <Button
+                type="submit"
+                disabled={
+                  loading ||
+                  !isPasswordSecure(password) ||
+                  password !== passwordConfirm
+                }
+                className="w-full !bg-[#2f5a45]"
+              >
                 {loading ? 'Activating…' : 'Activate & continue'}
               </Button>
             </form>
@@ -598,31 +618,31 @@ function LoginAuthPage() {
 
           {specialMode === 'reset' ? (
             <form onSubmit={handleReset} className="mt-6 space-y-4">
-              <label className="block text-sm">
-                <span className="font-medium text-stone-700">New password</span>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className={inputClass}
-                  required
-                  minLength={8}
-                  autoComplete="new-password"
-                />
-              </label>
-              <label className="block text-sm">
-                <span className="font-medium text-stone-700">Confirm password</span>
-                <input
-                  type="password"
-                  value={passwordConfirm}
-                  onChange={(e) => setPasswordConfirm(e.target.value)}
-                  className={inputClass}
-                  required
-                  minLength={8}
-                  autoComplete="new-password"
-                />
-              </label>
-              <Button type="submit" disabled={loading} className="w-full !bg-[#2f5a45]">
+              <SecurePasswordField
+                label="New password"
+                value={password}
+                onChange={setPassword}
+                showRules
+                autoComplete="new-password"
+              />
+              <SecurePasswordField
+                label="Confirm password"
+                value={passwordConfirm}
+                onChange={setPasswordConfirm}
+                autoComplete="new-password"
+              />
+              {passwordConfirm.length > 0 && password !== passwordConfirm ? (
+                <p className="text-xs text-red-600">Passwords do not match.</p>
+              ) : null}
+              <Button
+                type="submit"
+                disabled={
+                  loading ||
+                  !isPasswordSecure(password) ||
+                  password !== passwordConfirm
+                }
+                className="w-full !bg-[#2f5a45]"
+              >
                 {loading ? 'Saving…' : 'Update password'}
               </Button>
             </form>
@@ -792,31 +812,23 @@ function LoginAuthPage() {
                     <span className="font-medium text-stone-700">{email}</span>. Your temporary
                     unlock password stops working as soon as you save.
                   </p>
-                  <label className="block text-sm">
-                    <span className="font-medium text-stone-700">Create new password</span>
-                    <input
-                      type="password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className={inputClass}
-                      required
-                      minLength={8}
-                      autoComplete="new-password"
-                      autoFocus
-                    />
-                  </label>
-                  <label className="block text-sm">
-                    <span className="font-medium text-stone-700">Confirm password</span>
-                    <input
-                      type="password"
-                      value={passwordConfirm}
-                      onChange={(e) => setPasswordConfirm(e.target.value)}
-                      className={inputClass}
-                      required
-                      minLength={8}
-                      autoComplete="new-password"
-                    />
-                  </label>
+                  <SecurePasswordField
+                    label="Create new password"
+                    value={password}
+                    onChange={setPassword}
+                    showRules
+                    autoComplete="new-password"
+                    autoFocus
+                  />
+                  <SecurePasswordField
+                    label="Confirm password"
+                    value={passwordConfirm}
+                    onChange={setPasswordConfirm}
+                    autoComplete="new-password"
+                  />
+                  {passwordConfirm.length > 0 && password !== passwordConfirm ? (
+                    <p className="text-xs text-red-600">Passwords do not match.</p>
+                  ) : null}
                   <div className="flex gap-2 pt-2">
                     <Button
                       type="button"
@@ -833,7 +845,11 @@ function LoginAuthPage() {
                     </Button>
                     <Button
                       type="submit"
-                      disabled={loading}
+                      disabled={
+                        loading ||
+                        !isPasswordSecure(password) ||
+                        password !== passwordConfirm
+                      }
                       className="flex-1 !bg-[#2f5a45]"
                     >
                       {loading ? 'Opening workspace…' : 'Save password & open workspace'}

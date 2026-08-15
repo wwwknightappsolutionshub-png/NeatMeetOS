@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { AdminTopBar } from '@/components/admin/AdminTopBar';
 import { AdminPwaPrompt } from '@/components/admin/AdminPwaPrompt';
 import { AdminReferralNudge } from '@/components/admin/AdminReferralNudge';
+import { AvailabilitySetupModal } from '@/components/admin/AvailabilitySetupModal';
 import { StaffSosOverlay } from '@/components/admin/StaffSosOverlay';
 import { ModuleUpgradeGate } from '@/components/admin/ModuleUpgradeGate';
 import { NeatMeetLogo } from '@/components/brand/NeatMeetLogo';
@@ -276,6 +277,8 @@ export function AdminAppShell({ children }: AdminAppShellProps) {
   const [vapidPublicKey, setVapidPublicKey] = useState<string | null>(null);
   const [navOpen, setNavOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [availabilityModalOpen, setAvailabilityModalOpen] = useState(false);
+  const [staffPath, setStaffPath] = useState('/admin/staff');
   const routeGroupId = activeNavGroupId(pathname);
   const [openGroupId, setOpenGroupId] = useState<NavGroupId | null>(routeGroupId);
 
@@ -291,11 +294,24 @@ export function AdminAppShell({ children }: AdminAppShellProps) {
         setPermissions(shell.permissions ?? []);
         setLockedModules(shell.locked_modules ?? []);
         setVapidPublicKey(shell.vapid_public_key ?? null);
+        const path = shell.onboarding?.staff_path || '/admin/staff';
+        setStaffPath(path);
+        const dismissed =
+          typeof window !== 'undefined' &&
+          sessionStorage.getItem('nm_availability_nudge_dismissed') === '1';
+        if (shell.onboarding && !shell.onboarding.availability_set && !dismissed) {
+          setAvailabilityModalOpen(true);
+        }
       })
       .catch(() => {
         /* keep nav visible if shell fails transiently */
       });
   }, [router]);
+
+  function dismissAvailabilityModal() {
+    sessionStorage.setItem('nm_availability_nudge_dismissed', '1');
+    setAvailabilityModalOpen(false);
+  }
 
   useEffect(() => {
     if (!getStoredToken()) return;
@@ -567,6 +583,11 @@ export function AdminAppShell({ children }: AdminAppShellProps) {
           )}
         </main>
       </div>
+      <AvailabilitySetupModal
+        open={availabilityModalOpen}
+        staffPath={staffPath}
+        onDismiss={dismissAvailabilityModal}
+      />
     </div>
   );
 }

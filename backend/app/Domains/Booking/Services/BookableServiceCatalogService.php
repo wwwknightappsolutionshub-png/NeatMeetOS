@@ -36,18 +36,12 @@ class BookableServiceCatalogService
 
     public function create(array $data): BookableService
     {
-        if (empty($data['image_url'])) {
-            throw ValidationException::withMessages([
-                'image_url' => ['A service image is required.'],
-            ]);
-        }
-
         $service = BookableService::query()->create([
             'tenant_id' => $this->scope->tenantId(),
             'name' => $data['name'],
             'category' => $data['category'] ?? null,
             'description' => $data['description'] ?? null,
-            'image_url' => $data['image_url'],
+            'image_url' => $data['image_url'] ?? null,
             'duration_minutes' => $data['duration_minutes'],
             'base_price_cents' => $data['base_price_cents'] ?? null,
             'membership_price_cents' => $data['membership_price_cents'] ?? null,

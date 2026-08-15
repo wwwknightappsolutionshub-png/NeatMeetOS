@@ -19,6 +19,7 @@ class TenantResource extends JsonResource
             'status' => $this->status,
             'business_type' => $this->business_type,
             'timezone' => $this->timezone,
+            'currency' => $this->currency ?: 'GBP',
             'contact_email' => $this->contact_email,
             'contact_phone' => $this->contact_phone,
             'created_at' => $this->created_at?->toIso8601String(),

@@ -14,6 +14,7 @@ class StaffAuthLinkService
     public function __construct(
         private readonly AuthActionTokenService $tokens,
         private readonly AuthMailService $mail,
+        private readonly AuthWhatsAppService $whatsapp,
         private readonly AuditLogger $audit,
     ) {}
 
@@ -68,6 +69,12 @@ class StaffAuthLinkService
         $tenantId = $user->resolveActiveTeamMember()?->tenant_id;
         $plain = $this->tokens->issue($user, AuthActionToken::PURPOSE_PASSWORD_RESET, $tenantId, 60);
         $this->mail->sendPasswordReset($user, $plain);
+
+        try {
+            $this->whatsapp->sendPasswordReset($user, $plain, $tenantId);
+        } catch (\Throwable) {
+            // WhatsApp must never block email reset delivery.
+        }
     }
 
     public function resetPassword(string $plainToken, string $password): void

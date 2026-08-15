@@ -6,6 +6,7 @@ export interface TenantProfile {
   status: string;
   business_type: string | null;
   timezone: string;
+  currency: string;
   contact_email: string | null;
   contact_phone: string | null;
   created_at: string | null;
