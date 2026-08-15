@@ -44,6 +44,7 @@ class OnlineBookingController extends Controller
                 'primary_location_id' => $p->primary_location_id,
             ])->values(),
             'ai_hairstyle_landing' => (bool) ($catalog['ai_hairstyle_landing'] ?? false),
+            'booking_policy' => $catalog['booking_policy'] ?? null,
         ])->header('Cache-Control', 'public, max-age=30, stale-while-revalidate=300');
     }
 
@@ -115,15 +116,52 @@ class OnlineBookingController extends Controller
             'reason' => ['nullable', 'string', 'max:500'],
         ]);
 
-        $appointment = $this->manage->cancel(
+        $changeRequest = $this->manage->requestCancel(
             $bookingReference,
             $validated['token'],
             $validated['reason'] ?? null,
         );
 
         return ApiResponse::success(
-            new PublicOnlineAppointmentResource($appointment, $this->manage->manageLinks($appointment)),
-            'Appointment cancelled',
+            new \App\Domains\Booking\Http\Resources\BookingChangeRequestResource($changeRequest),
+            'Cancel request submitted',
+            201,
+        );
+    }
+
+    public function showChangeRequest(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'id' => ['required', 'uuid'],
+            'token' => ['required', 'string', 'max:64'],
+        ]);
+
+        $changeRequest = app(\App\Domains\Booking\Services\BookingChangeRequestService::class)
+            ->findByIdAndToken($validated['id'], $validated['token']);
+
+        return ApiResponse::success(
+            new \App\Domains\Booking\Http\Resources\BookingChangeRequestResource($changeRequest),
+        );
+    }
+
+    public function resolveChangeRequest(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'id' => ['required', 'uuid'],
+            'token' => ['required', 'string', 'max:64'],
+            'action' => ['required', 'string', 'in:accept,decline'],
+        ]);
+
+        $service = app(\App\Domains\Booking\Services\BookingChangeRequestService::class);
+        $changeRequest = $service->findByIdAndToken($validated['id'], $validated['token']);
+
+        $result = $validated['action'] === 'accept'
+            ? $service->accept($changeRequest, \App\Domains\Booking\Models\BookingChangeRequest::RESOLVED_VIA_LINK)
+            : $service->decline($changeRequest, \App\Domains\Booking\Models\BookingChangeRequest::RESOLVED_VIA_LINK);
+
+        return ApiResponse::success(
+            new \App\Domains\Booking\Http\Resources\BookingChangeRequestResource($result),
+            $validated['action'] === 'accept' ? 'Request accepted' : 'Request declined',
         );
     }
 }

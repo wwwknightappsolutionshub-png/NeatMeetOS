@@ -39,6 +39,17 @@ export async function createPackageProduct(data: Partial<PackageProduct> & { pri
   return api<PackageProduct>('/admin/memberships/packages', { ...auth, method: 'POST', body: JSON.stringify(data) });
 }
 
+export async function updatePackageProduct(
+  id: string,
+  data: Partial<PackageProduct> & { price_cents?: number; included_quantity?: number },
+): Promise<PackageProduct> {
+  return api<PackageProduct>(`/admin/memberships/packages/${id}`, {
+    ...auth,
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
 export async function archivePackageProduct(id: string): Promise<PackageProduct> {
   return api<PackageProduct>(`/admin/memberships/packages/${id}/archive`, { ...auth, method: 'PATCH' });
 }

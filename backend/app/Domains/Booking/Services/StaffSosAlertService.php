@@ -115,6 +115,49 @@ class StaffSosAlertService
         return $alert;
     }
 
+    public function raiseForChangeRequest(\App\Domains\Booking\Models\BookingChangeRequest $request): StaffSosAlert
+    {
+        $appointment = $request->appointment
+            ?? Appointment::query()->with(['client', 'teamMember', 'location', 'serviceLines'])->find($request->appointment_id);
+
+        $appointment?->loadMissing(['client', 'teamMember', 'location', 'serviceLines']);
+        $when = $appointment?->starts_at?->toDayDateTimeString() ?? 'soon';
+        $client = $appointment?->client?->resolvedDisplayName() ?? 'Client';
+        $ref = $appointment?->booking_reference ?? $appointment?->id ?? 'booking';
+        $feeLine = $request->late_fee_applies
+            ? ' Late cancel fee may apply ('.((int) ($request->late_fee_cents ?? 0)).' cents of deposit).'
+            : ' Free window — decline is not allowed.';
+
+        $alert = StaffSosAlert::query()->create([
+            'tenant_id' => $this->tenantContext->id(),
+            'appointment_id' => $appointment?->id,
+            'kind' => StaffSosAlert::KIND_CHANGE_REQUEST,
+            'status' => StaffSosAlert::STATUS_ACTIVE,
+            'title' => 'SOS · Cancel request',
+            'body' => "{$client} requested cancellation for {$when}. Ref {$ref}.{$feeLine}",
+            'payload_json' => [
+                'appointment_id' => $appointment?->id,
+                'change_request_id' => $request->id,
+                'booking_reference' => $appointment?->booking_reference,
+                'starts_at' => $appointment?->starts_at?->toIso8601String(),
+                'allow_shift' => false,
+                'decline_allowed' => (bool) $request->decline_allowed,
+                'late_fee_applies' => (bool) $request->late_fee_applies,
+                'late_fee_cents' => $request->late_fee_cents,
+                'action_token' => $request->action_token,
+            ],
+        ]);
+
+        $this->dispatchPush($alert);
+        $this->auditLogger->log('staff_sos.raised', $alert, null, [
+            'kind' => $alert->kind,
+            'appointment_id' => $appointment?->id,
+            'change_request_id' => $request->id,
+        ]);
+
+        return $alert;
+    }
+
     public function acknowledge(StaffSosAlert $alert, ?string $teamMemberId = null): StaffSosAlert
     {
         if ($alert->status !== StaffSosAlert::STATUS_ACTIVE) {

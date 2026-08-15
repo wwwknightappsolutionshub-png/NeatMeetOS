@@ -12,6 +12,14 @@ final class NotificationPurpose
 
     public const BOOKING_RESCHEDULE = 'booking_reschedule';
 
+    public const BOOKING_CHANGE_REQUEST = 'booking_change_request';
+
+    public const BOOKING_CHANGE_REQUEST_REMINDER = 'booking_change_request_reminder';
+
+    public const BOOKING_CHANGE_REQUEST_DECLINED = 'booking_change_request_declined';
+
+    public const BOOKING_FREE_WINDOW_REMINDER = 'booking_free_window_reminder';
+
     public const WAITLIST_CONTACT = 'waitlist_contact';
 
     public const PAYMENT_LINK = 'payment_link';
@@ -39,6 +47,10 @@ final class NotificationPurpose
             self::BOOKING_REMINDER,
             self::BOOKING_CANCELLATION,
             self::BOOKING_RESCHEDULE,
+            self::BOOKING_CHANGE_REQUEST,
+            self::BOOKING_CHANGE_REQUEST_REMINDER,
+            self::BOOKING_CHANGE_REQUEST_DECLINED,
+            self::BOOKING_FREE_WINDOW_REMINDER,
             self::WAITLIST_CONTACT,
             self::PAYMENT_LINK,
             self::PAYMENT_REMINDER,
@@ -58,7 +70,8 @@ final class NotificationPurpose
     public static function preferenceCategory(string $purpose): string
     {
         return match ($purpose) {
-            self::BOOKING_CONFIRMATION, self::BOOKING_REMINDER, self::BOOKING_CANCELLATION, self::BOOKING_RESCHEDULE, self::WAITLIST_CONTACT => NotificationPreferenceCategory::BOOKING,
+            self::BOOKING_CONFIRMATION, self::BOOKING_REMINDER, self::BOOKING_CANCELLATION, self::BOOKING_RESCHEDULE, self::WAITLIST_CONTACT,
+            self::BOOKING_CHANGE_REQUEST, self::BOOKING_CHANGE_REQUEST_REMINDER, self::BOOKING_CHANGE_REQUEST_DECLINED, self::BOOKING_FREE_WINDOW_REMINDER => NotificationPreferenceCategory::BOOKING,
             self::PAYMENT_LINK, self::PAYMENT_REMINDER => NotificationPreferenceCategory::PAYMENT,
             self::MEMBERSHIP_RENEWAL_NOTICE, self::MEMBERSHIP_EXPIRY_NOTICE => NotificationPreferenceCategory::MEMBERSHIP,
             self::CRM_JOIN_WELCOME, self::REFERRAL_THANK_YOU, self::REFERRAL_INVITE => NotificationPreferenceCategory::GENERAL,

@@ -16,6 +16,8 @@
 - **Deposit contract (Booking-owned)** ? service `deposit_required` / `deposit_amount_cents`; appointment `deposit_status`, `deposit_required_cents`, `deposit_rule_snapshot`
 - **Package hooks** ? `package_entitlement_id`, `entitlement_source` on appointment service lines (nullable placeholders)
 - **Booking rules scaffolding** ? `min_lead_time_hours`, `cancellation_window_hours` on services; `booking_reference` on appointments
+- **Tenant booking policy** ? `booking_policy_settings` (defaults: 30 min advance notice, 15 min free cancel/postpone, 50% deposit late fee, 2-min approval reminders x3 then auto-accept). Super Admin edits per tenant. Enforced on online slots/book.
+- **Change requests** ? `booking_change_requests` for customer cancel + tenant postpone with Confirm/Decline, SOS actions, multi-channel notify, `booking:dispatch-policy-reminders`
 
 ## Implemented (4C) ? Front desk operations
 

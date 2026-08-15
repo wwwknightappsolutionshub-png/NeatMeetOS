@@ -212,8 +212,36 @@ class Module4OnlineBookingPortalTest extends TestCase
                 'token' => $token,
                 'reason' => 'Plans changed',
             ])
+            ->assertCreated()
+            ->assertJsonPath('data.type', 'cancel')
+            ->assertJsonPath('data.status', 'pending');
+
+        $changeRequestId = null;
+
+        $pending = \App\Domains\Booking\Models\BookingChangeRequest::withoutGlobalScopes()
+            ->where('appointment_id', $created->json('data.id'))
+            ->first();
+        $this->assertNotNull($pending);
+
+        $this->withHeaders(['X-Tenant-Slug' => $ctx['tenant']->slug])
+            ->postJson('/api/v1/book/appointments/'.$reference.'/cancel', [
+                'token' => $token,
+            ])
+            ->assertStatus(422);
+
+        $this->withHeaders(['X-Tenant-Slug' => $ctx['tenant']->slug])
+            ->postJson('/api/v1/book/change-requests/resolve', [
+                'id' => $pending->id,
+                'token' => $pending->action_token,
+                'action' => 'accept',
+            ])
             ->assertOk()
-            ->assertJsonPath('data.status', Appointment::STATUS_CANCELLED);
+            ->assertJsonPath('data.status', 'accepted');
+
+        $this->assertDatabaseHas('appointments', [
+            'id' => $created->json('data.id'),
+            'status' => Appointment::STATUS_CANCELLED,
+        ]);
 
         $this->assertDatabaseHas('notifications_messages', [
             'appointment_id' => $created->json('data.id'),

@@ -262,6 +262,17 @@ export async function cancelAppointment(
   });
 }
 
+export async function proposeAppointmentPostpone(
+  id: string,
+  data: { starts_at: string; team_member_id?: string; workspace_id?: string; reason?: string },
+): Promise<import('@/lib/booking-types').BookingChangeRequest> {
+  return api(`/admin/appointments/${id}/postpone-request`, {
+    ...auth,
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
 export async function updateAppointmentDepositStatus(
   id: string,
   deposit_status: string,

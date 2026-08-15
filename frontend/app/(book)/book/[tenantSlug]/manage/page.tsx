@@ -47,6 +47,7 @@ function ManageBookingInner() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [cancelling, setCancelling] = useState(false);
+  const [cancelRequested, setCancelRequested] = useState(false);
 
   const branding = catalog?.tenant.branding;
   const salonName =
@@ -87,16 +88,22 @@ function ManageBookingInner() {
 
   async function handleCancel() {
     if (!appointment?.booking_reference || !token) return;
-    if (!window.confirm('Cancel this appointment? This cannot be undone online.')) return;
+    if (
+      !window.confirm(
+        'Submit a cancellation request? The salon will confirm it (or it may auto-confirm shortly).',
+      )
+    ) {
+      return;
+    }
     setCancelling(true);
     setError(null);
     try {
-      const updated = await cancelManagedAppointment(
+      await cancelManagedAppointment(
         tenantSlug,
         appointment.booking_reference,
         token,
       );
-      setAppointment(updated);
+      setCancelRequested(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not cancel this booking.');
     } finally {
@@ -106,6 +113,7 @@ function ManageBookingInner() {
 
   const canCancel =
     appointment &&
+    !cancelRequested &&
     !['cancelled', 'completed', 'no_show'].includes(appointment.status) &&
     new Date(appointment.starts_at).getTime() > Date.now();
 
@@ -223,8 +231,14 @@ function ManageBookingInner() {
                   disabled={cancelling}
                   onClick={() => void handleCancel()}
                 >
-                  {cancelling ? 'Cancelling…' : 'Cancel appointment'}
+                  {cancelling ? 'Submitting…' : 'Request cancellation'}
                 </button>
+              ) : null}
+
+              {cancelRequested ? (
+                <p className="mt-6 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                  Cancellation request sent. The salon will confirm shortly (or it may auto-confirm).
+                </p>
               ) : null}
 
               <Link href={`/book/${tenantSlug}`} className={`${secondaryBtnClass()} mt-6 w-full`}>

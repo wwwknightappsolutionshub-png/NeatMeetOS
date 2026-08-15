@@ -3,6 +3,7 @@
 namespace App\Domains\Notifications\Services;
 
 use App\Domains\Booking\Models\Appointment;
+use App\Domains\Booking\Models\BookingChangeRequest;
 use App\Domains\Booking\Models\WaitlistEntry;
 use App\Domains\Crm\Models\Client;
 use App\Domains\Crm\Models\ClientReferralSetting;
@@ -13,6 +14,7 @@ use App\Domains\Notifications\Enums\NotificationPreferenceCategory;
 use App\Domains\Notifications\Enums\NotificationPurpose;
 use App\Domains\Notifications\Enums\NotificationSourceType;
 use App\Domains\Notifications\Models\NotificationMessage;
+use App\Domains\Notifications\Services\PlatformWhatsAppSettingsService;
 use App\Domains\Payments\Models\PaymentTransaction;
 use App\Shared\Tenancy\TenantContext;
 use Carbon\Carbon;
@@ -34,6 +36,7 @@ class NotificationTriggerService
         private readonly NotificationAutomationSettingService $settingService,
         private readonly NotificationPreferenceService $preferences,
         private readonly TenantContext $tenantContext,
+        private readonly PlatformWhatsAppSettingsService $platformWhatsApp,
     ) {}
 
     public function sendBookingConfirmation(Appointment $appointment, array $context = []): ?NotificationMessage
@@ -86,6 +89,240 @@ class NotificationTriggerService
             NotificationCategory::BOOKING,
             $context,
         );
+    }
+
+    public function sendBookingChangeRequestToTenant(BookingChangeRequest $request): ?NotificationMessage
+    {
+        $request->loadMissing(['appointment.client', 'appointment.teamMember', 'appointment.location', 'appointment.serviceLines']);
+        $appointment = $request->appointment;
+        if ($appointment === null) {
+            return null;
+        }
+
+        $links = $this->changeRequestLinks($request);
+        $when = $appointment->starts_at?->toDayDateTimeString() ?? 'soon';
+        $clientName = $appointment->client?->resolvedDisplayName() ?? 'Client';
+        $ref = $appointment->booking_reference ?? $appointment->id;
+        $fee = $request->late_fee_applies
+            ? ' Late cancel fee: '.((int) ($request->late_fee_cents ?? 0)).' cents of deposit.'
+            : ' Free window — please confirm (decline is not allowed).';
+        $body = "Cancel request for {$ref}: {$clientName} at {$when}.{$fee}"
+            ."\nConfirm: {$links['accept_url']}"
+            .($request->decline_allowed ? "\nDecline: {$links['decline_url']}" : '');
+
+        $internal = $this->messageService->createSystemMessage([
+            'client_id' => $appointment->client_id,
+            'appointment_id' => $appointment->id,
+            'source_type' => NotificationSourceType::BOOKING,
+            'purpose' => NotificationPurpose::BOOKING_CHANGE_REQUEST,
+            'channel' => NotificationChannel::INTERNAL_NOTE,
+            'recipient_name' => 'Front desk',
+            'recipient_address' => 'desk@internal',
+            'subject' => "Cancel request {$ref}",
+            'body_text' => $body,
+            'metadata' => [
+                'change_request_id' => $request->id,
+                'accept_url' => $links['accept_url'],
+                'decline_url' => $links['decline_url'],
+                'decline_allowed' => $request->decline_allowed,
+            ],
+        ]);
+
+        $this->notifyTenantChannels(
+            subject: "Cancel request {$ref}",
+            body: $body,
+            appointmentId: $appointment->id,
+            purpose: NotificationPurpose::BOOKING_CHANGE_REQUEST,
+            metadata: [
+                'change_request_id' => $request->id,
+                'accept_url' => $links['accept_url'],
+                'decline_url' => $links['decline_url'],
+            ],
+        );
+
+        return $internal;
+    }
+
+    public function sendBookingChangeRequestToCustomer(BookingChangeRequest $request): ?NotificationMessage
+    {
+        $request->loadMissing(['appointment.client']);
+        $appointment = $request->appointment;
+        if ($appointment === null || $appointment->client_id === null) {
+            return null;
+        }
+
+        $links = $this->changeRequestLinks($request);
+        $when = $appointment->starts_at?->toDayDateTimeString() ?? 'soon';
+        $newWhen = $request->proposed_starts_at?->toDayDateTimeString() ?? 'a new time';
+        $ref = $appointment->booking_reference ?? $appointment->id;
+        $body = "The salon proposed moving your appointment ({$ref}) from {$when} to {$newWhen}."
+            ."\nConfirm: {$links['accept_url']}"
+            ."\nKeep original time: {$links['decline_url']}";
+
+        return $this->fanOutClientChannels($appointment->client, [
+            'source_type' => NotificationSourceType::BOOKING,
+            'purpose' => NotificationPurpose::BOOKING_CHANGE_REQUEST,
+            'category' => NotificationCategory::BOOKING,
+            'appointment_id' => $appointment->id,
+            'context' => [
+                'subject' => "Postpone request ({$ref})",
+                'body_text' => $body,
+                'fallback_subject' => "Postpone request ({$ref})",
+                'fallback_body_text' => $body,
+                'metadata' => [
+                    'change_request_id' => $request->id,
+                    'accept_url' => $links['accept_url'],
+                    'decline_url' => $links['decline_url'],
+                ],
+            ],
+        ]);
+    }
+
+    public function sendBookingChangeRequestReminder(BookingChangeRequest $request): ?NotificationMessage
+    {
+        if ($request->initiated_by === BookingChangeRequest::INITIATED_BY_CUSTOMER) {
+            $request->loadMissing(['appointment']);
+            $appointment = $request->appointment;
+            if ($appointment === null) {
+                return null;
+            }
+            $links = $this->changeRequestLinks($request);
+            $ref = $appointment->booking_reference ?? $appointment->id;
+            $body = "Reminder: cancel request {$ref} still needs a response (reminder {$request->reminder_count})."
+                ."\nConfirm: {$links['accept_url']}"
+                .($request->decline_allowed ? "\nDecline: {$links['decline_url']}" : '');
+
+            $this->notifyTenantChannels(
+                subject: "Reminder: cancel request {$ref}",
+                body: $body,
+                appointmentId: $appointment->id,
+                purpose: NotificationPurpose::BOOKING_CHANGE_REQUEST_REMINDER,
+                metadata: ['change_request_id' => $request->id],
+            );
+
+            return $this->messageService->createSystemMessage([
+                'client_id' => $appointment->client_id,
+                'appointment_id' => $appointment->id,
+                'source_type' => NotificationSourceType::BOOKING,
+                'purpose' => NotificationPurpose::BOOKING_CHANGE_REQUEST_REMINDER,
+                'channel' => NotificationChannel::INTERNAL_NOTE,
+                'recipient_name' => 'Front desk',
+                'recipient_address' => 'desk@internal',
+                'subject' => "Reminder: cancel request {$ref}",
+                'body_text' => $body,
+                'metadata' => ['change_request_id' => $request->id],
+            ]);
+        }
+
+        $request->loadMissing(['appointment.client']);
+        $appointment = $request->appointment;
+        if ($appointment === null || $appointment->client_id === null) {
+            return null;
+        }
+
+        $links = $this->changeRequestLinks($request);
+        $ref = $appointment->booking_reference ?? $appointment->id;
+        $body = "Reminder: please confirm or decline the proposed new time for booking {$ref}."
+            ."\nConfirm: {$links['accept_url']}"
+            ."\nKeep original: {$links['decline_url']}";
+
+        return $this->fanOutClientChannels($appointment->client, [
+            'source_type' => NotificationSourceType::BOOKING,
+            'purpose' => NotificationPurpose::BOOKING_CHANGE_REQUEST_REMINDER,
+            'category' => NotificationCategory::BOOKING,
+            'appointment_id' => $appointment->id,
+            'context' => [
+                'subject' => "Postpone reminder ({$ref})",
+                'body_text' => $body,
+                'fallback_subject' => "Postpone reminder ({$ref})",
+                'fallback_body_text' => $body,
+                'metadata' => ['change_request_id' => $request->id],
+            ],
+        ]);
+    }
+
+    public function sendBookingChangeRequestDeclined(BookingChangeRequest $request): ?NotificationMessage
+    {
+        $request->loadMissing(['appointment.client']);
+        $appointment = $request->appointment;
+        if ($appointment === null) {
+            return null;
+        }
+
+        $ref = $appointment->booking_reference ?? $appointment->id;
+        $when = $appointment->starts_at?->toDayDateTimeString() ?? 'the original time';
+
+        if ($request->initiated_by === BookingChangeRequest::INITIATED_BY_TENANT
+            && $appointment->client_id !== null
+        ) {
+            $body = "Your original appointment time stays: {$when}. Reference {$ref}.";
+
+            return $this->fanOutClientChannels($appointment->client, [
+                'source_type' => NotificationSourceType::BOOKING,
+                'purpose' => NotificationPurpose::BOOKING_CHANGE_REQUEST_DECLINED,
+                'category' => NotificationCategory::BOOKING,
+                'appointment_id' => $appointment->id,
+                'context' => [
+                    'subject' => "Postpone declined ({$ref})",
+                    'body_text' => $body,
+                    'fallback_subject' => "Postpone declined ({$ref})",
+                    'fallback_body_text' => $body,
+                    'metadata' => ['change_request_id' => $request->id],
+                ],
+            ]);
+        }
+
+        if ($request->initiated_by === BookingChangeRequest::INITIATED_BY_CUSTOMER) {
+            $body = "Your cancel request for {$ref} was declined. Appointment remains at {$when}.";
+            if ($appointment->client_id !== null) {
+                return $this->fanOutClientChannels($appointment->client, [
+                    'source_type' => NotificationSourceType::BOOKING,
+                    'purpose' => NotificationPurpose::BOOKING_CHANGE_REQUEST_DECLINED,
+                    'category' => NotificationCategory::BOOKING,
+                    'appointment_id' => $appointment->id,
+                    'context' => [
+                        'subject' => "Cancel declined ({$ref})",
+                        'body_text' => $body,
+                        'fallback_subject' => "Cancel declined ({$ref})",
+                        'fallback_body_text' => $body,
+                        'metadata' => ['change_request_id' => $request->id],
+                    ],
+                ]);
+            }
+        }
+
+        return null;
+    }
+
+    public function sendBookingFreeWindowReminder(Appointment $appointment): ?NotificationMessage
+    {
+        if ($appointment->client_id === null) {
+            return null;
+        }
+
+        $appointment->loadMissing(['client']);
+        $ref = $appointment->booking_reference ?? $appointment->id;
+        $when = $appointment->starts_at?->toDayDateTimeString() ?? 'soon';
+        $manage = $this->manageLinksFor($appointment);
+        $manageLine = $manage['manage_url'] ? " Manage: {$manage['manage_url']}" : '';
+        $body = "Reminder: you have about 10 minutes left to cancel or postpone booking {$ref} (at {$when}) without a late fee.{$manageLine}";
+
+        return $this->fanOutClientChannels($appointment->client, [
+            'source_type' => NotificationSourceType::BOOKING,
+            'purpose' => NotificationPurpose::BOOKING_FREE_WINDOW_REMINDER,
+            'category' => NotificationCategory::BOOKING,
+            'appointment_id' => $appointment->id,
+            'context' => [
+                'subject' => "Free cancel window closing ({$ref})",
+                'body_text' => $body,
+                'fallback_subject' => "Free cancel window closing ({$ref})",
+                'fallback_body_text' => $body,
+                'metadata' => [
+                    'booking_reference' => $appointment->booking_reference,
+                    'manage_url' => $manage['manage_url'],
+                ],
+            ],
+        ], preferWhatsApp: true);
     }
 
     /**
@@ -678,5 +915,108 @@ HTML;
         }
 
         return NotificationChannel::IN_APP;
+    }
+
+    /**
+     * @return array{manage_url: string, accept_url: string, decline_url: string}
+     */
+    private function changeRequestLinks(BookingChangeRequest $request): array
+    {
+        $slug = $this->tenantContext->get()?->slug ?? '';
+        $base = rtrim((string) config('app.frontend_url'), '/');
+        $path = '/book/'.$slug.'/change-request?id='.urlencode($request->id)
+            .'&token='.urlencode($request->action_token);
+
+        return [
+            'manage_url' => $base.$path,
+            'accept_url' => $base.$path.'&action=accept',
+            'decline_url' => $base.$path.'&action=decline',
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $metadata
+     */
+    private function notifyTenantChannels(
+        string $subject,
+        string $body,
+        string $appointmentId,
+        string $purpose,
+        array $metadata = [],
+    ): void {
+        $tenant = $this->tenantContext->get();
+        $supportEmail = trim((string) (($tenant?->getBranding()['support_email'] ?? null) ?: ''));
+
+        if ($supportEmail !== '') {
+            try {
+                $this->messageService->createSystemMessage([
+                    'client_id' => null,
+                    'appointment_id' => $appointmentId,
+                    'source_type' => NotificationSourceType::BOOKING,
+                    'purpose' => $purpose,
+                    'channel' => NotificationChannel::EMAIL,
+                    'recipient_name' => 'Salon desk',
+                    'recipient_address' => $supportEmail,
+                    'subject' => $subject,
+                    'body_text' => $body,
+                    'metadata' => $metadata,
+                ]);
+            } catch (\Throwable $e) {
+                Log::warning('Tenant change-request email failed', ['error' => $e->getMessage()]);
+            }
+        }
+
+        $whatsapp = trim((string) ($tenant?->owner_whatsapp ?? ''));
+        if ($whatsapp !== '' && $this->platformWhatsApp->isGeniusReady()) {
+            try {
+                $this->platformWhatsApp->sendOperational($whatsapp, $body, [
+                    'purpose' => $purpose,
+                    'appointment_id' => $appointmentId,
+                ]);
+            } catch (\Throwable $e) {
+                Log::warning('Tenant change-request WhatsApp failed', ['error' => $e->getMessage()]);
+            }
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $spec
+     */
+    private function fanOutClientChannels(Client $client, array $spec, bool $preferWhatsApp = false): ?NotificationMessage
+    {
+        $channels = [];
+        $phone = trim((string) ($client->phone ?? ''));
+        $email = trim((string) ($client->email ?? ''));
+
+        if ($phone !== '') {
+            $channels[] = NotificationChannel::WHATSAPP;
+        }
+        if ($email !== '') {
+            $channels[] = NotificationChannel::EMAIL;
+        }
+        $channels[] = NotificationChannel::IN_APP;
+
+        if ($preferWhatsApp && $phone !== '') {
+            $channels = array_values(array_unique([
+                NotificationChannel::WHATSAPP,
+                ...$channels,
+            ]));
+        }
+
+        $primary = null;
+        foreach (array_unique($channels) as $channel) {
+            try {
+                $message = $this->createOnChannel($client, $spec, $channel);
+                $primary ??= $message;
+            } catch (\Throwable $e) {
+                Log::warning('Change-request client fan-out failed', [
+                    'channel' => $channel,
+                    'client_id' => $client->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        return $primary;
     }
 }

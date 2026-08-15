@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import {
   acknowledgeStaffSosAlert,
+  acceptBookingChangeRequest,
+  declineBookingChangeRequest,
   fetchActiveStaffSosAlerts,
   shiftStaffSosAppointment,
   type StaffSosAlert,
@@ -153,6 +155,32 @@ export function StaffSosOverlay() {
     }
   };
 
+  const onChangeRequest = async (action: 'accept' | 'decline') => {
+    if (!alert) return;
+    const changeRequestId = String(alert.payload?.change_request_id ?? '');
+    if (!changeRequestId) {
+      setError('Missing change request id on this alert.');
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      if (action === 'accept') {
+        await acceptBookingChangeRequest(changeRequestId);
+      } else {
+        await declineBookingChangeRequest(changeRequestId);
+      }
+      await acknowledgeStaffSosAlert(alert.id);
+      stopVibrate();
+      setAlert(null);
+      await refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not resolve the request.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   if (!alert) return null;
 
   const shifts = (alert.shift_minutes?.length ? alert.shift_minutes : [10, 20, 30, 45]).filter(
@@ -227,6 +255,28 @@ export function StaffSosOverlay() {
                 </Button>
               ))}
             </div>
+          </div>
+        ) : null}
+
+        {alert.kind === 'change_request' ? (
+          <div className="mt-5 flex flex-wrap gap-2">
+            <Button type="button" disabled={busy} onClick={() => void onChangeRequest('accept')}>
+              Confirm cancel
+            </Button>
+            {alert.payload?.decline_allowed ? (
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={busy}
+                onClick={() => void onChangeRequest('decline')}
+              >
+                Decline
+              </Button>
+            ) : (
+              <p className="w-full text-xs text-[var(--admin-muted)]">
+                Free window — decline is not allowed.
+              </p>
+            )}
           </div>
         ) : null}
 

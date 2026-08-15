@@ -1,6 +1,7 @@
 import { api } from '@/lib/api-client';
 import type {
   Appointment,
+  BookingChangeRequest,
   OnlineBookPayload,
   OnlineBookingCatalog,
   OnlineBookingSlot,
@@ -74,11 +75,37 @@ export async function cancelManagedAppointment(
   bookingReference: string,
   token: string,
   reason?: string,
-): Promise<Appointment> {
-  return api<Appointment>(`/book/appointments/${encodeURIComponent(bookingReference)}/cancel`, {
+): Promise<BookingChangeRequest> {
+  return api<BookingChangeRequest>(
+    `/book/appointments/${encodeURIComponent(bookingReference)}/cancel`,
+    {
+      ...publicOpts(tenantSlug, {
+        method: 'POST',
+        body: JSON.stringify({ token, reason }),
+      }),
+    },
+  );
+}
+
+export async function fetchBookingChangeRequest(
+  tenantSlug: string,
+  id: string,
+  token: string,
+): Promise<BookingChangeRequest> {
+  const search = new URLSearchParams({ id, token });
+  return api<BookingChangeRequest>(`/book/change-requests?${search.toString()}`, publicOpts(tenantSlug));
+}
+
+export async function resolveBookingChangeRequest(
+  tenantSlug: string,
+  id: string,
+  token: string,
+  action: 'accept' | 'decline',
+): Promise<BookingChangeRequest> {
+  return api<BookingChangeRequest>('/book/change-requests/resolve', {
     ...publicOpts(tenantSlug, {
       method: 'POST',
-      body: JSON.stringify({ token, reason }),
+      body: JSON.stringify({ id, token, action }),
     }),
   });
 }

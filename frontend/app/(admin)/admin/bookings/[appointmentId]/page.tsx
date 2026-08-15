@@ -16,6 +16,7 @@ import {
   cancelAppointment,
   correctAppointmentStatus,
   fetchAppointment,
+  proposeAppointmentPostpone,
   reassignAppointmentWorkspace,
   rebookAppointment,
   updateAppointment,
@@ -98,6 +99,18 @@ function AppointmentDetailContent() {
       load();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Update failed');
+    }
+  }
+
+  async function handleProposePostpone() {
+    setError(null);
+    try {
+      await proposeAppointmentPostpone(appointmentId, {
+        starts_at: new Date(startsAt).toISOString(),
+      });
+      load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Postpone request failed');
     }
   }
 
@@ -201,7 +214,16 @@ function AppointmentDetailContent() {
               <Field label="Internal notes">
                 <textarea className={inputClass} rows={2} value={internalNotes} onChange={(e) => setInternalNotes(e.target.value)} />
               </Field>
-              <Button type="submit">Save changes</Button>
+              <div className="flex flex-wrap gap-2">
+                <Button type="submit">Save changes</Button>
+                <Button type="button" variant="secondary" onClick={() => void handleProposePostpone()}>
+                  Propose to customer
+                </Button>
+              </div>
+              <p className="text-xs text-[var(--admin-muted)]">
+                “Propose to customer” sends WhatsApp/email/in-app Confirm/Decline (required when ≥15
+                minutes remain). Decline keeps the original time.
+              </p>
             </form>
           </Card>
 

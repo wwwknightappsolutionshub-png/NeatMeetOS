@@ -2,7 +2,7 @@ import { api } from '@/lib/api-client';
 
 const auth = { auth: true as const, tenant: true as const };
 
-export type StaffSosKind = 'new_booking' | 'approaching';
+export type StaffSosKind = 'new_booking' | 'approaching' | 'change_request';
 export type StaffSosStatus = 'active' | 'acknowledged' | 'resolved';
 
 export interface StaffSosAlert {
@@ -48,5 +48,21 @@ export async function shiftStaffSosAppointment(
     ...auth,
     method: 'POST',
     body: JSON.stringify({ minutes }),
+  });
+}
+
+export async function acceptBookingChangeRequest(id: string): Promise<unknown> {
+  return api(`/admin/booking-change-requests/${encodeURIComponent(id)}/accept`, {
+    ...auth,
+    method: 'POST',
+    body: JSON.stringify({}),
+  });
+}
+
+export async function declineBookingChangeRequest(id: string): Promise<unknown> {
+  return api(`/admin/booking-change-requests/${encodeURIComponent(id)}/decline`, {
+    ...auth,
+    method: 'POST',
+    body: JSON.stringify({}),
   });
 }

@@ -289,7 +289,7 @@ export default function BookingServicesPage() {
                   onChange={(e) => setForm({ ...form, deposit_amount: e.target.value })}
                 />
               </Field>
-              <Field label="Min lead time (hours)">
+              <Field label="Service advance notice (hours, optional)">
                 <input
                   type="number"
                   className={inputClass}
@@ -297,7 +297,7 @@ export default function BookingServicesPage() {
                   onChange={(e) => setForm({ ...form, min_lead_time_hours: e.target.value })}
                 />
               </Field>
-              <Field label="Cancellation window (hours)">
+              <Field label="Service cancellation window (hours, optional)">
                 <input
                   type="number"
                   className={inputClass}
@@ -307,6 +307,11 @@ export default function BookingServicesPage() {
                   }
                 />
               </Field>
+              <p className="text-xs text-[var(--admin-muted)] sm:col-span-2">
+                Tenant booking policy (advance notice, free cancel window, late deposit fee) is
+                managed by Super Admin per salon. Defaults: 30 minutes advance notice, 15 minutes
+                free cancel/postpone, 50% deposit late fee.
+              </p>
               <div className="flex gap-2">
                 <Button type="submit" disabled={uploading}>
                   {editingId ? 'Update' : 'Add'}

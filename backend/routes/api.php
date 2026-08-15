@@ -11,9 +11,11 @@ use App\Domains\Booking\Http\Controllers\Admin\AppointmentController;
 use App\Domains\Booking\Http\Controllers\Admin\AppointmentPackageController;
 use App\Domains\Booking\Http\Controllers\Admin\BookableServiceController;
 use App\Domains\Booking\Http\Controllers\Admin\BookingBoardController;
+use App\Domains\Booking\Http\Controllers\Admin\BookingChangeRequestController;
 use App\Domains\Booking\Http\Controllers\Admin\RecurrenceSeriesController;
 use App\Domains\Booking\Http\Controllers\Admin\WaitlistController;
 use App\Domains\Booking\Http\Controllers\Admin\WalkInController;
+use App\Domains\Booking\Http\Controllers\Platform\PlatformBookingPolicyController;
 use App\Domains\Booking\Http\Controllers\PublicBooking\OnlineBookingController;
 use App\Domains\Booking\Http\Controllers\PublicBooking\PublicSalonReviewController;
 use App\Domains\Booking\Http\Controllers\Admin\SalonReviewController;
@@ -153,6 +155,8 @@ Route::prefix('v1')->group(function () {
         Route::post('/appointments', [OnlineBookingController::class, 'book'])->middleware('throttle:public-book-write');
         Route::get('/appointments/{bookingReference}', [OnlineBookingController::class, 'showManaged']);
         Route::post('/appointments/{bookingReference}/cancel', [OnlineBookingController::class, 'cancelManaged'])->middleware('throttle:public-book-write');
+        Route::get('/change-requests', [OnlineBookingController::class, 'showChangeRequest']);
+        Route::post('/change-requests/resolve', [OnlineBookingController::class, 'resolveChangeRequest'])->middleware('throttle:public-book-write');
         Route::get('/reviews', [PublicSalonReviewController::class, 'index']);
         Route::post('/reviews', [PublicSalonReviewController::class, 'store'])->middleware('throttle:public-book-write');
 
@@ -244,6 +248,7 @@ Route::prefix('v1')->group(function () {
 
         Route::get('/modules', [PlatformModuleController::class, 'index']);
         Route::get('/tenants/{id}/modules', [PlatformModuleController::class, 'showTenant']);
+        Route::get('/tenants/{id}/booking-policy', [PlatformBookingPolicyController::class, 'show']);
 
         Route::get('/audit-logs', [PlatformAuditLogController::class, 'index']);
         Route::get('/audit-logs/{id}', [PlatformAuditLogController::class, 'show']);
@@ -271,6 +276,7 @@ Route::prefix('v1')->group(function () {
 
             Route::put('/plans/{id}/modules', [PlatformModuleController::class, 'updatePlan']);
             Route::put('/tenants/{id}/modules', [PlatformModuleController::class, 'updateTenant']);
+            Route::put('/tenants/{id}/booking-policy', [PlatformBookingPolicyController::class, 'update']);
 
             Route::put('/upgrade-campaigns/settings', [PlatformUpgradeCampaignController::class, 'updateSettings']);
             Route::put('/upgrade-campaigns/templates/{id}', [PlatformUpgradeCampaignController::class, 'updateTemplate']);
@@ -432,6 +438,12 @@ Route::prefix('v1')->group(function () {
             Route::patch('/appointments/{id}/workspace', [AppointmentController::class, 'reassignWorkspace']);
             Route::patch('/appointments/{id}/cancel', [AppointmentController::class, 'cancel']);
             Route::patch('/appointments/{id}/deposit-status', [AppointmentController::class, 'updateDepositStatus']);
+            Route::get('/booking-policy', [BookingChangeRequestController::class, 'policy']);
+            Route::get('/booking-change-requests', [BookingChangeRequestController::class, 'index']);
+            Route::get('/booking-change-requests/{id}', [BookingChangeRequestController::class, 'show']);
+            Route::post('/booking-change-requests/{id}/accept', [BookingChangeRequestController::class, 'accept']);
+            Route::post('/booking-change-requests/{id}/decline', [BookingChangeRequestController::class, 'decline']);
+            Route::post('/appointments/{id}/postpone-request', [BookingChangeRequestController::class, 'postpone']);
             Route::post('/appointments/{appointmentId}/service-lines/{serviceLineId}/package-reserve', [AppointmentPackageController::class, 'reservePackage']);
             Route::post('/appointments/{appointmentId}/service-lines/{serviceLineId}/package-release', [AppointmentPackageController::class, 'releasePackage']);
             Route::post('/walk-ins', [WalkInController::class, 'store']);

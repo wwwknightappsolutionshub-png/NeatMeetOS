@@ -148,6 +148,27 @@ export async function fetchTenantModules(
   });
 }
 
+export async function fetchTenantBookingPolicy(
+  tenantId: string,
+): Promise<import('@/lib/booking-types').BookingPolicySummary & { id?: string; tenant_id?: string }> {
+  return api(`/platform/tenants/${tenantId}/booking-policy`, {
+    auth: true,
+    tenant: false,
+  });
+}
+
+export async function updateTenantBookingPolicy(
+  tenantId: string,
+  payload: Partial<import('@/lib/booking-types').BookingPolicySummary>,
+): Promise<import('@/lib/booking-types').BookingPolicySummary & { id?: string; tenant_id?: string }> {
+  return api(`/platform/tenants/${tenantId}/booking-policy`, {
+    method: 'PUT',
+    auth: true,
+    tenant: false,
+    body: JSON.stringify(payload),
+  });
+}
+
 export async function updateTenantModules(
   tenantId: string,
   overrides: Record<string, boolean | null>,

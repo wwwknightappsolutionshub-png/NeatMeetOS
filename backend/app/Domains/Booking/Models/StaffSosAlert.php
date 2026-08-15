@@ -16,6 +16,8 @@ class StaffSosAlert extends Model
 
     public const KIND_APPROACHING = 'approaching';
 
+    public const KIND_CHANGE_REQUEST = 'change_request';
+
     public const STATUS_ACTIVE = 'active';
 
     public const STATUS_ACKNOWLEDGED = 'acknowledged';

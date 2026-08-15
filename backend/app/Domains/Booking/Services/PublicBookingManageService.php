@@ -3,6 +3,7 @@
 namespace App\Domains\Booking\Services;
 
 use App\Domains\Booking\Models\Appointment;
+use App\Domains\Booking\Models\BookingChangeRequest;
 use App\Shared\Tenancy\TenantContext;
 use Illuminate\Validation\ValidationException;
 
@@ -14,6 +15,7 @@ class PublicBookingManageService
     public function __construct(
         private readonly TenantContext $tenantContext,
         private readonly AppointmentBookingService $appointments,
+        private readonly BookingChangeRequestService $changeRequests,
     ) {}
 
     public function findByReferenceAndToken(string $bookingReference, string $token): Appointment
@@ -33,6 +35,16 @@ class PublicBookingManageService
         return $appointment;
     }
 
+    public function requestCancel(string $bookingReference, string $token, ?string $reason = null): BookingChangeRequest
+    {
+        $appointment = $this->findByReferenceAndToken($bookingReference, $token);
+
+        return $this->changeRequests->requestCustomerCancel($appointment, $reason);
+    }
+
+    /**
+     * Immediate cancel kept for internal/legacy callers; public portal uses requestCancel.
+     */
     public function cancel(string $bookingReference, string $token, ?string $reason = null): Appointment
     {
         $appointment = $this->findByReferenceAndToken($bookingReference, $token);

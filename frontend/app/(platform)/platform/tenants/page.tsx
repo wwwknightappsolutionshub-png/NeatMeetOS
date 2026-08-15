@@ -3,6 +3,7 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { ErrorAlert, LoadingState } from '@/components/admin/ui';
 import { TenantModulesPanel } from '@/components/platform/TenantModulesPanel';
+import { TenantBookingPolicyPanel } from '@/components/platform/TenantBookingPolicyPanel';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import type { PlatformTenantRow } from '@/lib/types';
@@ -89,6 +90,7 @@ export default function PlatformTenantsPage() {
   const [modulesTenant, setModulesTenant] = useState<PlatformTenantRow | null>(
     null,
   );
+  const [policyTenant, setPolicyTenant] = useState<PlatformTenantRow | null>(null);
   const [unlockPlanByTenant, setUnlockPlanByTenant] = useState<
     Record<string, 'basic' | 'pro' | 'diamond'>
   >({});
@@ -380,6 +382,13 @@ export default function PlatformTenantsPage() {
                           >
                             Modules
                           </Button>
+                          <Button
+                            type="button"
+                            className="!border !border-white/15 !bg-transparent !px-2.5 !py-1.5 !text-xs !text-stone-100"
+                            onClick={() => setPolicyTenant(t)}
+                          >
+                            Booking policy
+                          </Button>
                           {canPurge ? (
                             <button
                               type="button"
@@ -419,6 +428,14 @@ export default function PlatformTenantsPage() {
           tenantId={modulesTenant.id}
           tenantName={modulesTenant.trading_name || modulesTenant.name}
           onClose={() => setModulesTenant(null)}
+        />
+      ) : null}
+
+      {policyTenant ? (
+        <TenantBookingPolicyPanel
+          tenantId={policyTenant.id}
+          tenantName={policyTenant.trading_name || policyTenant.name}
+          onClose={() => setPolicyTenant(null)}
         />
       ) : null}
 

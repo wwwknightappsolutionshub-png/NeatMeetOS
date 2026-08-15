@@ -37,6 +37,7 @@ class OnlineBookingService
         private readonly TenantEntitlementService $entitlements,
         private readonly StaffSosAlertService $staffSos,
         private readonly NotificationPreferenceService $notificationPreferences,
+        private readonly BookingPolicyService $bookingPolicy,
     ) {}
 
     /**
@@ -90,6 +91,7 @@ class OnlineBookingService
             'services' => $services,
             'providers' => $providersQuery->get(),
             'ai_hairstyle_landing' => $this->entitlements->isEnabled($tenant, 'ai_hairstyle'),
+            'booking_policy' => $this->bookingPolicy->publicSummary(),
         ];
     }
 
@@ -143,6 +145,7 @@ class OnlineBookingService
         $slots = [];
         $dayStart = $day->copy()->startOfDay();
         $dayEnd = $day->copy()->endOfDay();
+        $earliest = $this->bookingPolicy->earliestBookableAt();
 
         foreach ($providers as $provider) {
             $profile = StaffProfile::query()->where('team_member_id', $provider->id)->first();
@@ -202,7 +205,7 @@ class OnlineBookingService
                     $startsAt = $cursor->copy();
                     $endsAt = $cursor->copy()->addMinutes($duration);
 
-                    if ($startsAt->gt(now())) {
+                    if ($startsAt->gte($earliest)) {
                         $blocked = $providerBusy->contains(
                             fn ($appt) => $appt->starts_at < $endsAt && $appt->ends_at > $startsAt
                         ) || $absences->contains(
@@ -261,6 +264,8 @@ class OnlineBookingService
         $client = $this->resolveClient($payload);
         $priced = $this->resolveTierPrice($service, $tier, $payload['member_token'] ?? null, $client);
         $client = $priced['client'];
+
+        $this->bookingPolicy->assertStartsAtMeetsAdvanceNotice(Carbon::parse($payload['starts_at']));
 
         if (filter_var($payload['whatsapp_opt_in'] ?? false, FILTER_VALIDATE_BOOLEAN)
             && filled(trim((string) ($client->phone ?? $payload['phone'] ?? '')))

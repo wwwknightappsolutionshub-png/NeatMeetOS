@@ -207,6 +207,44 @@ export interface OnlineBookingCatalog {
   providers: OnlineBookingProvider[];
   /** When true, show AI look landing gate before the booking flow. */
   ai_hairstyle_landing?: boolean;
+  booking_policy?: BookingPolicySummary | null;
+}
+
+export interface BookingPolicySummary {
+  min_advance_notice_minutes: number;
+  free_change_window_minutes: number;
+  late_cancel_fee_percent: number;
+  free_window_reminder_lead_minutes: number;
+  approval_reminder_interval_minutes: number;
+  approval_reminder_max_count: number;
+}
+
+export interface BookingChangeRequest {
+  id: string;
+  appointment_id: string;
+  type: 'cancel' | 'postpone';
+  initiated_by: 'customer' | 'tenant';
+  status: 'pending' | 'accepted' | 'declined' | 'auto_accepted';
+  decline_allowed: boolean;
+  late_fee_applies: boolean;
+  late_fee_cents: number | null;
+  proposed_starts_at: string | null;
+  reason: string | null;
+  reminder_count: number;
+  action_links?: {
+    manage_path: string;
+    manage_url: string;
+    accept_url: string;
+    decline_url: string;
+  } | null;
+  appointment?: {
+    id: string;
+    booking_reference: string | null;
+    status: string;
+    starts_at: string | null;
+    ends_at: string | null;
+    client?: { id: string; display_name: string; phone: string | null } | null;
+  } | null;
 }
 
 export interface OnlineBookingSlot {
