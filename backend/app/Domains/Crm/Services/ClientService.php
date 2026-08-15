@@ -12,6 +12,7 @@ use App\Domains\Marketing\Services\MarketingAutomationTriggerService;
 use App\Domains\Marketing\Services\MarketingWelcomeAutomationService;
 use App\Domains\Memberships\Enums\ClientMembershipStatus;
 use App\Shared\Audit\AuditLogger;
+use App\Shared\Support\PhoneNormalizer;
 use App\Shared\Tenancy\TenantContext;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Validation\ValidationException;
@@ -100,10 +101,14 @@ class ClientService
         $tenantId = $this->requireTenantId();
         $this->validateLocation($data['primary_location_id'] ?? null, $tenantId);
         $this->validateTeamMember($data['preferred_team_member_id'] ?? null, $tenantId);
+        $this->assertUniquePhone($data['phone'] ?? null);
 
         $data['tenant_id'] = $tenantId;
         $data['is_active'] = $data['is_active'] ?? true;
         $data['display_name'] = $data['display_name'] ?? null;
+        $data['first_name'] = $this->nullableTrimmedString($data['first_name'] ?? null);
+        $data['last_name'] = $this->nullableTrimmedString($data['last_name'] ?? null);
+        $data['phone'] = PhoneNormalizer::normalize($data['phone'] ?? null) ?: null;
 
         $client = Client::query()->create($data);
 
@@ -154,6 +159,17 @@ class ClientService
 
         if (array_key_exists('preferred_team_member_id', $data)) {
             $this->validateTeamMember($data['preferred_team_member_id'], $client->tenant_id);
+        }
+
+        if (array_key_exists('first_name', $data)) {
+            $data['first_name'] = $this->nullableTrimmedString($data['first_name']);
+        }
+        if (array_key_exists('last_name', $data)) {
+            $data['last_name'] = $this->nullableTrimmedString($data['last_name']);
+        }
+        if (array_key_exists('phone', $data)) {
+            $this->assertUniquePhone($data['phone'], $client->id);
+            $data['phone'] = PhoneNormalizer::normalize($data['phone']) ?: null;
         }
 
         $preferenceFields = array_intersect_key($data, array_flip(['preferences', 'loyalty_display_status', 'internal_flags']));
@@ -240,6 +256,38 @@ class ClientService
                 'primary_location_id' => ['Location does not belong to this tenant.'],
             ]);
         }
+    }
+
+    private function assertUniquePhone(?string $phone, ?string $exceptClientId = null): void
+    {
+        if (! PhoneNormalizer::isValid($phone)) {
+            throw ValidationException::withMessages([
+                'phone' => ['A valid phone number is required.'],
+            ]);
+        }
+
+        $normalized = PhoneNormalizer::normalize($phone);
+        $query = Client::query()->where('phone_normalized', $normalized);
+        if ($exceptClientId !== null) {
+            $query->where('id', '!=', $exceptClientId);
+        }
+
+        if ($query->exists()) {
+            throw ValidationException::withMessages([
+                'phone' => ['A client with this phone number already exists.'],
+            ]);
+        }
+    }
+
+    private function nullableTrimmedString(mixed $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $trimmed = trim((string) $value);
+
+        return $trimmed === '' ? null : $trimmed;
     }
 
     private function assertTenantClient(Client $client): void

@@ -104,19 +104,19 @@ class PublicAiHairstyleController extends Controller
 
         $validated = $request->validate([
             'public_token' => ['required', 'string', 'max:64'],
-            'first_name' => ['required', 'string', 'max:100'],
-            'last_name' => ['required', 'string', 'max:100'],
-            'email' => ['required', 'email', 'max:255'],
-            'phone' => ['nullable', 'string', 'max:40'],
+            'first_name' => ['nullable', 'string', 'max:100'],
+            'last_name' => ['nullable', 'string', 'max:100'],
+            'email' => ['nullable', 'email', 'max:255'],
+            'phone' => ['required', 'string', 'min:7', 'max:40'],
             'notes' => ['nullable', 'string', 'max:2000'],
         ]);
 
         try {
             $session = $this->flow->submit($id, $validated['public_token'], [
-                'first_name' => $validated['first_name'],
-                'last_name' => $validated['last_name'],
-                'email' => $validated['email'],
-                'phone' => $validated['phone'] ?? null,
+                'first_name' => $validated['first_name'] ?? null,
+                'last_name' => $validated['last_name'] ?? null,
+                'email' => $validated['email'] ?? null,
+                'phone' => $validated['phone'],
                 'notes' => $validated['notes'] ?? null,
             ]);
         } catch (ValidationException $e) {

@@ -13,6 +13,7 @@ use App\Domains\Crm\Services\ClientNoticeService;
 use App\Domains\Crm\Services\ClientService;
 use App\Domains\Crm\Services\ClientTimelineService;
 use App\Domains\Identity\Services\TenantEntitlementService;
+use App\Shared\Support\PhoneNormalizer;
 use App\Shared\Support\PublicStorageUrl;
 use App\Shared\Tenancy\TenantContext;
 use Illuminate\Database\Eloquent\Collection;
@@ -257,26 +258,32 @@ class AdminAiHairstyleService
         $contact = is_array($session->metadata['contact'] ?? null)
             ? $session->metadata['contact']
             : [];
-        $email = strtolower(trim((string) ($contact['email'] ?? '')));
-        if ($email === '') {
+        $phone = PhoneNormalizer::normalize($contact['phone'] ?? null);
+        if (! PhoneNormalizer::isValid($phone)) {
             throw ValidationException::withMessages([
-                'client' => ['This look has no customer contact to notify.'],
+                'client' => ['This look has no customer phone number to notify.'],
             ]);
         }
 
+        $email = isset($contact['email']) && filled($contact['email'])
+            ? strtolower(trim((string) $contact['email']))
+            : null;
+        $firstName = isset($contact['first_name']) ? trim((string) $contact['first_name']) : '';
+        $lastName = isset($contact['last_name']) ? trim((string) $contact['last_name']) : '';
+
         $existing = Client::query()
-            ->where('email', $email)
+            ->where('phone_normalized', $phone)
             ->first();
         if ($existing !== null) {
             return $existing;
         }
 
         return $this->clients->create([
-            'first_name' => $contact['first_name'] ?? 'Guest',
-            'last_name' => $contact['last_name'] ?? 'Client',
+            'first_name' => $firstName !== '' ? $firstName : null,
+            'last_name' => $lastName !== '' ? $lastName : null,
             'email' => $email,
-            'phone' => $contact['phone'] ?? null,
-            'display_name' => trim(($contact['first_name'] ?? '').' '.($contact['last_name'] ?? '')) ?: null,
+            'phone' => $phone,
+            'display_name' => trim($firstName.' '.$lastName) ?: null,
         ], ['skip_automations' => true]);
     }
 

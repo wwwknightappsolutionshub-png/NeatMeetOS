@@ -7,6 +7,7 @@ use App\Domains\Crm\Models\ClientConsentRecord;
 use App\Domains\Identity\Models\Tenant;
 use App\Domains\Identity\Services\ProgressiveModuleAccessService;
 use App\Shared\Audit\AuditLogger;
+use App\Shared\Support\PhoneNormalizer;
 use App\Shared\Tenancy\TenantContext;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -129,20 +130,29 @@ class ClientCsvImportService
                     $skippedInvalid++;
                     $errors[] = [
                         'row' => $rowNumber,
-                        'reason' => 'Missing name and contact details (need a name plus phone or email).',
+                        'reason' => 'Missing phone number (phone is required; name is optional).',
                     ];
                     continue;
                 }
 
                 $emailKey = $payload['email'] !== null ? strtolower($payload['email']) : null;
-                $phoneKey = $payload['phone'] !== null ? $this->normalizePhone($payload['phone']) : null;
+                $phoneKey = $payload['phone'] !== null ? PhoneNormalizer::normalize($payload['phone']) : null;
+
+                if ($phoneKey === null || $phoneKey === '') {
+                    $skippedInvalid++;
+                    $errors[] = [
+                        'row' => $rowNumber,
+                        'reason' => 'Phone number is required.',
+                    ];
+                    continue;
+                }
 
                 if ($emailKey !== null && (isset($lookups['emails'][$emailKey]) || isset($seenEmails[$emailKey]))) {
                     $skippedDuplicates++;
                     continue;
                 }
 
-                if ($phoneKey !== null && $phoneKey !== '' && (isset($lookups['phones'][$phoneKey]) || isset($seenPhones[$phoneKey]))) {
+                if (isset($lookups['phones'][$phoneKey]) || isset($seenPhones[$phoneKey])) {
                     $skippedDuplicates++;
                     continue;
                 }
@@ -152,7 +162,7 @@ class ClientCsvImportService
                         'first_name' => $payload['first_name'],
                         'last_name' => $payload['last_name'],
                         'email' => $payload['email'],
-                        'phone' => $phoneKey !== null && $phoneKey !== '' ? $phoneKey : null,
+                        'phone' => $phoneKey,
                     ], ['skip_automations' => true]);
 
                     $this->recordImportConsents(
@@ -169,10 +179,8 @@ class ClientCsvImportService
                         $seenEmails[$emailKey] = true;
                         $lookups['emails'][$emailKey] = $client->id;
                     }
-                    if ($phoneKey !== null && $phoneKey !== '') {
-                        $seenPhones[$phoneKey] = true;
-                        $lookups['phones'][$phoneKey] = $client->id;
-                    }
+                    $seenPhones[$phoneKey] = true;
+                    $lookups['phones'][$phoneKey] = $client->id;
                 } catch (\Throwable $e) {
                     $skippedInvalid++;
                     $errors[] = [
@@ -390,18 +398,11 @@ class ClientCsvImportService
             }
         }
 
-        $hasName = filled($mapping['first_name'] ?? null) || filled($mapping['name'] ?? null);
-        $hasContact = filled($mapping['email'] ?? null) || filled($mapping['phone'] ?? null);
+        $hasPhone = filled($mapping['phone'] ?? null);
 
-        if (! $hasName) {
+        if (! $hasPhone) {
             throw ValidationException::withMessages([
-                'mapping' => ['Map a first name or full name column.'],
-            ]);
-        }
-
-        if (! $hasContact) {
-            throw ValidationException::withMessages([
-                'mapping' => ['Map a phone or email column.'],
+                'mapping' => ['Map a phone column. Phone is the primary client identifier.'],
             ]);
         }
     }
@@ -409,7 +410,7 @@ class ClientCsvImportService
     /**
      * @param  array<string, string>  $row
      * @param  array<string, string|null>  $mapping
-     * @return array{first_name: string, last_name: string|null, email: string|null, phone: string|null}|null
+     * @return array{first_name: string|null, last_name: string|null, email: string|null, phone: string|null}|null
      */
     private function mapRow(array $row, array $mapping): ?array
     {
@@ -440,22 +441,18 @@ class ClientCsvImportService
 
         $phone = null;
         if ($phoneRaw !== null && $phoneRaw !== '') {
-            $phone = $this->normalizePhone($phoneRaw);
-            if ($phone === '' || strlen(preg_replace('/\D/', '', $phone) ?? '') < 7) {
+            $phone = PhoneNormalizer::normalize($phoneRaw);
+            if (! PhoneNormalizer::isValid($phone)) {
                 return null;
             }
         }
 
-        if ($first === '') {
-            return null;
-        }
-
-        if ($email === null && ($phone === null || $phone === '')) {
+        if ($phone === null || $phone === '') {
             return null;
         }
 
         return [
-            'first_name' => mb_substr($first, 0, 255),
+            'first_name' => $first !== '' ? mb_substr($first, 0, 255) : null,
             'last_name' => $last !== null ? mb_substr($last, 0, 255) : null,
             'email' => $email,
             'phone' => $phone,
@@ -491,7 +488,7 @@ class ClientCsvImportService
                 $emails[strtolower((string) $client->email)] = $client->id;
             }
             if (filled($client->phone)) {
-                $normalized = $this->normalizePhone((string) $client->phone);
+                $normalized = PhoneNormalizer::normalize((string) $client->phone);
                 if ($normalized !== '') {
                     $phones[$normalized] = $client->id;
                 }
@@ -525,17 +522,6 @@ class ClientCsvImportService
                 'metadata' => ['via' => 'csv_import'],
             ]);
         }
-    }
-
-    private function normalizePhone(string $raw): string
-    {
-        $trimmed = trim($raw);
-        $digits = preg_replace('/[^\d+]/', '', $trimmed) ?? '';
-        if (str_starts_with($digits, '00')) {
-            $digits = '+'.substr($digits, 2);
-        }
-
-        return $digits;
     }
 
     private function requireTenantId(): string

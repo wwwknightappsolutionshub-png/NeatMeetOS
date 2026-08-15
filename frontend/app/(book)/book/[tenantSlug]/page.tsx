@@ -42,6 +42,11 @@ const BookingShopCarousel = dynamic(
     import('@/components/booking/BookingShopCarousel').then((m) => m.BookingShopCarousel),
   { ssr: false },
 );
+const BookingTrustCarousel = dynamic(
+  () =>
+    import('@/components/booking/BookingTrustCarousel').then((m) => m.BookingTrustCarousel),
+  { ssr: false },
+);
 const PublicGallerySection = dynamic(
   () =>
     import('@/components/public/PublicGallerySection').then((m) => m.PublicGallerySection),
@@ -61,6 +66,21 @@ const STEPS: { key: Step; label: string }[] = [
   { key: 'details', label: 'Your details' },
   { key: 'done', label: 'Confirmed' },
 ];
+
+const HERO_GREETINGS = [
+  'You are welcome here',
+  'Glad you stopped by',
+  'Welcome in',
+  'Come as you are',
+] as const;
+
+function pickHeroGreeting(now = new Date()): string {
+  const hour = now.getHours();
+  if (hour < 12) return 'Good morning — you are welcome here';
+  if (hour < 17) return 'You are welcome here';
+  if (hour < 21) return 'Good evening — welcome in';
+  return HERO_GREETINGS[Math.floor(Math.random() * HERO_GREETINGS.length)] ?? 'You are welcome here';
+}
 
 function formatMoney(cents: number | null): string {
   if (cents === null) return 'Price on request';
@@ -464,6 +484,11 @@ function OnlineBookingPageInner() {
   const [liveStoreStatus, setLiveStoreStatus] = useState<
     'open' | 'opening_soon' | 'closing' | 'closed'
   >('open');
+  const [heroGreeting, setHeroGreeting] = useState('You are welcome here');
+
+  useEffect(() => {
+    setHeroGreeting(pickHeroGreeting());
+  }, []);
 
   useEffect(() => {
     setAiLandingSkipped(hasSkippedAiHairstyleLanding(tenantSlug));
@@ -564,10 +589,10 @@ function OnlineBookingPageInner() {
         team_member_id: selectedSlot.team_member_id,
         workspace_id: selectedSlot.workspace_id,
         starts_at: selectedSlot.starts_at,
-        first_name: firstName.trim(),
-        last_name: lastName.trim(),
-        email: email.trim(),
-        phone: phone.trim() || undefined,
+        first_name: firstName.trim() || undefined,
+        last_name: lastName.trim() || undefined,
+        email: email.trim() || undefined,
+        phone: phone.trim(),
         whatsapp_opt_in: Boolean(whatsappOptIn && phone.trim()),
         client_notes: notes.trim() || undefined,
         pricing_tier: pricingTier,
@@ -816,15 +841,15 @@ function OnlineBookingPageInner() {
         </div>
         <div className="relative mx-auto flex max-w-5xl flex-col justify-end gap-8 px-4 pb-12 pt-20 sm:flex-row sm:items-end sm:justify-between sm:px-6 sm:pb-14 sm:pt-28">
           <div className="min-w-0 flex-1">
-            <p className="book-animate-in text-xs font-semibold uppercase tracking-[0.24em] text-white/70">
-              Book your visit
+            <p className="book-animate-in text-sm font-semibold tracking-wide text-white/80">
+              {heroGreeting}
             </p>
             <h1 className="book-animate-in book-animate-delay-1 book-display mt-3 max-w-2xl text-4xl font-bold leading-[1.05] text-white sm:text-6xl">
               {loading ? '…' : salonName}
             </h1>
             <p className="book-animate-in book-animate-delay-2 mt-4 max-w-lg text-base text-white/80 sm:text-lg">
-              Professional services, clear pricing, and a seamless booking experience —
-              reserved in minutes.
+              Book your next visit and experience professional services, clear pricing, and a
+              seamless booking experience — reserved in minutes.
             </p>
           </div>
           {heroEmblemUrl ? (
@@ -842,31 +867,7 @@ function OnlineBookingPageInner() {
         </div>
       </header>
 
-      <div className="border-b border-[var(--book-line)] bg-white">
-        <div className="mx-auto grid max-w-5xl gap-4 px-4 py-4 text-sm sm:grid-cols-3 sm:px-6">
-          <div className="flex items-start gap-3">
-            <span className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-[var(--book-moss)]" />
-            <div>
-              <p className="font-semibold">Verified availability</p>
-              <p className="text-[var(--book-muted)]">Live slots from the salon schedule</p>
-            </div>
-          </div>
-          <div className="flex items-start gap-3">
-            <span className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-[var(--book-moss)]" />
-            <div>
-              <p className="font-semibold">Instant confirmation</p>
-              <p className="text-[var(--book-muted)]">Your appointment is held immediately</p>
-            </div>
-          </div>
-          <div className="flex items-start gap-3">
-            <span className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-[var(--book-moss)]" />
-            <div>
-              <p className="font-semibold">Secure & private</p>
-              <p className="text-[var(--book-muted)]">Details used only for this booking</p>
-            </div>
-          </div>
-        </div>
-      </div>
+      <BookingTrustCarousel />
 
       <main className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 sm:py-10">
         {!loading && !loadError ? (
@@ -1195,41 +1196,9 @@ function OnlineBookingPageInner() {
 
                 <div className={`mt-6 ${panelClass()}`}>
                   <div className="grid gap-4 sm:grid-cols-2">
-                    <label className="block text-sm">
-                      <span className="mb-1.5 block font-semibold text-[var(--book-muted)]">
-                        First name
-                      </span>
-                      <input
-                        className={fieldClass()}
-                        value={firstName}
-                        onChange={(e) => setFirstName(e.target.value)}
-                        required
-                      />
-                    </label>
-                    <label className="block text-sm">
-                      <span className="mb-1.5 block font-semibold text-[var(--book-muted)]">
-                        Last name
-                      </span>
-                      <input
-                        className={fieldClass()}
-                        value={lastName}
-                        onChange={(e) => setLastName(e.target.value)}
-                        required
-                      />
-                    </label>
-                    <label className="block text-sm sm:col-span-2">
-                      <span className="mb-1.5 block font-semibold text-[var(--book-muted)]">Email</span>
-                      <input
-                        type="email"
-                        className={fieldClass()}
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        required
-                      />
-                    </label>
                     <label className="block text-sm sm:col-span-2">
                       <span className="mb-1.5 block font-semibold text-[var(--book-muted)]">
-                        Mobile / WhatsApp
+                        Mobile / WhatsApp <span className="text-red-600">*</span>
                       </span>
                       <input
                         className={fieldClass()}
@@ -1241,6 +1210,7 @@ function OnlineBookingPageInner() {
                         placeholder="+44…"
                         inputMode="tel"
                         autoComplete="tel"
+                        required
                       />
                     </label>
                     <label className="flex items-start gap-3 text-sm sm:col-span-2">
@@ -1257,9 +1227,43 @@ function OnlineBookingPageInner() {
                         </span>
                         <span className="mt-0.5 block text-xs leading-relaxed">
                           Confirmations, cancellations, and running-late reschedules. You can stop
-                          anytime by messaging the salon. Requires a mobile number.
+                          anytime by messaging the salon.
                         </span>
                       </span>
+                    </label>
+                    <label className="block text-sm">
+                      <span className="mb-1.5 block font-semibold text-[var(--book-muted)]">
+                        First name <span className="font-normal">(optional)</span>
+                      </span>
+                      <input
+                        className={fieldClass()}
+                        value={firstName}
+                        onChange={(e) => setFirstName(e.target.value)}
+                        autoComplete="given-name"
+                      />
+                    </label>
+                    <label className="block text-sm">
+                      <span className="mb-1.5 block font-semibold text-[var(--book-muted)]">
+                        Last name <span className="font-normal">(optional)</span>
+                      </span>
+                      <input
+                        className={fieldClass()}
+                        value={lastName}
+                        onChange={(e) => setLastName(e.target.value)}
+                        autoComplete="family-name"
+                      />
+                    </label>
+                    <label className="block text-sm sm:col-span-2">
+                      <span className="mb-1.5 block font-semibold text-[var(--book-muted)]">
+                        Email <span className="font-normal">(optional)</span>
+                      </span>
+                      <input
+                        type="email"
+                        className={fieldClass()}
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        autoComplete="email"
+                      />
                     </label>
                     <label className="block text-sm sm:col-span-2">
                       <span className="mb-1.5 block font-semibold text-[var(--book-muted)]">
@@ -1276,20 +1280,8 @@ function OnlineBookingPageInner() {
                   {submitError ? <p className="mt-3 text-sm text-red-700">{submitError}</p> : null}
                   <button
                     type="button"
-                    className={`${primaryBtnClass(
-                      submitting ||
-                        !firstName.trim() ||
-                        !lastName.trim() ||
-                        !email.trim() ||
-                        (whatsappOptIn && !phone.trim()),
-                    )} mt-5`}
-                    disabled={
-                      submitting ||
-                      !firstName.trim() ||
-                      !lastName.trim() ||
-                      !email.trim() ||
-                      (whatsappOptIn && !phone.trim())
-                    }
+                    className={`${primaryBtnClass(submitting || !phone.trim())} mt-5`}
+                    disabled={submitting || !phone.trim()}
                     onClick={() => void handleBook()}
                   >
                     {submitting ? 'Booking…' : 'Confirm booking'}

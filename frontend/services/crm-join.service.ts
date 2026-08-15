@@ -76,7 +76,7 @@ export async function fetchCrmJoinBootstrap(
 export async function submitCrmJoin(
   tenantSlug: string,
   payload: {
-    first_name: string;
+    first_name?: string;
     last_name?: string;
     whatsapp_number: string;
     email?: string;

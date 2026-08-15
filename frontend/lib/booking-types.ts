@@ -224,10 +224,10 @@ export interface OnlineBookPayload {
   team_member_id: string;
   workspace_id?: string | null;
   starts_at: string;
-  first_name: string;
-  last_name: string;
-  email: string;
-  phone?: string;
+  first_name?: string;
+  last_name?: string;
+  email?: string;
+  phone: string;
   /** Guest opted in to WhatsApp booking updates. */
   whatsapp_opt_in?: boolean;
   client_notes?: string;

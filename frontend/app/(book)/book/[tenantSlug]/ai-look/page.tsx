@@ -138,10 +138,10 @@ function AiLookPageInner() {
         session.id,
         session.public_token,
         {
-          first_name: firstName.trim(),
-          last_name: lastName.trim(),
-          email: email.trim(),
-          phone: phone.trim() || undefined,
+          first_name: firstName.trim() || undefined,
+          last_name: lastName.trim() || undefined,
+          email: email.trim() || undefined,
+          phone: phone.trim(),
           notes: notes.trim() || undefined,
         },
       );
@@ -316,30 +316,30 @@ function AiLookPageInner() {
             <p className="text-sm font-semibold">Send your look to the salon</p>
             <input
               required
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="Mobile / WhatsApp *"
+              inputMode="tel"
+              autoComplete="tel"
+              className="w-full rounded-lg border border-[var(--book-line,#e4e4e7)] px-3 py-2.5 text-sm outline-none focus:border-[var(--book-moss,#3f5d4a)]"
+            />
+            <input
               value={firstName}
               onChange={(e) => setFirstName(e.target.value)}
-              placeholder="First name"
+              placeholder="First name (optional)"
               className="w-full rounded-lg border border-[var(--book-line,#e4e4e7)] px-3 py-2.5 text-sm outline-none focus:border-[var(--book-moss,#3f5d4a)]"
             />
             <input
-              required
               value={lastName}
               onChange={(e) => setLastName(e.target.value)}
-              placeholder="Last name"
+              placeholder="Last name (optional)"
               className="w-full rounded-lg border border-[var(--book-line,#e4e4e7)] px-3 py-2.5 text-sm outline-none focus:border-[var(--book-moss,#3f5d4a)]"
             />
             <input
-              required
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="Email"
-              className="w-full rounded-lg border border-[var(--book-line,#e4e4e7)] px-3 py-2.5 text-sm outline-none focus:border-[var(--book-moss,#3f5d4a)]"
-            />
-            <input
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="Phone (optional)"
+              placeholder="Email (optional)"
               className="w-full rounded-lg border border-[var(--book-line,#e4e4e7)] px-3 py-2.5 text-sm outline-none focus:border-[var(--book-moss,#3f5d4a)]"
             />
             <textarea
@@ -351,7 +351,7 @@ function AiLookPageInner() {
             />
             <button
               type="submit"
-              disabled={busy}
+              disabled={busy || !phone.trim()}
               className="inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-[var(--book-moss,#3f5d4a)] px-5 text-base font-semibold text-white disabled:opacity-50"
             >
               {busy ? 'Sending…' : 'Submit look'}

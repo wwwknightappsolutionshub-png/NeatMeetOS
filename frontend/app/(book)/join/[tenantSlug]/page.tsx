@@ -280,7 +280,7 @@ function CrmJoinFormInner() {
     setSubmitError(null);
     try {
       const result = await submitCrmJoin(tenantSlug, {
-        first_name: firstName.trim(),
+        first_name: firstName.trim() || undefined,
         last_name: lastName.trim() || undefined,
         whatsapp_number: whatsapp.trim(),
         email: email.trim() || undefined,
@@ -308,8 +308,8 @@ function CrmJoinFormInner() {
           </p>
           <h1 className="book-display mt-2 text-3xl font-bold text-[var(--book-ink)]">{salonName}</h1>
           <p className="mt-2 text-sm text-[var(--book-muted)]">
-            Quick form so we can keep you on our client list. WhatsApp is required. Add an email to
-            receive a branded welcome with membership and loyalty offers.
+            Quick form so we can keep you on our client list. WhatsApp is required. Name is optional.
+            Add an email to receive a branded welcome with membership and loyalty offers.
           </p>
 
           {loading ? (
@@ -356,10 +356,26 @@ function CrmJoinFormInner() {
           {!loading && !loadError && !doneMessage ? (
             <form onSubmit={(e) => void handleSubmit(e)} className="mt-8 grid gap-4">
               <label className="block text-sm">
-                <span className="mb-1.5 block font-semibold text-[var(--book-muted)]">First name</span>
+                <span className="mb-1.5 block font-semibold text-[var(--book-muted)]">
+                  WhatsApp number <span className="text-red-600">*</span>
+                </span>
                 <input
                   className={fieldClass()}
                   required
+                  type="tel"
+                  inputMode="tel"
+                  placeholder="+44…"
+                  value={whatsapp}
+                  onChange={(e) => setWhatsapp(e.target.value)}
+                  autoComplete="tel"
+                />
+              </label>
+              <label className="block text-sm">
+                <span className="mb-1.5 block font-semibold text-[var(--book-muted)]">
+                  First name <span className="font-normal">(optional)</span>
+                </span>
+                <input
+                  className={fieldClass()}
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
                   autoComplete="given-name"
@@ -374,21 +390,6 @@ function CrmJoinFormInner() {
                   value={lastName}
                   onChange={(e) => setLastName(e.target.value)}
                   autoComplete="family-name"
-                />
-              </label>
-              <label className="block text-sm">
-                <span className="mb-1.5 block font-semibold text-[var(--book-muted)]">
-                  WhatsApp number <span className="text-red-600">*</span>
-                </span>
-                <input
-                  className={fieldClass()}
-                  required
-                  type="tel"
-                  inputMode="tel"
-                  placeholder="+44…"
-                  value={whatsapp}
-                  onChange={(e) => setWhatsapp(e.target.value)}
-                  autoComplete="tel"
                 />
               </label>
               <label className="block text-sm">

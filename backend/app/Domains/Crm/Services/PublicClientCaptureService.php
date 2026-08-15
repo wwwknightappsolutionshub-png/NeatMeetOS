@@ -15,6 +15,7 @@ use App\Domains\Memberships\Models\MembershipPlan;
 use App\Domains\Memberships\Models\PackageProduct;
 use App\Domains\Memberships\Services\LoyaltyLedgerService;
 use App\Domains\Memberships\Services\LoyaltyRedemptionSettingsService;
+use App\Shared\Support\PhoneNormalizer;
 use App\Shared\Tenancy\TenantContext;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -153,11 +154,11 @@ class PublicClientCaptureService
     public function capture(array $data): array
     {
         $tenantId = $this->requireTenantId();
-        $phone = $this->normalizePhone($data['whatsapp_number'] ?? '');
+        $phone = PhoneNormalizer::normalize($data['whatsapp_number'] ?? '');
 
-        if ($phone === '') {
+        if (! PhoneNormalizer::isValid($phone)) {
             throw ValidationException::withMessages([
-                'whatsapp_number' => ['WhatsApp number is required.'],
+                'whatsapp_number' => ['A valid WhatsApp number is required.'],
             ]);
         }
 
@@ -226,8 +227,8 @@ class PublicClientCaptureService
             }
 
             $client = $this->clients->create([
-                'first_name' => $data['first_name'],
-                'last_name' => $data['last_name'] ?? null,
+                'first_name' => ! empty($data['first_name']) ? trim((string) $data['first_name']) : null,
+                'last_name' => ! empty($data['last_name']) ? trim((string) $data['last_name']) : null,
                 'email' => ! empty($data['email']) ? strtolower(trim((string) $data['email'])) : null,
                 'phone' => $phone,
                 'primary_location_id' => $locationId,
@@ -370,31 +371,29 @@ class PublicClientCaptureService
 
     private function findByPhone(string $tenantId, string $normalizedPhone): ?Client
     {
+        $exact = Client::query()
+            ->where('tenant_id', $tenantId)
+            ->where('phone_normalized', $normalizedPhone)
+            ->first();
+
+        if ($exact !== null) {
+            return $exact;
+        }
+
         $candidates = Client::query()
             ->where('tenant_id', $tenantId)
             ->whereNotNull('phone')
+            ->whereNull('phone_normalized')
             ->limit(200)
             ->get();
 
         foreach ($candidates as $client) {
-            if ($this->normalizePhone((string) $client->phone) === $normalizedPhone) {
+            if (PhoneNormalizer::normalize((string) $client->phone) === $normalizedPhone) {
                 return $client;
             }
         }
 
         return null;
-    }
-
-    private function normalizePhone(string $raw): string
-    {
-        $trimmed = trim($raw);
-        // Keep leading + and digits only.
-        $digits = preg_replace('/[^\d+]/', '', $trimmed) ?? '';
-        if (str_starts_with($digits, '00')) {
-            $digits = '+'.substr($digits, 2);
-        }
-
-        return $digits;
     }
 
     private function assertLocation(string $locationId): void

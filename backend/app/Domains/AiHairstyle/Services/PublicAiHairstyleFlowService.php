@@ -12,6 +12,7 @@ use App\Domains\Identity\Models\TeamMember;
 use App\Domains\Identity\Models\TenantOwnerNotice;
 use App\Domains\Identity\Services\TenantEntitlementService;
 use App\Jobs\GenerateAiHairstyleJob;
+use App\Shared\Support\PhoneNormalizer;
 use App\Shared\Support\PublicStorageUrl;
 use App\Shared\Tenancy\TenantContext;
 use Illuminate\Http\UploadedFile;
@@ -186,26 +187,46 @@ class PublicAiHairstyleFlowService
      */
     private function resolveOrCreateClient(array $contact): Client
     {
-        $email = strtolower(trim((string) ($contact['email'] ?? '')));
-        if ($email === '') {
+        $phone = PhoneNormalizer::normalize($contact['phone'] ?? null);
+        if (! PhoneNormalizer::isValid($phone)) {
             throw ValidationException::withMessages([
-                'email' => ['Email is required.'],
+                'phone' => ['A valid phone number is required.'],
             ]);
         }
 
+        $email = isset($contact['email']) && filled($contact['email'])
+            ? strtolower(trim((string) $contact['email']))
+            : null;
+        $firstName = isset($contact['first_name']) ? trim((string) $contact['first_name']) : '';
+        $lastName = isset($contact['last_name']) ? trim((string) $contact['last_name']) : '';
+
         $existing = Client::query()
-            ->where('email', $email)
+            ->where('phone_normalized', $phone)
             ->first();
         if ($existing !== null) {
+            $updates = [];
+            if ($email !== null && empty($existing->email)) {
+                $updates['email'] = $email;
+            }
+            if ($firstName !== '' && empty($existing->first_name)) {
+                $updates['first_name'] = $firstName;
+            }
+            if ($lastName !== '' && empty($existing->last_name)) {
+                $updates['last_name'] = $lastName;
+            }
+            if ($updates !== []) {
+                return $this->clients->update($existing, $updates);
+            }
+
             return $existing;
         }
 
         return $this->clients->create([
-            'first_name' => $contact['first_name'] ?? 'Guest',
-            'last_name' => $contact['last_name'] ?? 'Client',
+            'first_name' => $firstName !== '' ? $firstName : null,
+            'last_name' => $lastName !== '' ? $lastName : null,
             'email' => $email,
-            'phone' => $contact['phone'] ?? null,
-            'display_name' => trim(($contact['first_name'] ?? '').' '.($contact['last_name'] ?? '')) ?: null,
+            'phone' => $phone,
+            'display_name' => trim($firstName.' '.$lastName) ?: null,
         ], ['skip_automations' => true]);
     }
 

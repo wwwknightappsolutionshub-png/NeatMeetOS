@@ -43,9 +43,7 @@ export default function ClientImportPage() {
 
   const canImport = useMemo(() => {
     if (!file || !preview) return false;
-    const hasName = Boolean(mapping.first_name || mapping.name);
-    const hasContact = Boolean(mapping.email || mapping.phone);
-    return hasName && hasContact;
+    return Boolean(mapping.phone);
   }, [file, preview, mapping]);
 
   async function handlePreview() {
@@ -93,8 +91,9 @@ export default function ClientImportPage() {
       <div className="space-y-4">
         <Card title="CSV upload">
           <p className="mb-4 text-sm text-stone-600">
-            Export contacts from your phone or WhatsApp backup as CSV (name, phone, email), then map
-            columns and import. Duplicates are skipped by phone or email within this salon. Maximum
+            Export contacts from your phone or WhatsApp backup as CSV (phone required; name and
+            email optional), then map columns and import. Duplicates are skipped by phone within this
+            salon. Maximum
             2,000 rows.
           </p>
           <div className="flex flex-wrap items-end gap-3">

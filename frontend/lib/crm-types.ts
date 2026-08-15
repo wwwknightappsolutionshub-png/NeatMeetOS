@@ -1,7 +1,7 @@
 export interface Client {
   id: string;
   tenant_id: string;
-  first_name: string;
+  first_name: string | null;
   last_name: string | null;
   display_name: string | null;
   resolved_display_name: string;

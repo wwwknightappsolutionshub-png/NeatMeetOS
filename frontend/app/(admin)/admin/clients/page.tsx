@@ -101,10 +101,10 @@ export default function ClientsListPage() {
       const month = form.special_event_month ? Number(form.special_event_month) : null;
       const day = form.special_event_day ? Number(form.special_event_day) : null;
       await createClient({
-        first_name: form.first_name,
+        first_name: form.first_name || null,
         last_name: form.last_name || null,
         email: form.email || null,
-        phone: form.phone || null,
+        phone: form.phone,
         special_event_month: month,
         special_event_day: day,
         special_event_label: form.special_event_label.trim() || null,
@@ -185,12 +185,22 @@ export default function ClientsListPage() {
         {showForm ? (
           <Card title="New client">
             <form onSubmit={handleCreate} className="grid max-w-md gap-3">
-              <Field label="First name">
+              <Field label="Phone / WhatsApp">
+                <input
+                  className={inputClass}
+                  value={form.phone}
+                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                  required
+                  inputMode="tel"
+                  autoComplete="tel"
+                  placeholder="+44…"
+                />
+              </Field>
+              <Field label="First name (optional)">
                 <input
                   className={inputClass}
                   value={form.first_name}
                   onChange={(e) => setForm({ ...form, first_name: e.target.value })}
-                  required
                 />
               </Field>
               <Field label="Last name">
@@ -206,13 +216,6 @@ export default function ClientsListPage() {
                   className={inputClass}
                   value={form.email}
                   onChange={(e) => setForm({ ...form, email: e.target.value })}
-                />
-              </Field>
-              <Field label="Phone">
-                <input
-                  className={inputClass}
-                  value={form.phone}
-                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
                 />
               </Field>
               <div className="grid grid-cols-2 gap-3">

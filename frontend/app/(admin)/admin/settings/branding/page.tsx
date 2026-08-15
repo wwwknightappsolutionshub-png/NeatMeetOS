@@ -201,8 +201,8 @@ export default function BrandingSettingsPage() {
                 onChange={(e) => void handleHeroUpload(e.target.files?.[0] ?? null)}
               />
               <p className="mt-1 text-xs text-zinc-500">
-                Full-bleed photo behind “Book your visit”. Upload from your device (max ~8MB).
-                Clears back to the default image if you remove the URL and save.
+                Full-bleed photo behind the welcome greeting on the booking page. Upload from your
+                device (max ~8MB). Clears back to the default image if you remove the URL and save.
               </p>
               {uploadingHero ? (
                 <p className="mt-1 text-xs text-zinc-500">Uploading hero…</p>

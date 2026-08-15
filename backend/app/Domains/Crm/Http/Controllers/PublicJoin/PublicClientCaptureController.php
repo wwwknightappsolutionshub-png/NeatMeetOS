@@ -28,7 +28,7 @@ class PublicClientCaptureController extends Controller
     public function store(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'first_name' => ['required', 'string', 'max:100'],
+            'first_name' => ['nullable', 'string', 'max:100'],
             'last_name' => ['nullable', 'string', 'max:100'],
             'whatsapp_number' => ['required', 'string', 'min:7', 'max:40'],
             'email' => ['nullable', 'email', 'max:255'],

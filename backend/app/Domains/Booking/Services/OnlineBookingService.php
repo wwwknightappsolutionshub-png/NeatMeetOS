@@ -16,6 +16,7 @@ use App\Domains\Staff\Models\StaffAbsence;
 use App\Domains\Staff\Models\StaffAvailabilityRule;
 use App\Domains\Staff\Models\StaffProfile;
 use App\Shared\Tenancy\TenantContext;
+use App\Shared\Support\PhoneNormalizer;
 use App\Shared\Support\PublicStorageUrl;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
@@ -323,8 +324,7 @@ class OnlineBookingService
             ]);
         }
 
-        if (strtolower((string) $memberClient->email) === strtolower((string) $client->email)
-            || $memberClient->id === $client->id) {
+        if ($this->clientsMatchForMemberPricing($memberClient, $client)) {
             $client = $memberClient;
         } else {
             throw ValidationException::withMessages([
@@ -376,35 +376,70 @@ class OnlineBookingService
      */
     private function resolveClient(array $payload): Client
     {
-        $email = strtolower(trim((string) $payload['email']));
+        $phone = PhoneNormalizer::normalize($payload['phone'] ?? null);
+        if (! PhoneNormalizer::isValid($phone)) {
+            throw ValidationException::withMessages([
+                'phone' => ['A valid phone number is required.'],
+            ]);
+        }
+
+        $email = isset($payload['email']) && filled($payload['email'])
+            ? strtolower(trim((string) $payload['email']))
+            : null;
+        $firstName = isset($payload['first_name']) ? trim((string) $payload['first_name']) : '';
+        $lastName = isset($payload['last_name']) ? trim((string) $payload['last_name']) : '';
 
         $existing = Client::query()
-            ->whereRaw('LOWER(email) = ?', [$email])
+            ->where('phone_normalized', $phone)
             ->first();
 
         if ($existing !== null) {
             $updates = [];
-            if (! empty($payload['phone']) && empty($existing->phone)) {
-                $updates['phone'] = $payload['phone'];
+            if ($email !== null && empty($existing->email)) {
+                $updates['email'] = $email;
             }
-            if (! empty($payload['phone']) && filter_var($payload['whatsapp_opt_in'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
-                $updates['phone'] = $payload['phone'];
+            if ($firstName !== '' && empty($existing->first_name)) {
+                $updates['first_name'] = $firstName;
+            }
+            if ($lastName !== '' && empty($existing->last_name)) {
+                $updates['last_name'] = $lastName;
+            }
+            if ($existing->phone !== $phone) {
+                $updates['phone'] = $phone;
             }
             if ($updates !== []) {
-                $existing->fill($updates)->save();
+                $existing = $this->clients->update($existing, $updates);
             }
 
             return $existing->fresh();
         }
 
         return $this->clients->create([
-            'first_name' => $payload['first_name'],
-            'last_name' => $payload['last_name'],
+            'first_name' => $firstName !== '' ? $firstName : null,
+            'last_name' => $lastName !== '' ? $lastName : null,
             'email' => $email,
-            'phone' => $payload['phone'] ?? null,
+            'phone' => $phone,
             'primary_location_id' => $payload['location_id'],
             'is_active' => true,
         ]);
+    }
+
+    private function clientsMatchForMemberPricing(Client $memberClient, Client $bookingClient): bool
+    {
+        if ($memberClient->id === $bookingClient->id) {
+            return true;
+        }
+
+        $memberPhone = PhoneNormalizer::normalize($memberClient->phone);
+        $bookingPhone = PhoneNormalizer::normalize($bookingClient->phone);
+        if ($memberPhone !== '' && $memberPhone === $bookingPhone) {
+            return true;
+        }
+
+        $memberEmail = strtolower(trim((string) ($memberClient->email ?? '')));
+        $bookingEmail = strtolower(trim((string) ($bookingClient->email ?? '')));
+
+        return $memberEmail !== '' && $memberEmail === $bookingEmail;
     }
 
     /**

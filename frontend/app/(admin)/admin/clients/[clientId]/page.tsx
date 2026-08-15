@@ -134,7 +134,7 @@ export default function ClientDetailPage() {
         setConsentHistory(consents.history);
         setTimeline(timelineData.items);
         setProfileForm({
-          first_name: c.first_name,
+          first_name: c.first_name ?? '',
           last_name: c.last_name ?? '',
           email: c.email ?? '',
           phone: c.phone ?? '',
@@ -180,10 +180,10 @@ export default function ClientDetailPage() {
     setError(null);
     try {
       await updateClient(clientId, {
-        first_name: profileForm.first_name,
+        first_name: profileForm.first_name || null,
         last_name: profileForm.last_name || null,
         email: profileForm.email || null,
-        phone: profileForm.phone || null,
+        phone: profileForm.phone,
         date_of_birth: profileForm.date_of_birth || null,
         special_event_month: profileForm.special_event_month
           ? Number(profileForm.special_event_month)
@@ -305,14 +305,23 @@ export default function ClientDetailPage() {
         <div className="grid gap-4 md:grid-cols-2">
           <Card title="Profile">
             <form onSubmit={saveProfile} className="grid gap-3">
-              <Field label="First name">
+              <Field label="Phone / WhatsApp">
+                <input
+                  className={inputClass}
+                  value={profileForm.phone}
+                  onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
+                  required
+                  inputMode="tel"
+                  autoComplete="tel"
+                />
+              </Field>
+              <Field label="First name (optional)">
                 <input
                   className={inputClass}
                   value={profileForm.first_name}
                   onChange={(e) =>
                     setProfileForm({ ...profileForm, first_name: e.target.value })
                   }
-                  required
                 />
               </Field>
               <Field label="Last name">
@@ -330,13 +339,6 @@ export default function ClientDetailPage() {
                   className={inputClass}
                   value={profileForm.email}
                   onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })}
-                />
-              </Field>
-              <Field label="Phone">
-                <input
-                  className={inputClass}
-                  value={profileForm.phone}
-                  onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
                 />
               </Field>
               <Field label="Date of birth">

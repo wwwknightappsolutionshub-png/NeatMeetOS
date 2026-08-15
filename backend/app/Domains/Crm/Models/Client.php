@@ -4,6 +4,7 @@ namespace App\Domains\Crm\Models;
 
 use App\Domains\Identity\Models\Location;
 use App\Domains\Identity\Models\TeamMember;
+use App\Shared\Support\PhoneNormalizer;
 use App\Shared\Tenancy\BelongsToTenant;
 use App\Shared\Tenancy\Concerns\HasUuid;
 use Illuminate\Database\Eloquent\Model;
@@ -23,6 +24,7 @@ class Client extends Model
         'display_name',
         'email',
         'phone',
+        'phone_normalized',
         'date_of_birth',
         'special_event_month',
         'special_event_day',
@@ -135,12 +137,40 @@ class Client extends Model
         return $this->hasMany(ClientVisit::class);
     }
 
+    protected static function booted(): void
+    {
+        static::saving(function (Client $client): void {
+            if ($client->first_name !== null && trim((string) $client->first_name) === '') {
+                $client->first_name = null;
+            }
+            if ($client->last_name !== null && trim((string) $client->last_name) === '') {
+                $client->last_name = null;
+            }
+
+            $normalized = PhoneNormalizer::normalize($client->phone);
+            $client->phone_normalized = $normalized !== '' ? $normalized : null;
+        });
+    }
+
     public function resolvedDisplayName(): string
     {
         if ($this->display_name) {
             return $this->display_name;
         }
 
-        return trim($this->first_name.' '.($this->last_name ?? ''));
+        $name = trim(($this->first_name ?? '').' '.($this->last_name ?? ''));
+        if ($name !== '') {
+            return $name;
+        }
+
+        if (filled($this->phone)) {
+            return (string) $this->phone;
+        }
+
+        if (filled($this->email)) {
+            return (string) $this->email;
+        }
+
+        return 'Client';
     }
 }

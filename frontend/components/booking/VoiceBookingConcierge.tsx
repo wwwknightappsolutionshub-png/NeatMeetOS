@@ -43,16 +43,16 @@ type BookDraft = {
   email?: string;
   phone?: string;
   whatsappOptIn?: boolean;
-  step: 'idle' | 'service' | 'date' | 'slot' | 'name' | 'email' | 'phone' | 'confirm';
+  step: 'idle' | 'service' | 'date' | 'slot' | 'phone' | 'name' | 'email' | 'confirm';
 };
 
 const BOOK_STEPS: BookDraft['step'][] = [
   'service',
   'date',
   'slot',
+  'phone',
   'name',
   'email',
-  'phone',
   'confirm',
 ];
 
@@ -62,9 +62,9 @@ function bookProgressLabel(step: BookDraft['step']): string {
     service: '1 · Service',
     date: '2 · Day',
     slot: '3 · Time',
-    name: '4 · Name',
-    email: '5 · Email',
-    phone: '6 · WhatsApp',
+    phone: '4 · Phone',
+    name: '5 · Name',
+    email: '6 · Email',
     confirm: '7 · Confirm',
   };
   return labels[step];
@@ -240,8 +240,8 @@ export function VoiceBookingConcierge({
   const completeBooking = useCallback(async () => {
     const d = bookDraftRef.current;
     const service = catalog.services.find((s) => s.id === d.serviceId);
-    if (!service || !d.slot || !d.firstName || !d.lastName || !d.email) {
-      await reply('I still need a few details before I can confirm.');
+    if (!service || !d.slot || !d.phone) {
+      await reply('I still need your mobile number before I can confirm.');
       return;
     }
     setBusy(true);
@@ -447,69 +447,72 @@ export function VoiceBookingConcierge({
         return;
       }
 
+      if (d.step === 'phone') {
+        if (/\b(whatsapp|opt in|yes updates|message me)\b/.test(q) && !/\d/.test(q)) {
+          setBookDraft({ ...d, whatsappOptIn: true });
+          await reply('Great — WhatsApp updates enabled. Now say your mobile number.');
+          return;
+        }
+        const digits = text.replace(/[^\d+]/g, '');
+        if (digits.replace(/\D/g, '').length < 7) {
+          await reply('Please say your mobile number — this is required to book.');
+          return;
+        }
+        setBookDraft({
+          ...d,
+          phone: digits,
+          whatsappOptIn: d.whatsappOptIn ?? true,
+          step: 'name',
+        });
+        await reply('Thanks. Say your name if you like, or say skip to continue without a name.');
+        return;
+      }
+
       if (d.step === 'name') {
+        if (/\b(skip|no|pass|anonymous)\b/.test(q)) {
+          setBookDraft({ ...d, firstName: undefined, lastName: undefined, step: 'email' });
+          await reply('No problem. Say an email for confirmation, or say skip.');
+          return;
+        }
         const parts = text.trim().split(/\s+/).filter(Boolean);
-        if (parts.length < 2) {
-          await reply('Please say your first and last name.');
+        if (parts.length === 0) {
+          await reply('Say your name, or say skip.');
           return;
         }
         setBookDraft({
           ...d,
           firstName: parts[0],
-          lastName: parts.slice(1).join(' '),
+          lastName: parts.length > 1 ? parts.slice(1).join(' ') : undefined,
           step: 'email',
         });
-        await reply('Thanks. What email should we use for the confirmation?');
+        await reply('Thanks. Say an email for confirmation, or say skip.');
         return;
       }
 
       if (d.step === 'email') {
-        const email = text.trim().replace(/\s+/g, '');
-        if (!email.includes('@')) {
-          await reply('That does not look like an email. Please say it again.');
-          return;
-        }
-        setBookDraft({ ...d, email, step: 'phone' });
-        await reply(
-          'For WhatsApp booking updates, say your mobile number — or say skip for email only. You can also say WhatsApp yes first.',
-        );
-        return;
-      }
-
-      if (d.step === 'phone') {
-        if (/\b(skip|no|email only)\b/.test(q)) {
-          const next = { ...d, phone: undefined, whatsappOptIn: false, step: 'confirm' as const };
+        if (/\b(skip|no|pass)\b/.test(q)) {
+          const next = { ...d, email: undefined, step: 'confirm' as const };
           setBookDraft(next);
           const service = catalog.services.find((s) => s.id === d.serviceId);
           const when = d.slot ? new Date(d.slot.starts_at).toLocaleString() : 'the selected time';
+          const who = [d.firstName, d.lastName].filter(Boolean).join(' ') || d.phone || 'you';
           await reply(
-            `Confirm booking ${service?.name ?? 'service'} at ${when} for ${d.firstName} ${d.lastName}? Say yes to book.`,
+            `Confirm booking ${service?.name ?? 'service'} at ${when} for ${who}? Say yes to book.`,
           );
           return;
         }
-        if (/\b(whatsapp|opt in|yes updates|message me)\b/.test(q) && !/\d/.test(q)) {
-          setBookDraft({ ...d, whatsappOptIn: true });
-          await reply('Great — WhatsApp updates enabled. Now say your mobile number, or skip.');
+        const email = text.trim().replace(/\s+/g, '');
+        if (!email.includes('@')) {
+          await reply('That does not look like an email. Please say it again, or say skip.');
           return;
         }
-        const digits = text.replace(/[^\d+]/g, '');
-        if (digits.replace(/\D/g, '').length < 8) {
-          await reply(
-            'Say your mobile number for WhatsApp updates, say "WhatsApp yes" first to opt in, or say skip.',
-          );
-          return;
-        }
-        const next = {
-          ...d,
-          phone: digits,
-          whatsappOptIn: d.whatsappOptIn ?? true,
-          step: 'confirm' as const,
-        };
+        const next = { ...d, email, step: 'confirm' as const };
         setBookDraft(next);
         const service = catalog.services.find((s) => s.id === d.serviceId);
         const when = d.slot ? new Date(d.slot.starts_at).toLocaleString() : 'the selected time';
+        const who = [d.firstName, d.lastName].filter(Boolean).join(' ') || d.phone || 'you';
         await reply(
-          `Confirm ${service?.name ?? 'service'} at ${when} for ${d.firstName} ${d.lastName}, WhatsApp updates ${next.whatsappOptIn ? 'on' : 'off'}. Say yes to book.`,
+          `Confirm ${service?.name ?? 'service'} at ${when} for ${who}. Say yes to book.`,
         );
         return;
       }
@@ -613,11 +616,13 @@ export function VoiceBookingConcierge({
     setBookDraft((prev) => ({
       ...prev,
       slot,
-      step: prev.firstName ? (prev.email ? 'confirm' : 'email') : 'name',
+      step: prev.phone ? (prev.email || prev.firstName ? 'confirm' : 'name') : 'phone',
     }));
-    if (!bookDraftRef.current.firstName) {
-      await reply(`Got ${new Date(slot.starts_at).toLocaleString()}. What is your full name?`);
-      setBookDraft((prev) => ({ ...prev, slot, step: 'name' }));
+    if (!bookDraftRef.current.phone) {
+      await reply(
+        `Got ${new Date(slot.starts_at).toLocaleString()}. What is your mobile number?`,
+      );
+      setBookDraft((prev) => ({ ...prev, slot, step: 'phone' }));
       return;
     }
     await reply('Say yes to confirm, or update your details.');

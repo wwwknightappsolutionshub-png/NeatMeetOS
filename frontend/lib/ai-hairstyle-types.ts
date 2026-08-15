@@ -20,9 +20,9 @@ export interface AiHairstyleSession {
 }
 
 export interface AiHairstyleSubmitPayload {
-  first_name: string;
-  last_name: string;
-  email: string;
-  phone?: string;
+  first_name?: string;
+  last_name?: string;
+  email?: string;
+  phone: string;
   notes?: string;
 }

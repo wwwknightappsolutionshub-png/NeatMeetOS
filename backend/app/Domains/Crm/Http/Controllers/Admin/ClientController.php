@@ -48,11 +48,11 @@ class ClientController extends Controller
     public function store(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'first_name' => ['required', 'string', 'max:255'],
+            'first_name' => ['nullable', 'string', 'max:255'],
             'last_name' => ['nullable', 'string', 'max:255'],
             'display_name' => ['nullable', 'string', 'max:255'],
             'email' => ['nullable', 'email', 'max:255'],
-            'phone' => ['nullable', 'string', 'max:50'],
+            'phone' => ['required', 'string', 'min:7', 'max:50'],
             'date_of_birth' => ['nullable', 'date'],
             'special_event_month' => ['nullable', 'integer', 'min:1', 'max:12'],
             'special_event_day' => ['nullable', 'integer', 'min:1', 'max:31'],
@@ -81,11 +81,11 @@ class ClientController extends Controller
     public function update(Request $request, string $id): JsonResponse
     {
         $data = $request->validate([
-            'first_name' => ['sometimes', 'string', 'max:255'],
+            'first_name' => ['nullable', 'string', 'max:255'],
             'last_name' => ['nullable', 'string', 'max:255'],
             'display_name' => ['nullable', 'string', 'max:255'],
             'email' => ['nullable', 'email', 'max:255'],
-            'phone' => ['nullable', 'string', 'max:50'],
+            'phone' => ['sometimes', 'required', 'string', 'min:7', 'max:50'],
             'date_of_birth' => ['nullable', 'date'],
             'special_event_month' => ['nullable', 'integer', 'min:1', 'max:12'],
             'special_event_day' => ['nullable', 'integer', 'min:1', 'max:31'],
