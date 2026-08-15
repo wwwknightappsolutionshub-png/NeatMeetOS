@@ -165,6 +165,36 @@ class Module4OnlineBookingPortalTest extends TestCase
         $this->assertDatabaseHas('audit_logs', ['action' => 'client.created']);
     }
 
+    public function test_slots_heal_when_availability_exists_but_profile_not_bookable(): void
+    {
+        $ctx = $this->seedOnlineBookingContext();
+
+        StaffProfile::withoutGlobalScopes()
+            ->where('team_member_id', $ctx['teamMember']->id)
+            ->update([
+                'is_bookable' => false,
+                'show_in_online_booking' => false,
+            ]);
+
+        $date = Carbon::now()->next(Carbon::MONDAY)->toDateString();
+
+        $slots = $this->withHeaders(['X-Tenant-Slug' => $ctx['tenant']->slug])
+            ->getJson('/api/v1/book/slots?'.http_build_query([
+                'booking_service_id' => $ctx['service']->id,
+                'location_id' => $ctx['location']->id,
+                'date' => $date,
+            ]))
+            ->assertOk()
+            ->json('data.slots');
+
+        $this->assertNotEmpty($slots);
+        $this->assertDatabaseHas('staff_profiles', [
+            'team_member_id' => $ctx['teamMember']->id,
+            'is_bookable' => true,
+            'show_in_online_booking' => true,
+        ]);
+    }
+
     public function test_manage_and_cancel_booking_with_token(): void
     {
         $ctx = $this->seedOnlineBookingContext();

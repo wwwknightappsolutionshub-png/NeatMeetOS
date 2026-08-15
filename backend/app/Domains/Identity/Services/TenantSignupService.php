@@ -15,6 +15,7 @@ use App\Domains\Identity\Models\User;
 use App\Domains\Identity\Models\Workspace;
 use App\Domains\Identity\Support\SignupServiceCatalogue;
 use App\Domains\Lookbook\Services\LookbookSeedService;
+use App\Domains\Staff\Models\StaffProfile;
 use App\Jobs\SendTenantSignupWelcomeWhatsAppJob;
 use App\Shared\Audit\AuditLogger;
 use App\Shared\Tenancy\TenantContext;
@@ -357,6 +358,14 @@ class TenantSignupService
                 $teamMember->roles()->attach($ownerRole->id);
                 $teamMember->workspaces()->attach($workspace->id);
 
+                StaffProfile::withoutGlobalScopes()->create([
+                    'tenant_id' => $tenant->id,
+                    'team_member_id' => $teamMember->id,
+                    'is_bookable' => true,
+                    'show_in_online_booking' => true,
+                    'accepts_walk_ins' => true,
+                ]);
+
                 // Permanent password replaces the temporary unlock password.
                 $user->forceFill([
                     'name' => trim($payload['owner_first_name'].' '.$payload['owner_last_name']),
@@ -537,6 +546,14 @@ class TenantSignupService
             ]);
             $teamMember->roles()->attach($ownerRole->id);
             $teamMember->workspaces()->attach($workspace->id);
+
+            StaffProfile::withoutGlobalScopes()->create([
+                'tenant_id' => $tenant->id,
+                'team_member_id' => $teamMember->id,
+                'is_bookable' => true,
+                'show_in_online_booking' => true,
+                'accepts_walk_ins' => true,
+            ]);
 
             $this->tenantContext->set($tenant);
             $this->createSignupServices($tenant->id, $payload['services']);

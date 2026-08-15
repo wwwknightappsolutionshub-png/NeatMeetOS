@@ -260,6 +260,9 @@ export function AvailabilityTab({ teamMemberId, locations, workspaces }: Availab
       <Card title="Schedule time slots">
         {error ? <p className="mb-2 text-sm text-red-600">{error}</p> : null}
         {notice ? <p className="mb-2 text-sm text-emerald-700">{notice}</p> : null}
+        <p className="mb-3 text-xs text-zinc-500">
+          Saving slots turns on online booking for this staff member (Bookable + show online).
+        </p>
         <form onSubmit={(e) => void handleSave(e)} className="grid gap-3">
           <div className="flex flex-wrap gap-1.5">
             {Object.entries(DAYS_OF_WEEK).map(([value, label]) => {

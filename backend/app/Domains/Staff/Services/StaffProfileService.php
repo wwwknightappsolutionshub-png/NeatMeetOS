@@ -29,6 +29,29 @@ class StaffProfileService
         );
     }
 
+    /**
+     * Publishing availability implies the provider should appear in online booking.
+     * Idempotent — only writes when flags are not already enabled.
+     */
+    public function ensureOnlineBookable(TeamMember $teamMember): StaffProfile
+    {
+        $profile = $this->getOrCreate($teamMember);
+
+        if ($profile->is_bookable && $profile->show_in_online_booking) {
+            return $profile;
+        }
+
+        $old = $profile->toArray();
+        $profile->forceFill([
+            'is_bookable' => true,
+            'show_in_online_booking' => true,
+        ])->save();
+
+        $this->auditLogger->log('staff.profile_updated', $profile, $old, $profile->toArray());
+
+        return $profile->fresh(['defaultWorkspace']);
+    }
+
     public function update(TeamMember $teamMember, array $data): StaffProfile
     {
         $this->scope->assertTeamMember($teamMember);

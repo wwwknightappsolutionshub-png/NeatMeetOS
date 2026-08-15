@@ -388,16 +388,23 @@ function formatSlotTime(iso: string): string {
   });
 }
 
+function toLocalDateInput(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 function tomorrowDateInput(): string {
   const d = new Date();
   d.setDate(d.getDate() + 1);
-  return d.toISOString().slice(0, 10);
+  return toLocalDateInput(d);
 }
 
 function addDaysDateInput(base: string, days: number): string {
   const d = new Date(`${base}T12:00:00`);
   d.setDate(d.getDate() + days);
-  return d.toISOString().slice(0, 10);
+  return toLocalDateInput(d);
 }
 
 function categoryLabel(category: string | null): string {
@@ -1121,7 +1128,7 @@ function OnlineBookingPageInner() {
 
                 <div className={panelClass()}>
                   <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--book-muted)]">
-                    Available times
+                    Availability slots
                   </h3>
                   {slotsLoading ? (
                     <p className="mt-4 text-sm text-[var(--book-muted)]">Finding openings…</p>
@@ -1129,7 +1136,8 @@ function OnlineBookingPageInner() {
                     <p className="mt-4 text-sm text-red-700">{slotsError}</p>
                   ) : !slots.length ? (
                     <p className="mt-4 text-sm text-[var(--book-muted)]">
-                      No open slots for this day. Try another date or stylist.
+                      No open slots for this day. Try another date, or check staff availability and
+                      salon opening hours for this location.
                     </p>
                   ) : (
                     <ul className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">

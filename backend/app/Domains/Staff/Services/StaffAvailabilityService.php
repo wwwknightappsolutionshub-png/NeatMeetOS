@@ -12,6 +12,7 @@ class StaffAvailabilityService
     public function __construct(
         private readonly StaffScopeValidator $scope,
         private readonly AuditLogger $auditLogger,
+        private readonly StaffProfileService $profiles,
     ) {}
 
     public function listForProvider(TeamMember $teamMember): \Illuminate\Database\Eloquent\Collection
@@ -57,6 +58,9 @@ class StaffAvailabilityService
             'end_time' => $data['end_time'],
             'is_active' => true,
         ]);
+
+        // Online slot search requires is_bookable — enable when hours are published.
+        $this->profiles->ensureOnlineBookable($teamMember);
 
         $this->auditLogger->log('staff.availability_created', $rule, null, $rule->toArray());
 

@@ -15,6 +15,7 @@ use App\Domains\Notifications\Services\NotificationPreferenceService;
 use App\Domains\Staff\Models\StaffAbsence;
 use App\Domains\Staff\Models\StaffAvailabilityRule;
 use App\Domains\Staff\Models\StaffProfile;
+use App\Domains\Staff\Services\StaffProfileService;
 use App\Shared\Tenancy\TenantContext;
 use App\Shared\Support\PhoneNormalizer;
 use App\Shared\Support\PublicStorageUrl;
@@ -38,6 +39,7 @@ class OnlineBookingService
         private readonly StaffSosAlertService $staffSos,
         private readonly NotificationPreferenceService $notificationPreferences,
         private readonly BookingPolicyService $bookingPolicy,
+        private readonly StaffProfileService $staffProfiles,
     ) {}
 
     /**
@@ -66,7 +68,17 @@ class OnlineBookingService
 
         $providersQuery = TeamMember::query()
             ->where('is_active', true)
-            ->whereHas('staffProfile', fn ($q) => $q->where('is_bookable', true))
+            ->where(function ($q) use ($locationId) {
+                $q->whereHas('staffProfile', fn ($sq) => $sq->where('is_bookable', true));
+                if ($locationId !== null) {
+                    $q->orWhereHas(
+                        'availabilityRules',
+                        fn ($aq) => $aq->where('is_active', true)->where('location_id', $locationId),
+                    );
+                } else {
+                    $q->orWhereHas('availabilityRules', fn ($aq) => $aq->where('is_active', true));
+                }
+            })
             ->with(['staffProfile', 'operatingLocations:id,name'])
             ->orderBy('display_name');
 
@@ -79,6 +91,11 @@ class OnlineBookingService
             });
         }
 
+        $providers = $providersQuery->get();
+        foreach ($providers as $provider) {
+            $this->staffProfiles->ensureOnlineBookable($provider);
+        }
+
         return [
             'tenant' => [
                 'id' => $tenant?->id,
@@ -89,7 +106,7 @@ class OnlineBookingService
             ],
             'locations' => $locations,
             'services' => $services,
-            'providers' => $providersQuery->get(),
+            'providers' => $providers,
             'ai_hairstyle_landing' => $this->entitlements->isEnabled($tenant, 'ai_hairstyle'),
             'booking_policy' => $this->bookingPolicy->publicSummary(),
         ];
@@ -454,24 +471,50 @@ class OnlineBookingService
     {
         if ($teamMemberId !== null) {
             $provider = $this->scope->findTeamMember($teamMemberId);
-            $profile = StaffProfile::query()->where('team_member_id', $provider->id)->first();
-            if (! $provider->is_active || $profile === null || ! $profile->is_bookable) {
+            if (! $provider->is_active) {
                 throw ValidationException::withMessages([
                     'team_member_id' => ['Provider is not bookable online.'],
                 ]);
             }
 
+            $hasAvailability = StaffAvailabilityRule::query()
+                ->where('team_member_id', $provider->id)
+                ->where('location_id', $locationId)
+                ->where('is_active', true)
+                ->exists();
+
+            $profile = StaffProfile::query()->where('team_member_id', $provider->id)->first();
+            if (($profile === null || ! $profile->is_bookable) && ! $hasAvailability) {
+                throw ValidationException::withMessages([
+                    'team_member_id' => ['Provider is not bookable online.'],
+                ]);
+            }
+
+            $this->staffProfiles->ensureOnlineBookable($provider);
+
             return collect([$provider]);
         }
 
-        return TeamMember::query()
+        $providers = TeamMember::query()
             ->where('is_active', true)
-            ->whereHas('staffProfile', fn ($q) => $q->where('is_bookable', true))
+            ->where(function ($q) use ($locationId) {
+                $q->whereHas('staffProfile', fn ($sq) => $sq->where('is_bookable', true))
+                    ->orWhereHas(
+                        'availabilityRules',
+                        fn ($aq) => $aq->where('is_active', true)->where('location_id', $locationId),
+                    );
+            })
             ->where(function ($q) use ($locationId) {
                 $q->where('primary_location_id', $locationId)
                     ->orWhereHas('operatingLocations', fn ($lq) => $lq->where('locations.id', $locationId))
                     ->orWhereDoesntHave('operatingLocations');
             })
             ->get();
+
+        foreach ($providers as $provider) {
+            $this->staffProfiles->ensureOnlineBookable($provider);
+        }
+
+        return $providers;
     }
 }
