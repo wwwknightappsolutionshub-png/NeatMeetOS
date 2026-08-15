@@ -1,17 +1,19 @@
 import type { Metadata } from 'next';
-import { Anek_Latin, Geist_Mono } from 'next/font/google';
+import localFont from 'next/font/local';
 import './globals.css';
 
-const anek = Anek_Latin({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
+const anek = localFont({
+  src: './fonts/AnekLatin-Variable.ttf',
   variable: '--font-anek',
   display: 'swap',
+  weight: '100 800',
 });
 
-const geistMono = Geist_Mono({
+const geistMono = localFont({
+  src: './fonts/GeistMono-Regular.woff2',
   variable: '--font-geist-mono',
-  subsets: ['latin'],
+  display: 'swap',
+  weight: '400',
 });
 
 const SITE_URL = (
