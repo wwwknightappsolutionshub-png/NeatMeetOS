@@ -681,6 +681,21 @@ function OnlineBookingPageInner() {
   const stepIndex = STEPS.findIndex((s) => s.key === step);
   const progressPct = ((stepIndex + 1) / STEPS.length) * 100;
   const statusMeta = storeStatusMeta(liveStoreStatus);
+  const showLocationPicker = (catalog?.locations.length ?? 0) > 1;
+  const showStaffPicker = (catalog?.providers.length ?? 0) > 1;
+  const membershipCompare = (
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--book-line)] bg-white px-4 py-3 shadow-[var(--book-shadow)] sm:px-5">
+      <p className="text-sm text-[var(--book-muted)]">
+        Plans, packages, and loyalty — see which benefit fits how you visit.
+      </p>
+      <Link
+        href={`/book/${tenantSlug}/memberships`}
+        className="inline-flex items-center justify-center rounded-md bg-[var(--book-moss)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--book-moss-deep)]"
+      >
+        Compare memberships
+      </Link>
+    </div>
+  );
 
   if (showAiLandingGate) {
     return (
@@ -726,60 +741,62 @@ function OnlineBookingPageInner() {
       ) : null}
 
       <div className="border-b border-[var(--book-line)] bg-white/90 backdrop-blur">
-        <div className="mx-auto flex max-w-5xl flex-col gap-3 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-          <div className="flex items-center gap-3">
-            {brandLogo ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={brandLogo}
-                alt=""
-                className="h-9 w-9 rounded-md object-cover"
-              />
-            ) : (
-              <NeatMeetLogo size={36} variant="color" />
-            )}
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--book-muted)]">
-                NeatMeet OS
-              </p>
-              <p className="text-sm font-semibold leading-tight">Online booking</p>
+        <div className="mx-auto flex max-w-5xl flex-col gap-2 px-4 py-3.5 sm:px-6">
+          <div className="flex min-w-0 items-center justify-between gap-2">
+            <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
+              {brandLogo ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={brandLogo}
+                  alt=""
+                  className="h-9 w-9 shrink-0 rounded-md object-cover"
+                />
+              ) : (
+                <NeatMeetLogo size={36} variant="color" />
+              )}
+              <div className="min-w-0 max-sm:hidden">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--book-muted)]">
+                  NeatMeet OS
+                </p>
+                <p className="text-sm font-semibold leading-tight">Online booking</p>
+              </div>
             </div>
-          </div>
-          <div className="flex min-w-0 flex-1 flex-col gap-2 sm:items-end">
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 sm:justify-end">
-              <span className="inline-flex items-center gap-1.5 text-sm font-medium text-[var(--book-ink)]">
+            <div className="flex min-w-0 flex-wrap items-center justify-end gap-x-2 gap-y-1 sm:gap-x-3">
+              <span className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--book-ink)] sm:text-sm">
                 <span
                   className={`h-2 w-2 shrink-0 rounded-full ${statusMeta.beaconClass}`}
                   aria-hidden
                 />
-                {statusMeta.label}
+                <span className="truncate">{statusMeta.label}</span>
               </span>
               {locationName ? (
-                <span className="text-sm text-[var(--book-muted)]">{locationName}</span>
+                <span className="max-w-[7rem] truncate text-xs text-[var(--book-muted)] sm:max-w-none sm:text-sm">
+                  {locationName}
+                </span>
               ) : null}
               <button
                 type="button"
                 onClick={handleReferFriend}
-                className="rounded-md border border-[var(--book-line)] bg-white px-3 py-1.5 text-sm font-semibold text-[var(--book-ink)] hover:bg-[var(--book-wash)]"
+                className="shrink-0 rounded-md border border-[var(--book-line)] bg-white px-2.5 py-1.5 text-xs font-semibold text-[var(--book-ink)] hover:bg-[var(--book-wash)] sm:px-3 sm:text-sm"
               >
                 Refer a friend
               </button>
             </div>
-            {(locationAddress || locationPhone) && (
-              <p className="text-xs leading-relaxed text-[var(--book-muted)] sm:text-right">
-                {locationAddress}
-                {locationAddress && locationPhone ? ' · ' : null}
-                {locationPhone ? (
-                  <a
-                    href={`tel:${locationPhone.replace(/\s+/g, '')}`}
-                    className="font-medium text-[var(--book-ink)] underline-offset-2 hover:underline"
-                  >
-                    {locationPhone}
-                  </a>
-                ) : null}
-              </p>
-            )}
           </div>
+          {(locationAddress || locationPhone) && (
+            <p className="text-xs leading-relaxed text-[var(--book-muted)]">
+              {locationAddress}
+              {locationAddress && locationPhone ? ' · ' : null}
+              {locationPhone ? (
+                <a
+                  href={`tel:${locationPhone.replace(/\s+/g, '')}`}
+                  className="font-medium text-[var(--book-ink)] underline-offset-2 hover:underline"
+                >
+                  {locationPhone}
+                </a>
+              ) : null}
+            </p>
+          )}
         </div>
       </div>
 
@@ -848,17 +865,6 @@ function OnlineBookingPageInner() {
               <p className="text-[var(--book-muted)]">Details used only for this booking</p>
             </div>
           </div>
-        </div>
-        <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 border-t border-[var(--book-line)] px-4 py-3 sm:px-6">
-          <p className="text-sm text-[var(--book-muted)]">
-            Plans, packages, and loyalty — see which benefit fits how you visit.
-          </p>
-          <Link
-            href={`/book/${tenantSlug}/memberships`}
-            className="inline-flex items-center justify-center rounded-md bg-[var(--book-moss)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--book-moss-deep)]"
-          >
-            Compare memberships
-          </Link>
         </div>
       </div>
 
@@ -1044,43 +1050,55 @@ function OnlineBookingPageInner() {
 
                 <div className={panelClass()}>
                   <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--book-muted)]">
-                    Preferences
+                    {showLocationPicker || showStaffPicker ? 'Preferences' : 'Date'}
                   </h3>
-                  <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                    <label className="block text-sm">
-                      <span className="mb-1.5 block font-semibold text-[var(--book-muted)]">
-                        Location
-                      </span>
-                      <select
-                        className={fieldClass()}
-                        value={locationId}
-                        onChange={(e) => setLocationId(e.target.value)}
-                      >
-                        {catalog?.locations.map((loc) => (
-                          <option key={loc.id} value={loc.id}>
-                            {loc.name}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="block text-sm">
-                      <span className="mb-1.5 block font-semibold text-[var(--book-muted)]">
-                        Stylist (optional)
-                      </span>
-                      <select
-                        className={fieldClass()}
-                        value={providerId}
-                        onChange={(e) => setProviderId(e.target.value)}
-                      >
-                        <option value="">Any available</option>
-                        {catalog?.providers.map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {p.display_name}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="block text-sm sm:col-span-2">
+                  <div
+                    className={`mt-4 grid gap-4 ${
+                      showLocationPicker || showStaffPicker ? 'sm:grid-cols-2' : ''
+                    }`}
+                  >
+                    {showLocationPicker ? (
+                      <label className="block text-sm">
+                        <span className="mb-1.5 block font-semibold text-[var(--book-muted)]">
+                          Location
+                        </span>
+                        <select
+                          className={fieldClass()}
+                          value={locationId}
+                          onChange={(e) => setLocationId(e.target.value)}
+                        >
+                          {catalog?.locations.map((loc) => (
+                            <option key={loc.id} value={loc.id}>
+                              {loc.name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    ) : null}
+                    {showStaffPicker ? (
+                      <label className="block text-sm">
+                        <span className="mb-1.5 block font-semibold text-[var(--book-muted)]">
+                          Stylist (optional)
+                        </span>
+                        <select
+                          className={fieldClass()}
+                          value={providerId}
+                          onChange={(e) => setProviderId(e.target.value)}
+                        >
+                          <option value="">Any available</option>
+                          {catalog?.providers.map((p) => (
+                            <option key={p.id} value={p.id}>
+                              {p.display_name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    ) : null}
+                    <label
+                      className={`block text-sm ${
+                        showLocationPicker || showStaffPicker ? 'sm:col-span-2' : ''
+                      }`}
+                    >
                       <span className="mb-1.5 block font-semibold text-[var(--book-muted)]">Date</span>
                       <input
                         type="date"
@@ -1155,6 +1173,8 @@ function OnlineBookingPageInner() {
                     Continue
                   </button>
                 </div>
+
+                {membershipCompare}
               </section>
             ) : null}
 
