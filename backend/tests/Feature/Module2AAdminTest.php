@@ -40,6 +40,21 @@ class Module2AAdminTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.phone', '+4400999888777');
 
+        $this->withTenantAuth($ctx['token'])
+            ->postJson('/api/v1/admin/clients', [
+                'first_name' => 'Dup',
+                'phone' => '+44 0099 988 8777',
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['phone']);
+
+        $this->withTenantAuth($ctx['token'])
+            ->postJson('/api/v1/admin/clients', [
+                'phone' => '+447700901001',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.phone', '+447700901001');
+
         Client::withoutGlobalScopes()->create([
             'tenant_id' => $ctx['otherTenant']->id,
             'first_name' => 'Foreign',

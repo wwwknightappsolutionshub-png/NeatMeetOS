@@ -191,6 +191,7 @@ class Module4OnlineBookingPortalTest extends TestCase
                 'first_name' => 'Manage',
                 'last_name' => 'Me',
                 'email' => 'manage.me@example.com',
+                'phone' => '+447700900321',
             ])
             ->assertCreated();
 
@@ -265,7 +266,7 @@ class Module4OnlineBookingPortalTest extends TestCase
         $this->assertSame($afterFirst, $afterSecond);
     }
 
-    public function test_book_reuses_existing_client_by_email(): void
+    public function test_book_reuses_existing_client_by_phone(): void
     {
         $ctx = $this->seedOnlineBookingContext();
 
@@ -274,6 +275,7 @@ class Module4OnlineBookingPortalTest extends TestCase
             'first_name' => 'Existing',
             'last_name' => 'Client',
             'email' => 'reuse@example.com',
+            'phone' => '+447700900555',
             'is_active' => true,
             'primary_location_id' => $ctx['location']->id,
         ]);
@@ -297,16 +299,60 @@ class Module4OnlineBookingPortalTest extends TestCase
                 'location_id' => $ctx['location']->id,
                 'team_member_id' => $ctx['teamMember']->id,
                 'starts_at' => $slots[0]['starts_at'],
-                'first_name' => 'Existing',
-                'last_name' => 'Client',
-                'email' => 'Reuse@example.com',
+                'phone' => '+44 7700 900555',
             ])
             ->assertCreated();
 
         $this->assertSame(1, Client::withoutGlobalScopes()
             ->where('tenant_id', $ctx['tenant']->id)
-            ->whereRaw('LOWER(email) = ?', ['reuse@example.com'])
+            ->where('phone_normalized', '+447700900555')
             ->count());
+    }
+
+    public function test_book_allows_optional_name_and_requires_phone(): void
+    {
+        $ctx = $this->seedOnlineBookingContext();
+        $date = Carbon::now()->next(Carbon::WEDNESDAY)->toDateString();
+
+        $slots = $this->withHeaders(['X-Tenant-Slug' => $ctx['tenant']->slug])
+            ->getJson('/api/v1/book/slots?'.http_build_query([
+                'booking_service_id' => $ctx['service']->id,
+                'location_id' => $ctx['location']->id,
+                'date' => $date,
+                'team_member_id' => $ctx['teamMember']->id,
+            ]))
+            ->assertOk()
+            ->json('data.slots');
+
+        $this->assertNotEmpty($slots);
+
+        $this->withHeaders(['X-Tenant-Slug' => $ctx['tenant']->slug])
+            ->postJson('/api/v1/book/appointments', [
+                'booking_service_id' => $ctx['service']->id,
+                'location_id' => $ctx['location']->id,
+                'team_member_id' => $ctx['teamMember']->id,
+                'starts_at' => $slots[0]['starts_at'],
+                'email' => 'noname@example.com',
+            ])
+            ->assertStatus(422);
+
+        $created = $this->withHeaders(['X-Tenant-Slug' => $ctx['tenant']->slug])
+            ->postJson('/api/v1/book/appointments', [
+                'booking_service_id' => $ctx['service']->id,
+                'location_id' => $ctx['location']->id,
+                'team_member_id' => $ctx['teamMember']->id,
+                'starts_at' => $slots[0]['starts_at'],
+                'phone' => '+447700900888',
+            ])
+            ->assertCreated();
+
+        $this->assertDatabaseHas('clients', [
+            'tenant_id' => $ctx['tenant']->id,
+            'phone' => '+447700900888',
+            'phone_normalized' => '+447700900888',
+            'first_name' => null,
+        ]);
+        $this->assertNotEmpty($created->json('data.id'));
     }
 
     public function test_online_booking_is_tenant_isolated(): void
@@ -327,6 +373,7 @@ class Module4OnlineBookingPortalTest extends TestCase
                 'first_name' => 'X',
                 'last_name' => 'Y',
                 'email' => 'x@example.com',
+                'phone' => '+447700900000',
             ])
             ->assertNotFound();
     }
