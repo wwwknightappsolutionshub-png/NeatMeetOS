@@ -162,19 +162,24 @@ export default function AdminDashboardPage() {
   const today = range.to;
 
   useEffect(() => {
-    const id = window.setInterval(() => setNowMs(Date.now()), 1000);
+    const id = window.setInterval(() => setNowMs(Date.now()), 15_000);
     return () => window.clearInterval(id);
   }, []);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (opts?: { silent?: boolean }) => {
+    const silent = Boolean(opts?.silent);
     if (!getStoredToken()) {
       window.location.href = '/login';
       return;
     }
 
-    setLoading(true);
+    if (!silent) {
+      setLoading(true);
+    }
     setAuthError(null);
-    setPartialErrors([]);
+    if (!silent) {
+      setPartialErrors([]);
+    }
 
     let shellData: ShellStatus;
     try {
@@ -243,10 +248,10 @@ export default function AdminDashboardPage() {
     void load();
   }, [load]);
 
-  // Refresh when SOS overlay detects a new online booking.
+  // Refresh when SOS overlay detects a real change (not every poll tick).
   useEffect(() => {
     const onSos = () => {
-      void load();
+      void load({ silent: true });
     };
     window.addEventListener('neatmeet:staff-sos', onSos);
     return () => window.removeEventListener('neatmeet:staff-sos', onSos);

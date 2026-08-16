@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Appointment } from '@/lib/booking-types';
 import { subscribeBookingBoard } from '@/lib/echo';
 import { fetchAppointments } from '@/services/booking.service';
@@ -162,33 +162,56 @@ export function DashboardBookingCalendar({
   const [items, setItems] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const requestIdRef = useRef(0);
 
   const range = useMemo(() => rangeForView(anchor, view), [anchor, view]);
   const anchorDateKey = localIsoDate(anchor);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (opts?: { silent?: boolean }) => {
+    const silent = Boolean(opts?.silent);
+    const requestId = ++requestIdRef.current;
+    if (!silent) {
+      setLoading(true);
+    }
     setError(null);
     try {
       const rows = await fetchAppointments({ from: range.from, to: range.to });
+      if (requestId !== requestIdRef.current) return;
       setItems([...rows].sort(compareAppointmentStart));
     } catch (e) {
+      if (requestId !== requestIdRef.current) return;
       setError(e instanceof Error ? e.message : 'Could not load calendar');
-      setItems([]);
+      if (!silent) {
+        setItems([]);
+      }
     } finally {
-      setLoading(false);
+      if (requestId === requestIdRef.current) {
+        setLoading(false);
+      }
     }
   }, [range.from, range.to]);
 
+  // Visible load when the calendar range/view changes.
   useEffect(() => {
-    void load();
-  }, [load, refreshToken]);
+    void load({ silent: false });
+  }, [load]);
+
+  // Background refresh from parent SOS / booking updates — keep current UI.
+  useEffect(() => {
+    if (refreshToken === 0) return;
+    void load({ silent: true });
+    // Intentionally only react to token bumps, not load identity (range already handled above).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshToken]);
 
   useEffect(() => {
     if (!focusDateIso) return;
     const parsed = new Date(`${focusDateIso}T12:00:00`);
     if (Number.isNaN(parsed.getTime())) return;
-    setAnchor(parsed);
+    setAnchor((prev) => {
+      const nextKey = localIsoDate(parsed);
+      return localIsoDate(prev) === nextKey ? prev : parsed;
+    });
     setView('day');
   }, [focusDateIso]);
 
@@ -201,15 +224,13 @@ export function DashboardBookingCalendar({
       .then((shell) => {
         if (cancelled || !shell.tenant?.id) return;
         unsubscribe = subscribeBookingBoard(shell.tenant.id, (payload) => {
-          const fromDay = range.from.slice(0, 10);
-          const toDay = range.to.slice(0, 10);
-          // payload.date is location-local YYYY-MM-DD; also accept ISO range overlap via local key.
-          if (
+          const fromDay = localIsoDate(new Date(range.from));
+          const toDay = localIsoDate(new Date(range.to));
+          const overlapsVisible =
             payload.date === anchorDateKey ||
-            (payload.date >= fromDay && payload.date <= toDay) ||
-            view !== 'day'
-          ) {
-            void load();
+            (payload.date >= fromDay && payload.date <= toDay);
+          if (overlapsVisible) {
+            void load({ silent: true });
           }
         });
       })
@@ -221,13 +242,13 @@ export function DashboardBookingCalendar({
       cancelled = true;
       unsubscribe?.();
     };
-  }, [load, range.from, range.to, anchorDateKey, view]);
+  }, [load, range.from, range.to, anchorDateKey]);
 
   // Poll as a fallback when Reverb is unavailable.
   useEffect(() => {
     const id = window.setInterval(() => {
-      void load();
-    }, 30_000);
+      void load({ silent: true });
+    }, 60_000);
     return () => window.clearInterval(id);
   }, [load]);
 

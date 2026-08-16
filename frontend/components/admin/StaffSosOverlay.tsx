@@ -51,18 +51,18 @@ export function StaffSosOverlay() {
   const [error, setError] = useState<string | null>(null);
   const [muted, setMuted] = useState(false);
   const wakeLockRef = useRef<{ release: () => Promise<void> } | null>(null);
+  const lastSosSignatureRef = useRef<string | null>(null);
 
   const refresh = useCallback(async () => {
     try {
       const items = await fetchActiveStaffSosAlerts();
       const next = items[0] ?? null;
-      setAlert((prev) => {
-        if (next && (!prev || prev.id !== next.id)) {
-          // New alert arrived — keep existing overlay handoff.
-        }
-        return next;
-      });
-      window.dispatchEvent(new CustomEvent('neatmeet:staff-sos', { detail: { items, next } }));
+      const signature = items.map((item) => `${item.id}:${item.status}`).join('|');
+      setAlert(next);
+      if (signature !== lastSosSignatureRef.current) {
+        lastSosSignatureRef.current = signature;
+        window.dispatchEvent(new CustomEvent('neatmeet:staff-sos', { detail: { items, next } }));
+      }
     } catch {
       /* keep last known alert while offline/transient errors */
     }
