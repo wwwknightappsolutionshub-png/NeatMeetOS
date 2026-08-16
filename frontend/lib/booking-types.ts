@@ -208,6 +208,31 @@ export interface OnlineBookingCatalog {
   /** When true, show AI look landing gate before the booking flow. */
   ai_hairstyle_landing?: boolean;
   booking_policy?: BookingPolicySummary | null;
+  reservation_payment?: ReservationPaymentCatalog | null;
+}
+
+export interface ReservationPaymentBankDetails {
+  account_name: string | null;
+  bank_name: string | null;
+  sort_code: string | null;
+  account_number: string | null;
+  iban: string | null;
+  reference_hint: string | null;
+}
+
+export interface ReservationPaymentMethodOption {
+  id: 'transfer' | 'stripe' | 'google_pay';
+  label: string;
+  available: boolean;
+  coming_soon: boolean;
+}
+
+export interface ReservationPaymentCatalog {
+  commitment_notice: string;
+  min_fee_cents: number;
+  transfer_ready: boolean;
+  bank_details: ReservationPaymentBankDetails | null;
+  methods: ReservationPaymentMethodOption[];
 }
 
 export interface BookingPolicySummary {
@@ -271,6 +296,8 @@ export interface OnlineBookPayload {
   client_notes?: string;
   pricing_tier?: 'regular' | 'membership' | 'loyalty';
   member_token?: string;
+  reservation_document_id?: string;
+  payment_method?: 'transfer' | 'stripe' | 'google_pay';
 }
 
 export const WALK_IN_STAGES = ['waiting', 'seated'] as const;

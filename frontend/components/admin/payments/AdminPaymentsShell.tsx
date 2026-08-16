@@ -23,7 +23,19 @@ export function AdminPaymentsShell({ title, children }: AdminPaymentsShellProps)
           active:
             pathname === '/admin/payments' ||
             (pathname.startsWith('/admin/payments/') &&
-              !pathname.startsWith('/admin/payments/failed')),
+              !pathname.startsWith('/admin/payments/failed') &&
+              !pathname.startsWith('/admin/payments/documents') &&
+              !pathname.startsWith('/admin/payments/settings')),
+        },
+        {
+          href: '/admin/payments/documents',
+          label: 'Payment documents',
+          active: pathname.startsWith('/admin/payments/documents'),
+        },
+        {
+          href: '/admin/payments/settings',
+          label: 'Bank details',
+          active: pathname.startsWith('/admin/payments/settings'),
         },
         {
           href: '/admin/payments/failed',

@@ -107,6 +107,47 @@ export interface DepositInspect {
   deposit_record?: Record<string, unknown> | null;
 }
 
+export interface TenantPaymentsSettings {
+  bank_account_name: string | null;
+  bank_name: string | null;
+  bank_sort_code: string | null;
+  bank_account_number: string | null;
+  bank_iban: string | null;
+  bank_reference_hint: string | null;
+}
+
+export interface ReservationPaymentDocument {
+  id: string;
+  appointment_id: string | null;
+  client_id: string | null;
+  booking_service_id: string | null;
+  amount_cents: number;
+  payment_method: string;
+  status: 'pending_review' | 'confirmed' | 'rejected' | string;
+  proof_url: string | null;
+  proof_original_name: string | null;
+  proof_mime: string | null;
+  proof_size_bytes: number | null;
+  public_token: string;
+  review_note: string | null;
+  reviewed_at: string | null;
+  created_at: string | null;
+  appointment: {
+    id: string;
+    booking_reference: string | null;
+    starts_at: string | null;
+    status: string;
+    deposit_status: string | null;
+    deposit_required_cents: number | null;
+    client_name: string | null;
+    provider_name: string | null;
+    services: string[];
+  } | null;
+  client_name: string | null;
+  service_name: string | null;
+  reviewed_by_name: string | null;
+}
+
 export function formatMoneyCents(cents: number, currency = 'GBP'): string {
   const symbol = currency === 'GBP' ? '£' : currency;
   return `${symbol}${(cents / 100).toFixed(2)}`;

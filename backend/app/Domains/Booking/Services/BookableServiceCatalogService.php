@@ -36,6 +36,8 @@ class BookableServiceCatalogService
 
     public function create(array $data): BookableService
     {
+        $this->assertReservationFeeRules($data);
+
         $service = BookableService::query()->create([
             'tenant_id' => $this->scope->tenantId(),
             'name' => $data['name'],
@@ -63,6 +65,7 @@ class BookableServiceCatalogService
     public function update(BookableService $service, array $data): BookableService
     {
         $this->scope->assertTenantModel($service);
+        $this->assertReservationFeeRules($data, $service);
 
         $old = $service->toArray();
         $service->fill(collect($data)->only([
@@ -114,6 +117,30 @@ class BookableServiceCatalogService
         $this->auditLogger->log('booking_service.archived', $service);
 
         return $service->fresh();
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function assertReservationFeeRules(array $data, ?BookableService $existing = null): void
+    {
+        $required = array_key_exists('deposit_required', $data)
+            ? (bool) $data['deposit_required']
+            : (bool) ($existing?->deposit_required ?? false);
+
+        if (! $required) {
+            return;
+        }
+
+        $amount = array_key_exists('deposit_amount_cents', $data)
+            ? $data['deposit_amount_cents']
+            : $existing?->deposit_amount_cents;
+
+        if ($amount === null || (int) $amount < ReservationPaymentDocumentService::MIN_FEE_CENTS) {
+            throw ValidationException::withMessages([
+                'deposit_amount_cents' => ['Reservation fee must be at least £10 when required.'],
+            ]);
+        }
     }
 
     /**

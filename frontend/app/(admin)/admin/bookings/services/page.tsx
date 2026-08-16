@@ -85,6 +85,13 @@ export default function BookingServicesPage() {
       setError('A service photo is required for new services.');
       return;
     }
+    if (form.deposit_required) {
+      const cents = majorInputToCents(form.deposit_amount);
+      if (cents === null || cents < 1000) {
+        setError('Reservation fee must be at least £10 when required.');
+        return;
+      }
+    }
     const payload = {
       name: form.name,
       category: form.category || null,
@@ -277,16 +284,17 @@ export default function BookingServicesPage() {
                   checked={form.deposit_required}
                   onChange={(e) => setForm({ ...form, deposit_required: e.target.checked })}
                 />
-                Deposit required
+                Reservation fee required
               </label>
-              <Field label={priceFieldLabel('Deposit amount', currency)}>
+              <Field label={priceFieldLabel('Reservation fee (min £10)', currency)}>
                 <input
                   type="number"
                   step="0.01"
-                  min="0"
+                  min="10"
                   className={inputClass}
                   value={form.deposit_amount}
                   onChange={(e) => setForm({ ...form, deposit_amount: e.target.value })}
+                  required={form.deposit_required}
                 />
               </Field>
               <Field label="Service advance notice (hours, optional)">
@@ -369,7 +377,7 @@ export default function BookingServicesPage() {
                         ? ` · Loyalty ${formatMoneyMinor(service.loyalty_price_cents, currency)}`
                         : ''}
                       {service.deposit_required
-                        ? ` · deposit ${formatMoneyMinor(service.deposit_amount_cents ?? 0, currency)}`
+                        ? ` · reservation fee ${formatMoneyMinor(service.deposit_amount_cents ?? 0, currency)}`
                         : ''}
                       {!service.is_active ? ' · archived' : ''}
                     </p>

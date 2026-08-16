@@ -113,7 +113,10 @@ use App\Domains\Notifications\Http\Controllers\Admin\NotificationReportingContro
 use App\Domains\Notifications\Http\Controllers\Admin\NotificationSettingController;
 use App\Domains\Notifications\Http\Controllers\Admin\NotificationTemplateController;
 use App\Domains\Notifications\Http\Controllers\Admin\NotificationTimelineController;
+use App\Domains\Booking\Http\Controllers\Admin\ReservationPaymentDocumentController;
+use App\Domains\Booking\Http\Controllers\PublicBooking\PublicReservationPaymentController;
 use App\Domains\Payments\Http\Controllers\Admin\DepositPaymentController;
+use App\Domains\Payments\Http\Controllers\Admin\TenantPaymentsSettingsController;
 use App\Domains\Pos\Http\Controllers\Admin\CheckoutAdvancedController;
 use App\Domains\Pos\Http\Controllers\Admin\CheckoutController;
 use App\Domains\Pos\Http\Controllers\Admin\CheckoutMembershipController;
@@ -153,6 +156,7 @@ Route::prefix('v1')->group(function () {
         Route::get('/slots', [OnlineBookingController::class, 'slots']);
         Route::get('/memberships', [PublicMembershipLandingController::class, 'show']);
         Route::post('/appointments', [OnlineBookingController::class, 'book'])->middleware('throttle:public-book-write');
+        Route::post('/reservation-proof', [PublicReservationPaymentController::class, 'storeProof'])->middleware('throttle:public-book-write');
         Route::get('/appointments/{bookingReference}', [OnlineBookingController::class, 'showManaged']);
         Route::post('/appointments/{bookingReference}/cancel', [OnlineBookingController::class, 'cancelManaged'])->middleware('throttle:public-book-write');
         Route::get('/change-requests', [OnlineBookingController::class, 'showChangeRequest']);
@@ -465,12 +469,18 @@ Route::prefix('v1')->group(function () {
 
         Route::middleware('permission:payments.view')->group(function () {
             Route::get('/payments', [PaymentTransactionController::class, 'index']);
+            Route::get('/payments/settings', [TenantPaymentsSettingsController::class, 'show']);
+            Route::get('/payments/reservation-documents', [ReservationPaymentDocumentController::class, 'index']);
+            Route::get('/payments/reservation-documents/{id}', [ReservationPaymentDocumentController::class, 'show']);
             Route::get('/payments/{id}', [PaymentTransactionController::class, 'show']);
             Route::get('/payments/{id}/refunds', [PaymentRefundController::class, 'index']);
             Route::get('/appointments/{id}/deposit', [DepositPaymentController::class, 'show']);
         });
 
         Route::middleware('permission:payments.manage')->group(function () {
+            Route::put('/payments/settings', [TenantPaymentsSettingsController::class, 'update']);
+            Route::post('/payments/reservation-documents/{id}/confirm', [ReservationPaymentDocumentController::class, 'confirm']);
+            Route::post('/payments/reservation-documents/{id}/reject', [ReservationPaymentDocumentController::class, 'reject']);
             Route::post('/payments/manual', [PaymentTransactionController::class, 'storeManual']);
             Route::post('/payments/payment-link', [PaymentTransactionController::class, 'storePaymentLink']);
             Route::post('/payments/{id}/mark-succeeded', [PaymentTransactionController::class, 'markSucceeded']);

@@ -58,10 +58,11 @@ export function StaffSosOverlay() {
       const next = items[0] ?? null;
       setAlert((prev) => {
         if (next && (!prev || prev.id !== next.id)) {
-          window.dispatchEvent(new CustomEvent('neatmeet:staff-sos', { detail: next }));
+          // New alert arrived — keep existing overlay handoff.
         }
         return next;
       });
+      window.dispatchEvent(new CustomEvent('neatmeet:staff-sos', { detail: { items, next } }));
     } catch {
       /* keep last known alert while offline/transient errors */
     }

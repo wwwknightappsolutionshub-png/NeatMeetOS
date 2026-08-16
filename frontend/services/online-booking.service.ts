@@ -1,4 +1,4 @@
-import { api } from '@/lib/api-client';
+import { api, API_BASE } from '@/lib/api-client';
 import type {
   Appointment,
   BookingChangeRequest,
@@ -56,6 +56,56 @@ export async function createOnlineAppointment(
       body: JSON.stringify(payload),
     }),
   });
+}
+
+export async function uploadReservationProof(
+  tenantSlug: string,
+  params: {
+    booking_service_id: string;
+    payment_method: 'transfer' | 'stripe' | 'google_pay';
+    proof: File;
+  },
+): Promise<{
+  id: string;
+  public_token: string;
+  amount_cents: number;
+  payment_method: string;
+  status: string;
+}> {
+  const form = new FormData();
+  form.append('booking_service_id', params.booking_service_id);
+  form.append('payment_method', params.payment_method);
+  form.append('proof', params.proof);
+
+  const res = await fetch(`${API_BASE}/book/reservation-proof`, {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      'X-Tenant-Slug': tenantSlug,
+    },
+    body: form,
+    credentials: 'omit',
+  });
+
+  const json = (await res.json()) as {
+    success: boolean;
+    message: string;
+    data?: {
+      id: string;
+      public_token: string;
+      amount_cents: number;
+      payment_method: string;
+      status: string;
+    };
+    errors?: Record<string, string[]>;
+  };
+
+  if (!res.ok || !json.success || !json.data) {
+    const firstError = json.errors ? Object.values(json.errors).flat()[0] : undefined;
+    throw new Error(firstError || json.message || 'Upload failed');
+  }
+
+  return json.data;
 }
 
 export async function fetchManagedAppointment(

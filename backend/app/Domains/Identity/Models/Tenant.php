@@ -29,6 +29,15 @@ class Tenant extends Model
         'social_tiktok_url' => null,
     ];
 
+    public const PAYMENTS_DEFAULTS = [
+        'bank_account_name' => null,
+        'bank_name' => null,
+        'bank_sort_code' => null,
+        'bank_account_number' => null,
+        'bank_iban' => null,
+        'bank_reference_hint' => null,
+    ];
+
     public const HERO_EMBLEM_MODES = ['none', 'logo', 'custom'];
 
     public const STORE_STATUSES = ['auto', 'open', 'opening_soon', 'closing', 'closed'];
@@ -96,6 +105,21 @@ class Tenant extends Model
     {
         $settings = $this->settings ?? [];
         $settings['branding'] = array_merge($this->getBranding(), $branding);
+        $this->settings = $settings;
+    }
+
+    public function getPaymentsSettings(): array
+    {
+        $settings = $this->settings ?? [];
+        $payments = is_array($settings['payments'] ?? null) ? $settings['payments'] : [];
+
+        return array_merge(self::PAYMENTS_DEFAULTS, $payments);
+    }
+
+    public function setPaymentsSettings(array $payments): void
+    {
+        $settings = $this->settings ?? [];
+        $settings['payments'] = array_merge($this->getPaymentsSettings(), $payments);
         $this->settings = $settings;
     }
 }

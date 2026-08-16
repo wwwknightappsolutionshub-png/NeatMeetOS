@@ -4,6 +4,7 @@ namespace App\Domains\Booking\Services;
 
 use App\Domains\Booking\Models\Appointment;
 use App\Domains\Booking\Models\BookableService;
+use App\Domains\Booking\Models\ReservationPaymentDocument;
 use App\Domains\Crm\Models\Client;
 use App\Domains\Crm\Services\ClientService;
 use App\Domains\Crm\Services\MemberPortalAuthService;
@@ -12,6 +13,7 @@ use App\Domains\Identity\Models\TeamMember;
 use App\Domains\Identity\Services\TenantEntitlementService;
 use App\Domains\Notifications\Enums\NotificationChannel;
 use App\Domains\Notifications\Services\NotificationPreferenceService;
+use App\Domains\Payments\Services\TenantPaymentsSettingsService;
 use App\Domains\Staff\Models\StaffAbsence;
 use App\Domains\Staff\Models\StaffAvailabilityRule;
 use App\Domains\Staff\Models\StaffProfile;
@@ -21,6 +23,7 @@ use App\Shared\Support\PhoneNormalizer;
 use App\Shared\Support\PublicStorageUrl;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -40,6 +43,8 @@ class OnlineBookingService
         private readonly NotificationPreferenceService $notificationPreferences,
         private readonly BookingPolicyService $bookingPolicy,
         private readonly StaffProfileService $staffProfiles,
+        private readonly TenantPaymentsSettingsService $paymentsSettings,
+        private readonly ReservationPaymentDocumentService $reservationPayments,
     ) {}
 
     /**
@@ -96,6 +101,8 @@ class OnlineBookingService
             $this->staffProfiles->ensureOnlineBookable($provider);
         }
 
+        $transferReady = $this->paymentsSettings->hasCompleteBankDetails();
+
         return [
             'tenant' => [
                 'id' => $tenant?->id,
@@ -109,6 +116,32 @@ class OnlineBookingService
             'providers' => $providers,
             'ai_hairstyle_landing' => $this->entitlements->isEnabled($tenant, 'ai_hairstyle'),
             'booking_policy' => $this->bookingPolicy->publicSummary(),
+            'reservation_payment' => [
+                'commitment_notice' => 'This is just a commitment charge and it counts towards your actual charge when you arrive at the shop.',
+                'min_fee_cents' => ReservationPaymentDocumentService::MIN_FEE_CENTS,
+                'transfer_ready' => $transferReady,
+                'bank_details' => $transferReady ? $this->paymentsSettings->publicBankDetails() : null,
+                'methods' => [
+                    [
+                        'id' => ReservationPaymentDocument::METHOD_TRANSFER,
+                        'label' => 'Transfer',
+                        'available' => $transferReady,
+                        'coming_soon' => false,
+                    ],
+                    [
+                        'id' => ReservationPaymentDocument::METHOD_STRIPE,
+                        'label' => 'Stripe',
+                        'available' => false,
+                        'coming_soon' => true,
+                    ],
+                    [
+                        'id' => ReservationPaymentDocument::METHOD_GOOGLE_PAY,
+                        'label' => 'Google Pay',
+                        'available' => false,
+                        'coming_soon' => true,
+                    ],
+                ],
+            ],
         ];
     }
 
@@ -283,6 +316,10 @@ class OnlineBookingService
         $client = $priced['client'];
 
         $this->bookingPolicy->assertStartsAtMeetsAdvanceNotice(Carbon::parse($payload['starts_at']));
+        $this->reservationPayments->assertReadyForBooking(
+            isset($payload['reservation_document_id']) ? (string) $payload['reservation_document_id'] : null,
+            $service,
+        );
 
         // Online booking with a phone is treated as transactional WhatsApp consent
         // for booking confirmations (checkbox still recorded when present).
@@ -294,24 +331,34 @@ class OnlineBookingService
             ]);
         }
 
-        $appointment = $this->appointments->create([
-            'client_id' => $client->id,
-            'team_member_id' => $payload['team_member_id'],
-            'location_id' => $payload['location_id'],
-            'workspace_id' => $payload['workspace_id'] ?? null,
-            'starts_at' => $payload['starts_at'],
-            'status' => Appointment::STATUS_CONFIRMED,
-            'booking_source' => Appointment::SOURCE_ONLINE,
-            'client_notes' => $payload['client_notes'] ?? null,
-            'services' => [
-                [
-                    'booking_service_id' => $service->id,
-                    'sort_order' => 0,
-                    'price_cents' => $priced['price_cents'],
-                    'pricing_tier' => $priced['pricing_tier'],
+        $appointment = DB::transaction(function () use ($payload, $client, $service, $priced) {
+            $appointment = $this->appointments->create([
+                'client_id' => $client->id,
+                'team_member_id' => $payload['team_member_id'],
+                'location_id' => $payload['location_id'],
+                'workspace_id' => $payload['workspace_id'] ?? null,
+                'starts_at' => $payload['starts_at'],
+                'status' => Appointment::STATUS_CONFIRMED,
+                'booking_source' => Appointment::SOURCE_ONLINE,
+                'client_notes' => $payload['client_notes'] ?? null,
+                'services' => [
+                    [
+                        'booking_service_id' => $service->id,
+                        'sort_order' => 0,
+                        'price_cents' => $priced['price_cents'],
+                        'pricing_tier' => $priced['pricing_tier'],
+                    ],
                 ],
-            ],
-        ]);
+            ]);
+
+            $feeCents = $this->reservationPayments->requiredFeeCentsForService($service);
+            if ($feeCents >= ReservationPaymentDocumentService::MIN_FEE_CENTS) {
+                $doc = $this->reservationPayments->find((string) $payload['reservation_document_id']);
+                $this->reservationPayments->attachToAppointment($doc, $appointment);
+            }
+
+            return $appointment;
+        });
 
         try {
             $this->staffSos->raiseForNewOnlineBooking($appointment);

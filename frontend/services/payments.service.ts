@@ -4,6 +4,8 @@ import type {
   PaymentRefund,
   PaymentSummary,
   PaymentTransaction,
+  ReservationPaymentDocument,
+  TenantPaymentsSettings,
 } from '@/lib/payments-types';
 
 const auth = { auth: true as const, tenant: true as const };
@@ -160,5 +162,60 @@ export async function refundAppointmentDeposit(
     ...auth,
     method: 'POST',
     body: JSON.stringify(data ?? {}),
+  });
+}
+
+export async function fetchTenantPaymentsSettings(): Promise<TenantPaymentsSettings> {
+  return api<TenantPaymentsSettings>('/admin/payments/settings', auth);
+}
+
+export async function updateTenantPaymentsSettings(
+  data: Partial<TenantPaymentsSettings>,
+): Promise<TenantPaymentsSettings> {
+  return api<TenantPaymentsSettings>('/admin/payments/settings', {
+    ...auth,
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function fetchReservationPaymentDocuments(params?: {
+  status?: string;
+}): Promise<ReservationPaymentDocument[]> {
+  const search = new URLSearchParams();
+  if (params?.status) search.set('status', params.status);
+  const query = search.toString();
+  const data = await api<{ items: ReservationPaymentDocument[] }>(
+    `/admin/payments/reservation-documents${query ? `?${query}` : ''}`,
+    auth,
+  );
+  return data.items;
+}
+
+export async function fetchReservationPaymentDocument(
+  id: string,
+): Promise<ReservationPaymentDocument> {
+  return api<ReservationPaymentDocument>(`/admin/payments/reservation-documents/${id}`, auth);
+}
+
+export async function confirmReservationPaymentDocument(
+  id: string,
+  note?: string,
+): Promise<ReservationPaymentDocument> {
+  return api<ReservationPaymentDocument>(`/admin/payments/reservation-documents/${id}/confirm`, {
+    ...auth,
+    method: 'POST',
+    body: JSON.stringify({ note }),
+  });
+}
+
+export async function rejectReservationPaymentDocument(
+  id: string,
+  note?: string,
+): Promise<ReservationPaymentDocument> {
+  return api<ReservationPaymentDocument>(`/admin/payments/reservation-documents/${id}/reject`, {
+    ...auth,
+    method: 'POST',
+    body: JSON.stringify({ note }),
   });
 }

@@ -3,7 +3,9 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Appointment } from '@/lib/booking-types';
+import { subscribeBookingBoard } from '@/lib/echo';
 import { fetchAppointments } from '@/services/booking.service';
+import { fetchShell } from '@/services/auth.service';
 
 type CalendarView = 'day' | 'week' | 'month';
 
@@ -150,10 +152,9 @@ function rangeForView(anchor: Date, view: CalendarView): { from: string; to: str
 
 export function DashboardBookingCalendar({
   refreshToken = 0,
-  focusDateIso,
+  focusDateIso = null,
 }: {
   refreshToken?: number;
-  /** YYYY-MM-DD — jump day view here when a new booking lands. */
   focusDateIso?: string | null;
 }) {
   const [view, setView] = useState<CalendarView>('day');
@@ -161,51 +162,23 @@ export function DashboardBookingCalendar({
   const [items, setItems] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [nextHint, setNextHint] = useState<{ date: string; label: string } | null>(null);
 
   const range = useMemo(() => rangeForView(anchor, view), [anchor, view]);
+  const anchorDateKey = localIsoDate(anchor);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const rows = await fetchAppointments({ from: range.from, to: range.to });
-      setItems(
-        [...rows].sort((a, b) => a.starts_at.localeCompare(b.starts_at)),
-      );
-
-      // If day view is empty, find the next upcoming booking so staff can jump to it.
-      if (view === 'day' && rows.length === 0) {
-        const from = new Date(anchor.getFullYear(), anchor.getMonth(), anchor.getDate(), 0, 0, 0, 0);
-        const to = addDays(from, 14);
-        to.setHours(23, 59, 59, 999);
-        const upcoming = await fetchAppointments({
-          from: from.toISOString(),
-          to: to.toISOString(),
-        });
-        const next = [...upcoming]
-          .filter((a) => !['cancelled', 'no_show'].includes(a.status))
-          .sort((a, b) => a.starts_at.localeCompare(b.starts_at))[0];
-        if (next) {
-          const d = new Date(next.starts_at);
-          setNextHint({
-            date: localIsoDate(d),
-            label: `${formatDayLabel(d)} · ${formatTime(next.starts_at)}`,
-          });
-        } else {
-          setNextHint(null);
-        }
-      } else {
-        setNextHint(null);
-      }
+      setItems([...rows].sort(compareAppointmentStart));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not load calendar');
       setItems([]);
-      setNextHint(null);
     } finally {
       setLoading(false);
     }
-  }, [range.from, range.to, view, anchor]);
+  }, [range.from, range.to]);
 
   useEffect(() => {
     void load();
@@ -213,15 +186,48 @@ export function DashboardBookingCalendar({
 
   useEffect(() => {
     if (!focusDateIso) return;
-    const [y, m, d] = focusDateIso.split('-').map(Number);
-    if (!y || !m || !d) return;
+    const parsed = new Date(`${focusDateIso}T12:00:00`);
+    if (Number.isNaN(parsed.getTime())) return;
+    setAnchor(parsed);
     setView('day');
-    setAnchor(new Date(y, m - 1, d));
   }, [focusDateIso]);
 
-  // Keep the board live while staff stay on the dashboard.
+  // Live refresh when an online/admin booking lands on the visible day/week/month.
   useEffect(() => {
-    const id = window.setInterval(() => void load(), 20_000);
+    let unsubscribe: (() => void) | null = null;
+    let cancelled = false;
+
+    fetchShell()
+      .then((shell) => {
+        if (cancelled || !shell.tenant?.id) return;
+        unsubscribe = subscribeBookingBoard(shell.tenant.id, (payload) => {
+          const fromDay = range.from.slice(0, 10);
+          const toDay = range.to.slice(0, 10);
+          // payload.date is location-local YYYY-MM-DD; also accept ISO range overlap via local key.
+          if (
+            payload.date === anchorDateKey ||
+            (payload.date >= fromDay && payload.date <= toDay) ||
+            view !== 'day'
+          ) {
+            void load();
+          }
+        });
+      })
+      .catch(() => {
+        /* Echo optional */
+      });
+
+    return () => {
+      cancelled = true;
+      unsubscribe?.();
+    };
+  }, [load, range.from, range.to, anchorDateKey, view]);
+
+  // Poll as a fallback when Reverb is unavailable.
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      void load();
+    }, 30_000);
     return () => window.clearInterval(id);
   }, [load]);
 
@@ -233,13 +239,6 @@ export function DashboardBookingCalendar({
     });
   }
 
-  function jumpToHint() {
-    if (!nextHint) return;
-    const [y, m, d] = nextHint.date.split('-').map(Number);
-    setView('day');
-    setAnchor(new Date(y, m - 1, d));
-  }
-
   const byDay = useMemo(() => {
     const map = new Map<string, Appointment[]>();
     for (const appt of items) {
@@ -247,6 +246,9 @@ export function DashboardBookingCalendar({
       const list = map.get(key) ?? [];
       list.push(appt);
       map.set(key, list);
+    }
+    for (const [key, list] of map) {
+      map.set(key, [...list].sort(compareAppointmentStart));
     }
     return map;
   }, [items]);
@@ -287,13 +289,13 @@ export function DashboardBookingCalendar({
               type="button"
               onClick={() => setView(v)}
               className={[
-                'rounded-lg px-3 py-1.5 text-sm font-semibold capitalize',
+                'rounded-lg px-3 py-1.5 text-sm font-semibold',
                 view === v
                   ? 'bg-[var(--admin-accent)] text-white'
                   : 'border border-[var(--admin-line)] bg-white text-[var(--admin-ink)] hover:bg-[var(--admin-wash)]',
               ].join(' ')}
             >
-              {v}
+              {v === 'day' ? 'Today' : v === 'week' ? 'Week' : 'Month'}
             </button>
           ))}
         </div>
@@ -340,17 +342,6 @@ export function DashboardBookingCalendar({
         <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
           {error}
         </p>
-      ) : null}
-
-      {nextHint ? (
-        <button
-          type="button"
-          onClick={jumpToHint}
-          className="mt-4 w-full rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-2.5 text-left text-sm text-emerald-950 hover:bg-emerald-100"
-        >
-          <span className="font-semibold">Next booking:</span> {nextHint.label}
-          <span className="ml-2 text-emerald-800 underline">Open day →</span>
-        </button>
       ) : null}
 
       {loading ? (
@@ -472,6 +463,16 @@ export function DashboardBookingCalendar({
   );
 }
 
+function compareAppointmentStart(a: Appointment, b: Appointment): number {
+  const aStart = new Date(a.starts_at).getTime();
+  const bStart = new Date(b.starts_at).getTime();
+  if (aStart !== bStart) return aStart - bStart;
+  const aEnd = new Date(a.ends_at).getTime();
+  const bEnd = new Date(b.ends_at).getTime();
+  if (aEnd !== bEnd) return aEnd - bEnd;
+  return a.id.localeCompare(b.id);
+}
+
 function DayList({
   date,
   appointments,
@@ -479,7 +480,9 @@ function DayList({
   date: Date;
   appointments: Appointment[];
 }) {
-  if (appointments.length === 0) {
+  const ordered = [...appointments].sort(compareAppointmentStart);
+
+  if (ordered.length === 0) {
     return (
       <p className="mt-6 rounded-xl border border-dashed border-zinc-300 bg-zinc-50/80 px-4 py-8 text-center text-sm text-zinc-500">
         No bookings on {formatDayLabel(date)}.
@@ -489,7 +492,7 @@ function DayList({
 
   return (
     <ul className="mt-4 space-y-2">
-      {appointments.map((appt) => {
+      {ordered.map((appt) => {
         const tone = appointmentTone(appt.status);
         return (
           <li key={appt.id}>

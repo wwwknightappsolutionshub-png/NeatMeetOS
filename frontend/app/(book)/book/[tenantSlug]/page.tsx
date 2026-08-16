@@ -16,6 +16,10 @@ import {
   fetchOnlineCatalog,
   fetchOnlineSlots,
 } from '@/services/online-booking.service';
+import {
+  ReservationFeePanel,
+  reservationFeeRequired,
+} from '@/components/booking/ReservationFeePanel';
 import { buildGoogleCalendarUrl, downloadIcsFile } from '@/lib/booking-calendar';
 import { resolveMediaUrl } from '@/lib/media-url';
 import {
@@ -481,6 +485,7 @@ function OnlineBookingPageInner() {
   const [phone, setPhone] = useState('');
   const [whatsappOptIn, setWhatsappOptIn] = useState(false);
   const [notes, setNotes] = useState('');
+  const [reservationDocumentId, setReservationDocumentId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [appointment, setAppointment] = useState<Appointment | null>(null);
@@ -586,6 +591,13 @@ function OnlineBookingPageInner() {
 
   async function handleBook() {
     if (!selectedSlot || !selectedService) return;
+    if (
+      reservationFeeRequired(selectedService, catalog?.reservation_payment?.min_fee_cents) &&
+      !reservationDocumentId
+    ) {
+      setSubmitError('Upload your transfer screenshot to pay the reservation fee before booking.');
+      return;
+    }
     setSubmitting(true);
     setSubmitError(null);
     try {
@@ -604,6 +616,8 @@ function OnlineBookingPageInner() {
         client_notes: notes.trim() || undefined,
         pricing_tier: pricingTier,
         member_token: pricingTier !== 'regular' ? member?.token : undefined,
+        reservation_document_id: reservationDocumentId || undefined,
+        payment_method: reservationDocumentId ? 'transfer' : undefined,
       });
       setAppointment(created);
       setStep('done');
@@ -1000,7 +1014,7 @@ function OnlineBookingPageInner() {
                               <span className="text-sm text-[var(--book-muted)]">
                                 {service.duration_minutes} min
                                 {service.deposit_required
-                                  ? ` · deposit ${formatMoney(service.deposit_amount_cents)}`
+                                  ? ` · reservation fee ${formatMoney(service.deposit_amount_cents)}`
                                   : ''}
                               </span>
                               <ServicePriceTiers service={service} />
@@ -1284,12 +1298,37 @@ function OnlineBookingPageInner() {
                         onChange={(e) => setNotes(e.target.value)}
                       />
                     </label>
+                    <ReservationFeePanel
+                      tenantSlug={tenantSlug}
+                      service={selectedService}
+                      catalog={catalog?.reservation_payment}
+                      fieldClass={fieldClass}
+                      documentId={reservationDocumentId}
+                      onDocumentReady={setReservationDocumentId}
+                      onError={setSubmitError}
+                    />
                   </div>
                   {submitError ? <p className="mt-3 text-sm text-red-700">{submitError}</p> : null}
                   <button
                     type="button"
-                    className={`${primaryBtnClass(submitting || !phone.trim())} mt-5`}
-                    disabled={submitting || !phone.trim()}
+                    className={`${primaryBtnClass(
+                      submitting ||
+                        !phone.trim() ||
+                        (reservationFeeRequired(
+                          selectedService,
+                          catalog?.reservation_payment?.min_fee_cents,
+                        ) &&
+                          !reservationDocumentId),
+                    )} mt-5`}
+                    disabled={
+                      submitting ||
+                      !phone.trim() ||
+                      (reservationFeeRequired(
+                        selectedService,
+                        catalog?.reservation_payment?.min_fee_cents,
+                      ) &&
+                        !reservationDocumentId)
+                    }
                     onClick={() => void handleBook()}
                   >
                     {submitting ? 'Booking…' : 'Confirm booking'}

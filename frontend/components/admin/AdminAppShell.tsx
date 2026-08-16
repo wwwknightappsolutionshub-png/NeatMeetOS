@@ -13,6 +13,7 @@ import { NeatMeetLogo } from '@/components/brand/NeatMeetLogo';
 import { api, clearStoredSession, getStoredTenantSlug, getStoredToken } from '@/lib/api-client';
 import type { ModuleUpgradePayload, ShellStatus } from '@/lib/types';
 import { fetchShell, logout } from '@/services/auth.service';
+import { fetchActiveStaffSosAlerts } from '@/services/staff-sos.service';
 
 interface AdminAppShellProps {
   children: ReactNode;
@@ -25,6 +26,8 @@ type NavLink = {
   feature?: string;
   /** When set, nav item is hidden unless the shell permissions include this slug. */
   permission?: string;
+  /** Show live new-booking SOS count badge ahead of the label. */
+  newBookingBadge?: boolean;
 };
 
 type NavGroupId = 'front_desk' | 'commerce' | 'experience' | 'growth' | 'settings';
@@ -40,14 +43,12 @@ const navGroups: NavGroup[] = [
     id: 'front_desk',
     label: 'Front desk',
     links: [
-      { href: '/admin/dashboard', label: 'Dashboard', match: (p) => p === '/admin/dashboard' },
       {
-        href: '/admin/clients',
-        label: 'Clients',
-        match: (p) => p.startsWith('/admin/clients'),
-        feature: 'crm',
+        href: '/admin/dashboard',
+        label: 'Dashboard',
+        match: (p) => p === '/admin/dashboard',
+        newBookingBadge: true,
       },
-      { href: '/admin/staff', label: 'Staff', match: (p) => p.startsWith('/admin/staff') },
       {
         href: '/admin/bookings/services',
         label: 'Services',
@@ -63,7 +64,15 @@ const navGroups: NavGroup[] = [
           p.startsWith('/admin/bookings/walk-ins') ||
           p.startsWith('/admin/bookings/waitlist'),
         feature: 'booking_board',
+        newBookingBadge: true,
       },
+      {
+        href: '/admin/clients',
+        label: 'Customers',
+        match: (p) => p.startsWith('/admin/clients'),
+        feature: 'crm',
+      },
+      { href: '/admin/staff', label: 'Staffs', match: (p) => p.startsWith('/admin/staff') },
     ],
   },
   {
@@ -279,8 +288,40 @@ export function AdminAppShell({ children }: AdminAppShellProps) {
   const [signingOut, setSigningOut] = useState(false);
   const [availabilityModalOpen, setAvailabilityModalOpen] = useState(false);
   const [staffPath, setStaffPath] = useState('/admin/staff');
+  const [newBookingCount, setNewBookingCount] = useState(0);
   const routeGroupId = activeNavGroupId(pathname);
   const [openGroupId, setOpenGroupId] = useState<NavGroupId | null>(routeGroupId);
+
+  useEffect(() => {
+    if (!getStoredToken()) return;
+
+    const refreshNewBookingBadge = () => {
+      void fetchActiveStaffSosAlerts()
+        .then((items) => {
+          setNewBookingCount(items.filter((a) => a.kind === 'new_booking').length);
+        })
+        .catch(() => {
+          /* badge is best-effort */
+        });
+    };
+
+    refreshNewBookingBadge();
+    const onSos = (event: Event) => {
+      const detail = (event as CustomEvent<{ items?: { kind: string }[] }>).detail;
+      if (Array.isArray(detail?.items)) {
+        setNewBookingCount(detail.items.filter((a) => a.kind === 'new_booking').length);
+        return;
+      }
+      refreshNewBookingBadge();
+    };
+    window.addEventListener('neatmeet:staff-sos', onSos);
+    const id = window.setInterval(refreshNewBookingBadge, 30_000);
+
+    return () => {
+      window.removeEventListener('neatmeet:staff-sos', onSos);
+      window.clearInterval(id);
+    };
+  }, []);
 
   useEffect(() => {
     if (!getStoredToken()) {
@@ -484,6 +525,8 @@ export function AdminAppShell({ children }: AdminAppShellProps) {
                     <ul className="mt-0.5 space-y-0.5 pb-1">
                       {links.map((link) => {
                         const locked = !featureEnabled(features, link.feature);
+                        const badge =
+                          link.newBookingBadge && newBookingCount > 0 ? newBookingCount : 0;
                         return (
                           <li key={link.href}>
                             <Link
@@ -492,7 +535,17 @@ export function AdminAppShell({ children }: AdminAppShellProps) {
                               className={navClass(link.match(pathname), locked)}
                             >
                               <span className="flex items-center justify-between gap-2">
-                                <span>{link.label}</span>
+                                <span className="flex min-w-0 items-center gap-2">
+                                  {badge > 0 ? (
+                                    <span
+                                      className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1.5 text-[10px] font-bold leading-none text-white"
+                                      aria-label={`${badge} new booking${badge === 1 ? '' : 's'}`}
+                                    >
+                                      {badge > 99 ? '99+' : badge}
+                                    </span>
+                                  ) : null}
+                                  <span>{link.label}</span>
+                                </span>
                                 {locked ? (
                                   <span className="rounded bg-white/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white/55">
                                     Upgrade

@@ -45,6 +45,7 @@ class OnlineBookingController extends Controller
             ])->values(),
             'ai_hairstyle_landing' => (bool) ($catalog['ai_hairstyle_landing'] ?? false),
             'booking_policy' => $catalog['booking_policy'] ?? null,
+            'reservation_payment' => $catalog['reservation_payment'] ?? null,
         ])->header('Cache-Control', 'public, max-age=30, stale-while-revalidate=300');
     }
 
@@ -83,6 +84,8 @@ class OnlineBookingController extends Controller
             'client_notes' => ['nullable', 'string', 'max:2000'],
             'pricing_tier' => ['nullable', 'string', 'in:regular,membership,loyalty'],
             'member_token' => ['nullable', 'string', 'max:128'],
+            'reservation_document_id' => ['nullable', 'uuid'],
+            'payment_method' => ['nullable', 'string', 'in:transfer,stripe,google_pay'],
         ]);
 
         $appointment = $this->booking->book($validated)->load([
