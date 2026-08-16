@@ -284,9 +284,10 @@ class OnlineBookingService
 
         $this->bookingPolicy->assertStartsAtMeetsAdvanceNotice(Carbon::parse($payload['starts_at']));
 
-        if (filter_var($payload['whatsapp_opt_in'] ?? false, FILTER_VALIDATE_BOOLEAN)
-            && filled(trim((string) ($client->phone ?? $payload['phone'] ?? '')))
-        ) {
+        // Online booking with a phone is treated as transactional WhatsApp consent
+        // for booking confirmations (checkbox still recorded when present).
+        $phone = trim((string) ($client->phone ?? $payload['phone'] ?? ''));
+        if ($phone !== '') {
             $this->notificationPreferences->update($client, [
                 'allow_whatsapp' => true,
                 'preferred_channel' => NotificationChannel::WHATSAPP,

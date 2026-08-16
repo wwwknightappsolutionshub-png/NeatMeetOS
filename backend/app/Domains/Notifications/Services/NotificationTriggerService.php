@@ -7,6 +7,7 @@ use App\Domains\Booking\Models\BookingChangeRequest;
 use App\Domains\Booking\Models\WaitlistEntry;
 use App\Domains\Crm\Models\Client;
 use App\Domains\Crm\Models\ClientReferralSetting;
+use App\Domains\Identity\Models\TeamMember;
 use App\Domains\Memberships\Models\ClientMembership;
 use App\Domains\Notifications\Enums\NotificationCategory;
 use App\Domains\Notifications\Enums\NotificationChannel;
@@ -45,12 +46,29 @@ class NotificationTriggerService
             return null;
         }
 
-        return $this->sendForAppointment(
-            $appointment,
-            NotificationPurpose::BOOKING_CONFIRMATION,
-            NotificationCategory::BOOKING,
-            $context,
-        );
+        if ($appointment->client_id === null) {
+            return null;
+        }
+
+        $client = $this->scope->findClient($appointment->client_id);
+        $defaults = $this->defaultBookingCopy($appointment, NotificationPurpose::BOOKING_CONFIRMATION, $context);
+
+        // Transactional booking confirmation: fan out Email + WhatsApp + in-app when available.
+        return $this->fanOutClientChannels($client, [
+            'source_type' => NotificationSourceType::BOOKING,
+            'purpose' => NotificationPurpose::BOOKING_CONFIRMATION,
+            'category' => NotificationCategory::BOOKING,
+            'appointment_id' => $appointment->id,
+            'context' => [
+                'subject' => $context['subject'] ?? null,
+                'body_text' => $context['body_text'] ?? null,
+                'body_html' => $context['body_html'] ?? null,
+                'fallback_subject' => $defaults['subject'],
+                'fallback_body_text' => $defaults['body_text'],
+                'metadata' => array_merge($defaults['metadata'], $context['metadata'] ?? []),
+                'created_by_team_member_id' => $context['created_by_team_member_id'] ?? null,
+            ],
+        ], preferWhatsApp: true);
     }
 
     public function sendBookingReminder(Appointment $appointment, array $context = []): ?NotificationMessage
@@ -326,7 +344,7 @@ class NotificationTriggerService
     }
 
     /**
-     * Desk alert for new online bookings (internal note + optional support email).
+     * Desk alert for new online bookings (internal note + tenant email/WhatsApp).
      */
     public function sendOnlineBookingStaffAlert(Appointment $appointment, array $context = []): ?NotificationMessage
     {
@@ -357,26 +375,17 @@ class NotificationTriggerService
             ], $context['metadata'] ?? []),
         ]);
 
-        $supportEmail = trim((string) (($this->tenantContext->get()?->getBranding()['support_email'] ?? null)
-            ?: ($appointment->teamMember?->user?->email ?? '')));
-
-        if ($supportEmail !== '') {
-            $this->messageService->createSystemMessage([
-                'client_id' => null,
-                'appointment_id' => $appointment->id,
-                'source_type' => NotificationSourceType::BOOKING,
-                'purpose' => NotificationPurpose::INTERNAL_NOTE_DELIVERY,
-                'channel' => NotificationChannel::EMAIL,
-                'recipient_name' => 'Salon desk',
-                'recipient_address' => $supportEmail,
-                'subject' => "New online booking {$ref}",
-                'body_text' => $body,
-                'metadata' => [
-                    'alert' => 'online_booking_staff_email',
-                    'booking_reference' => $appointment->booking_reference,
-                ],
-            ]);
-        }
+        $this->notifyTenantChannels(
+            subject: "New online booking {$ref}",
+            body: $body,
+            appointmentId: $appointment->id,
+            purpose: NotificationPurpose::INTERNAL_NOTE_DELIVERY,
+            metadata: array_merge([
+                'alert' => 'online_booking_staff',
+                'booking_reference' => $appointment->booking_reference,
+            ], $context['metadata'] ?? []),
+            fallbackEmail: trim((string) ($appointment->teamMember?->user?->email ?? '')),
+        );
 
         return $internal;
     }
@@ -943,11 +952,11 @@ HTML;
         string $appointmentId,
         string $purpose,
         array $metadata = [],
+        string $fallbackEmail = '',
     ): void {
-        $tenant = $this->tenantContext->get();
-        $supportEmail = trim((string) (($tenant?->getBranding()['support_email'] ?? null) ?: ''));
+        $contacts = $this->resolveTenantDeskContacts($fallbackEmail);
 
-        if ($supportEmail !== '') {
+        if ($contacts['email'] !== '') {
             try {
                 $this->messageService->createSystemMessage([
                     'client_id' => null,
@@ -956,27 +965,72 @@ HTML;
                     'purpose' => $purpose,
                     'channel' => NotificationChannel::EMAIL,
                     'recipient_name' => 'Salon desk',
-                    'recipient_address' => $supportEmail,
+                    'recipient_address' => $contacts['email'],
                     'subject' => $subject,
                     'body_text' => $body,
                     'metadata' => $metadata,
                 ]);
             } catch (\Throwable $e) {
-                Log::warning('Tenant change-request email failed', ['error' => $e->getMessage()]);
+                Log::warning('Tenant operational email failed', ['error' => $e->getMessage()]);
             }
         }
 
-        $whatsapp = trim((string) ($tenant?->owner_whatsapp ?? ''));
-        if ($whatsapp !== '' && $this->platformWhatsApp->isGeniusReady()) {
-            try {
-                $this->platformWhatsApp->sendOperational($whatsapp, $body, [
-                    'purpose' => $purpose,
-                    'appointment_id' => $appointmentId,
-                ]);
-            } catch (\Throwable $e) {
-                Log::warning('Tenant change-request WhatsApp failed', ['error' => $e->getMessage()]);
-            }
+        if ($contacts['whatsapp'] === '') {
+            return;
         }
+
+        try {
+            $this->messageService->createSystemMessage([
+                'client_id' => null,
+                'appointment_id' => $appointmentId,
+                'source_type' => NotificationSourceType::BOOKING,
+                'purpose' => $purpose,
+                'channel' => NotificationChannel::WHATSAPP,
+                'recipient_name' => 'Salon owner',
+                'recipient_address' => $contacts['whatsapp'],
+                'subject' => $subject,
+                'body_text' => $body,
+                'metadata' => $metadata,
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('Tenant operational WhatsApp message failed', ['error' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * @return array{email: string, whatsapp: string}
+     */
+    private function resolveTenantDeskContacts(string $fallbackEmail = ''): array
+    {
+        $tenant = $this->tenantContext->get();
+        $email = trim((string) (($tenant?->getBranding()['support_email'] ?? null) ?: ''));
+        if ($email === '') {
+            $email = trim($fallbackEmail);
+        }
+        if ($email === '' && $tenant !== null) {
+            $owner = TeamMember::query()
+                ->where('employment_type', TeamMember::EMPLOYMENT_OWNER)
+                ->where('is_active', true)
+                ->with('user')
+                ->orderBy('created_at')
+                ->first();
+            $email = trim((string) ($owner?->user?->email ?? ''));
+        }
+
+        $whatsapp = trim((string) ($tenant?->owner_whatsapp ?? ''));
+        if ($whatsapp === '' && $tenant !== null) {
+            $owner = $owner ?? TeamMember::query()
+                ->where('employment_type', TeamMember::EMPLOYMENT_OWNER)
+                ->where('is_active', true)
+                ->orderBy('created_at')
+                ->first();
+            $whatsapp = trim((string) ($owner?->phone ?? ''));
+        }
+
+        return [
+            'email' => $email,
+            'whatsapp' => $whatsapp,
+        ];
     }
 
     /**
@@ -987,16 +1041,49 @@ HTML;
         $channels = [];
         $phone = trim((string) ($client->phone ?? ''));
         $email = trim((string) ($client->email ?? ''));
+        $prefCategory = NotificationPurpose::preferenceCategory(
+            (string) ($spec['purpose'] ?? NotificationPurpose::BOOKING_CONFIRMATION)
+        );
 
-        if ($phone !== '') {
+        // Transactional booking fan-out: enable WhatsApp + email so confirmations are not suppressed.
+        if ($preferWhatsApp) {
+            $updates = [];
+            if ($phone !== ''
+                && ! $this->preferences->allowsDelivery($client, NotificationChannel::WHATSAPP, $prefCategory)
+            ) {
+                $updates['allow_whatsapp'] = true;
+                $updates['preferred_channel'] = NotificationChannel::WHATSAPP;
+            }
+            if ($email !== ''
+                && ! $this->preferences->allowsDelivery($client, NotificationChannel::EMAIL, $prefCategory)
+            ) {
+                $updates['allow_email'] = true;
+            }
+            if ($updates !== []) {
+                try {
+                    $this->preferences->update($client, $updates);
+                } catch (\Throwable $e) {
+                    Log::warning('Failed to enable channels for transactional fan-out', [
+                        'client_id' => $client->id,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
+        }
+
+        if ($phone !== ''
+            && $this->preferences->allowsDelivery($client, NotificationChannel::WHATSAPP, $prefCategory)
+        ) {
             $channels[] = NotificationChannel::WHATSAPP;
         }
-        if ($email !== '') {
+        if ($email !== ''
+            && ($preferWhatsApp || $this->preferences->allowsDelivery($client, NotificationChannel::EMAIL, $prefCategory))
+        ) {
             $channels[] = NotificationChannel::EMAIL;
         }
         $channels[] = NotificationChannel::IN_APP;
 
-        if ($preferWhatsApp && $phone !== '') {
+        if ($preferWhatsApp && in_array(NotificationChannel::WHATSAPP, $channels, true)) {
             $channels = array_values(array_unique([
                 NotificationChannel::WHATSAPP,
                 ...$channels,
@@ -1009,7 +1096,7 @@ HTML;
                 $message = $this->createOnChannel($client, $spec, $channel);
                 $primary ??= $message;
             } catch (\Throwable $e) {
-                Log::warning('Change-request client fan-out failed', [
+                Log::warning('Client notification fan-out failed', [
                     'channel' => $channel,
                     'client_id' => $client->id,
                     'error' => $e->getMessage(),

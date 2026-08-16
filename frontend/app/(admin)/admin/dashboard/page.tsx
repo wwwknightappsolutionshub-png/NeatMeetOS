@@ -20,6 +20,10 @@ import type { ShellStatus } from '@/lib/types';
 import { fetchAnalyticsOverview, fetchBookingAnalytics } from '@/services/analytics.service';
 import { fetchShell } from '@/services/auth.service';
 import { fetchBookingDayBoard, fetchWaitlist } from '@/services/booking.service';
+import {
+  fetchActiveStaffSosAlerts,
+  type StaffSosAlert,
+} from '@/services/staff-sos.service';
 
 function isoDate(d: Date): string {
   const pad = (n: number) => String(n).padStart(2, '0');
@@ -145,6 +149,9 @@ export default function AdminDashboardPage() {
   const [bookingsAnalytics, setBookingsAnalytics] = useState<BookingAnalytics | null>(null);
   const [board, setBoard] = useState<BookingDayBoard | null>(null);
   const [waitlist, setWaitlist] = useState<WaitlistEntry[]>([]);
+  const [sosAlerts, setSosAlerts] = useState<StaffSosAlert[]>([]);
+  const [calendarRefresh, setCalendarRefresh] = useState(0);
+  const [focusCalendarDate, setFocusCalendarDate] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
   const [partialErrors, setPartialErrors] = useState<string[]>([]);
@@ -194,19 +201,37 @@ export default function AdminDashboardPage() {
         : Promise.resolve(null),
       fetchBookingDayBoard({ date: today }),
       fetchWaitlist({ status: 'waiting' }),
+      fetchActiveStaffSosAlerts(),
     ]);
 
-    const [overviewResult, bookingsResult, boardResult, waitlistResult] = results;
+    const [overviewResult, bookingsResult, boardResult, waitlistResult, sosResult] = results;
     setOverview(settledValue(overviewResult));
     setBookingsAnalytics(settledValue(bookingsResult));
     setBoard(settledValue(boardResult));
     setWaitlist(settledValue(waitlistResult) ?? []);
+    const sos = settledValue(sosResult) ?? [];
+    setSosAlerts(sos);
+
+    const newBooking = sos.find((a) => a.kind === 'new_booking');
+    const startsAt =
+      (typeof newBooking?.appointment?.starts_at === 'string'
+        ? newBooking.appointment.starts_at
+        : null) ??
+      (typeof newBooking?.payload?.starts_at === 'string' ? newBooking.payload.starts_at : null);
+    if (typeof startsAt === 'string' && startsAt) {
+      const d = new Date(startsAt);
+      if (!Number.isNaN(d.getTime())) {
+        setFocusCalendarDate(isoDate(d));
+      }
+    }
+    setCalendarRefresh((n) => n + 1);
 
     const errors = [
       settledError(overviewResult),
       settledError(bookingsResult),
       settledError(boardResult),
       settledError(waitlistResult),
+      settledError(sosResult),
     ].filter((msg): msg is string => Boolean(msg));
 
     setPartialErrors(errors);
@@ -216,6 +241,15 @@ export default function AdminDashboardPage() {
 
   useEffect(() => {
     void load();
+  }, [load]);
+
+  // Refresh when SOS overlay detects a new online booking.
+  useEffect(() => {
+    const onSos = () => {
+      void load();
+    };
+    window.addEventListener('neatmeet:staff-sos', onSos);
+    return () => window.removeEventListener('neatmeet:staff-sos', onSos);
   }, [load]);
 
   const bookHref = `/book/${shell?.tenant?.slug ?? 'demo-salon'}`;
@@ -243,6 +277,26 @@ export default function AdminDashboardPage() {
 
   const attention = useMemo((): AttentionItem[] => {
     const items: AttentionItem[] = [];
+
+    const newBookings = sosAlerts.filter((a) => a.kind === 'new_booking');
+    if (newBookings.length > 0) {
+      items.push({
+        label: 'New online bookings',
+        value: formatNumber(newBookings.length),
+        href: '/admin/bookings',
+        tone: 'amber',
+      });
+    }
+    const changeRequests = sosAlerts.filter((a) => a.kind === 'change_request');
+    if (changeRequests.length > 0) {
+      items.push({
+        label: 'Booking change requests',
+        value: formatNumber(changeRequests.length),
+        href: '/admin/bookings',
+        tone: 'red',
+      });
+    }
+
     const walkIns = board?.summary.walk_ins_waiting ?? 0;
     if (walkIns > 0) {
       items.push({
@@ -295,7 +349,7 @@ export default function AdminDashboardPage() {
       }
     }
     return items;
-  }, [board, overview, waitlist.length]);
+  }, [board, overview, waitlist.length, sosAlerts]);
 
   const todayLabel = new Date(`${today}T12:00:00`).toLocaleDateString(undefined, {
     weekday: 'long',
@@ -392,7 +446,10 @@ export default function AdminDashboardPage() {
             <UpNextBanner appointment={focusAppointment} nowMs={nowMs} />
           ) : null}
 
-          <DashboardBookingCalendar />
+          <DashboardBookingCalendar
+            refreshToken={calendarRefresh}
+            focusDateIso={focusCalendarDate}
+          />
 
           {attention.length > 0 ? (
             <AnalyticsSectionCard title="Needs attention">

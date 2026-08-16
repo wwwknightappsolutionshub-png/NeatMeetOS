@@ -12,13 +12,18 @@ class BookingBoardService
 
     public function dayBoard(array $filters): array
     {
-        $date = Carbon::parse($filters['date'] ?? now()->toDateString())->startOfDay();
+        $tenantTz = $this->scope->tenantTimezone();
+        $date = Carbon::parse($filters['date'] ?? now($tenantTz)->toDateString(), $tenantTz)->startOfDay();
         $endOfDay = $date->copy()->endOfDay();
+
+        // Compare in UTC-equivalent instants so local salon days match stored timestamps.
+        $fromUtc = $date->copy()->utc();
+        $toUtc = $endOfDay->copy()->utc();
 
         $query = Appointment::query()
             ->with(['client', 'teamMember', 'location', 'workspace', 'serviceLines'])
-            ->where('starts_at', '<=', $endOfDay)
-            ->where('ends_at', '>=', $date)
+            ->where('starts_at', '<=', $toUtc)
+            ->where('ends_at', '>=', $fromUtc)
             ->orderBy('starts_at');
 
         if (! empty($filters['location_id'])) {

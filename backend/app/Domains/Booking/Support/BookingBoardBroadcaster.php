@@ -17,9 +17,12 @@ final class BookingBoardBroadcaster
                 return;
             }
 
+            $appointment->loadMissing('location');
+            $tz = trim((string) ($appointment->location?->timezone ?? '')) ?: (string) config('app.timezone', 'UTC');
+
             event(new BookingBoardUpdated(
                 tenantId: (string) $appointment->tenant_id,
-                date: $appointment->starts_at->toDateString(),
+                date: $appointment->starts_at->copy()->timezone($tz)->toDateString(),
                 locationId: $appointment->location_id !== null ? (string) $appointment->location_id : null,
             ));
         } catch (\Throwable) {

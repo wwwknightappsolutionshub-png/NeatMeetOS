@@ -106,34 +106,62 @@ export function appointmentTone(status: string): {
 }
 
 function rangeForView(anchor: Date, view: CalendarView): { from: string; to: string } {
-  // Backend compares timestamps: ends_at >= from AND starts_at <= to.
-  // Date-only `to` is midnight, which excludes same-day appointments — use end of day.
+  // Backend compares timestamps in UTC. Convert local day/week/month bounds to ISO
+  // with offset so evening local appointments are not dropped from the query window.
+  const bounds = (startLocal: Date, endLocal: Date) => ({
+    from: startLocal.toISOString(),
+    to: endLocal.toISOString(),
+  });
+
   if (view === 'day') {
-    const iso = localIsoDate(anchor);
-    return { from: `${iso}T00:00:00`, to: `${iso}T23:59:59` };
+    const start = new Date(anchor.getFullYear(), anchor.getMonth(), anchor.getDate(), 0, 0, 0, 0);
+    const end = new Date(anchor.getFullYear(), anchor.getMonth(), anchor.getDate(), 23, 59, 59, 999);
+    return bounds(start, end);
   }
   if (view === 'week') {
-    const start = startOfWeek(anchor);
-    const end = addDays(start, 6);
-    return {
-      from: `${localIsoDate(start)}T00:00:00`,
-      to: `${localIsoDate(end)}T23:59:59`,
-    };
+    const weekStart = startOfWeek(anchor);
+    const weekEnd = addDays(weekStart, 6);
+    const start = new Date(
+      weekStart.getFullYear(),
+      weekStart.getMonth(),
+      weekStart.getDate(),
+      0,
+      0,
+      0,
+      0,
+    );
+    const end = new Date(
+      weekEnd.getFullYear(),
+      weekEnd.getMonth(),
+      weekEnd.getDate(),
+      23,
+      59,
+      59,
+      999,
+    );
+    return bounds(start, end);
   }
   const first = startOfMonth(anchor);
   const last = new Date(anchor.getFullYear(), anchor.getMonth(), daysInMonth(anchor));
-  return {
-    from: `${localIsoDate(first)}T00:00:00`,
-    to: `${localIsoDate(last)}T23:59:59`,
-  };
+  const start = new Date(first.getFullYear(), first.getMonth(), first.getDate(), 0, 0, 0, 0);
+  const end = new Date(last.getFullYear(), last.getMonth(), last.getDate(), 23, 59, 59, 999);
+  return bounds(start, end);
 }
 
-export function DashboardBookingCalendar() {
+export function DashboardBookingCalendar({
+  refreshToken = 0,
+  focusDateIso,
+}: {
+  refreshToken?: number;
+  /** YYYY-MM-DD — jump day view here when a new booking lands. */
+  focusDateIso?: string | null;
+}) {
   const [view, setView] = useState<CalendarView>('day');
   const [anchor, setAnchor] = useState(() => new Date());
   const [items, setItems] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [nextHint, setNextHint] = useState<{ date: string; label: string } | null>(null);
 
   const range = useMemo(() => rangeForView(anchor, view), [anchor, view]);
 
@@ -145,16 +173,56 @@ export function DashboardBookingCalendar() {
       setItems(
         [...rows].sort((a, b) => a.starts_at.localeCompare(b.starts_at)),
       );
+
+      // If day view is empty, find the next upcoming booking so staff can jump to it.
+      if (view === 'day' && rows.length === 0) {
+        const from = new Date(anchor.getFullYear(), anchor.getMonth(), anchor.getDate(), 0, 0, 0, 0);
+        const to = addDays(from, 14);
+        to.setHours(23, 59, 59, 999);
+        const upcoming = await fetchAppointments({
+          from: from.toISOString(),
+          to: to.toISOString(),
+        });
+        const next = [...upcoming]
+          .filter((a) => !['cancelled', 'no_show'].includes(a.status))
+          .sort((a, b) => a.starts_at.localeCompare(b.starts_at))[0];
+        if (next) {
+          const d = new Date(next.starts_at);
+          setNextHint({
+            date: localIsoDate(d),
+            label: `${formatDayLabel(d)} · ${formatTime(next.starts_at)}`,
+          });
+        } else {
+          setNextHint(null);
+        }
+      } else {
+        setNextHint(null);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not load calendar');
       setItems([]);
+      setNextHint(null);
     } finally {
       setLoading(false);
     }
-  }, [range.from, range.to]);
+  }, [range.from, range.to, view, anchor]);
 
   useEffect(() => {
     void load();
+  }, [load, refreshToken]);
+
+  useEffect(() => {
+    if (!focusDateIso) return;
+    const [y, m, d] = focusDateIso.split('-').map(Number);
+    if (!y || !m || !d) return;
+    setView('day');
+    setAnchor(new Date(y, m - 1, d));
+  }, [focusDateIso]);
+
+  // Keep the board live while staff stay on the dashboard.
+  useEffect(() => {
+    const id = window.setInterval(() => void load(), 20_000);
+    return () => window.clearInterval(id);
   }, [load]);
 
   function shift(delta: number) {
@@ -163,6 +231,13 @@ export function DashboardBookingCalendar() {
       if (view === 'week') return addDays(prev, delta * 7);
       return new Date(prev.getFullYear(), prev.getMonth() + delta, 1);
     });
+  }
+
+  function jumpToHint() {
+    if (!nextHint) return;
+    const [y, m, d] = nextHint.date.split('-').map(Number);
+    setView('day');
+    setAnchor(new Date(y, m - 1, d));
   }
 
   const byDay = useMemo(() => {
@@ -265,6 +340,17 @@ export function DashboardBookingCalendar() {
         <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
           {error}
         </p>
+      ) : null}
+
+      {nextHint ? (
+        <button
+          type="button"
+          onClick={jumpToHint}
+          className="mt-4 w-full rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-2.5 text-left text-sm text-emerald-950 hover:bg-emerald-100"
+        >
+          <span className="font-semibold">Next booking:</span> {nextHint.label}
+          <span className="ml-2 text-emerald-800 underline">Open day →</span>
+        </button>
       ) : null}
 
       {loading ? (

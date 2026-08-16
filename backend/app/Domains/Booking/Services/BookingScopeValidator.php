@@ -25,6 +25,13 @@ class BookingScopeValidator
         return $id;
     }
 
+    public function tenantTimezone(): string
+    {
+        $tz = $this->tenantContext->get()?->timezone;
+
+        return is_string($tz) && $tz !== '' ? $tz : (string) config('app.timezone', 'UTC');
+    }
+
     public function assertTenantModel(object $model): void
     {
         if (property_exists($model, 'tenant_id') && $model->tenant_id !== $this->tenantContext->id()) {

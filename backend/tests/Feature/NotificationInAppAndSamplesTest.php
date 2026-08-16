@@ -109,7 +109,19 @@ class NotificationInAppAndSamplesTest extends TestCase
 
         $primary = app(NotificationTriggerService::class)->sendBookingConfirmation($appointment);
         $this->assertNotNull($primary);
-        $this->assertSame(NotificationChannel::EMAIL, $primary->channel);
+        $this->assertContains($primary->channel, [
+            NotificationChannel::EMAIL,
+            NotificationChannel::WHATSAPP,
+            NotificationChannel::IN_APP,
+        ]);
+
+        $this->assertTrue(
+            NotificationMessage::query()
+                ->where('client_id', $client->id)
+                ->where('purpose', NotificationPurpose::BOOKING_CONFIRMATION)
+                ->where('channel', NotificationChannel::EMAIL)
+                ->exists()
+        );
 
         $this->assertTrue(
             NotificationMessage::query()

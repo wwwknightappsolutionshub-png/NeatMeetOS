@@ -56,7 +56,12 @@ export function StaffSosOverlay() {
     try {
       const items = await fetchActiveStaffSosAlerts();
       const next = items[0] ?? null;
-      setAlert(next);
+      setAlert((prev) => {
+        if (next && (!prev || prev.id !== next.id)) {
+          window.dispatchEvent(new CustomEvent('neatmeet:staff-sos', { detail: next }));
+        }
+        return next;
+      });
     } catch {
       /* keep last known alert while offline/transient errors */
     }

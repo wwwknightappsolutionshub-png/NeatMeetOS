@@ -131,29 +131,28 @@ class AppointmentBookingService
                 'deposit_status' => $appointment->deposit_status,
             ]);
 
-            $appointment = $appointment->load(['client', 'teamMember', 'location', 'workspace', 'serviceLines', 'recurrenceSeries']);
-
-            $this->notificationTriggers->safe(
-                fn () => $this->notificationTriggers->sendBookingConfirmation($appointment)
-            );
-
-            if ($appointment->booking_source === Appointment::SOURCE_ONLINE) {
-                $this->notificationTriggers->safe(
-                    fn () => $this->notificationTriggers->sendOnlineBookingStaffAlert($appointment)
-                );
-            }
-
-            try {
-                $tenant = Tenant::query()->find($appointment->tenant_id);
-                if ($tenant) {
-                    $this->progressiveAccess->maybeNudgeAfterAppointmentCreated($tenant, $appointment);
-                }
-            } catch (\Throwable) {
-                // Upgrade nudges must not block booking creation.
-            }
-
-            return $appointment;
+            return $appointment->load(['client', 'teamMember', 'location', 'workspace', 'serviceLines', 'recurrenceSeries']);
         });
+
+        // Notify after commit so queue jobs / mail can see the appointment row.
+        $this->notificationTriggers->safe(
+            fn () => $this->notificationTriggers->sendBookingConfirmation($appointment)
+        );
+
+        if ($appointment->booking_source === Appointment::SOURCE_ONLINE) {
+            $this->notificationTriggers->safe(
+                fn () => $this->notificationTriggers->sendOnlineBookingStaffAlert($appointment)
+            );
+        }
+
+        try {
+            $tenant = Tenant::query()->find($appointment->tenant_id);
+            if ($tenant) {
+                $this->progressiveAccess->maybeNudgeAfterAppointmentCreated($tenant, $appointment);
+            }
+        } catch (\Throwable) {
+            // Upgrade nudges must not block booking creation.
+        }
 
         BookingBoardBroadcaster::forAppointment($appointment);
 

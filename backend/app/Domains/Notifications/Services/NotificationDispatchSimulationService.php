@@ -28,6 +28,7 @@ class NotificationDispatchSimulationService
         private readonly ProviderDispatchBridge $providerBridge,
         private readonly NotificationNativeChannelDispatchService $nativeDispatch,
         private readonly PlatformWhatsAppSettingsService $platformWhatsApp,
+        private readonly NotificationMailTransport $mailTransport,
     ) {}
 
     /**
@@ -79,8 +80,17 @@ class NotificationDispatchSimulationService
                 return $this->nativeDispatch->dispatch($message, $attempt);
             }
 
-            if ($message->channel === NotificationChannel::WHATSAPP && $this->platformWhatsApp->isGeniusReady()) {
+            // WhatsApp: always attempt Genius (platform or tenant session). Never fake-success.
+            if ($message->channel === NotificationChannel::WHATSAPP) {
                 return $this->dispatchViaPlatformGenius($message);
+            }
+
+            // Email: try Laravel Mail first so confirmations leave without Mailgun.
+            if ($message->channel === NotificationChannel::EMAIL) {
+                $mailResult = $this->dispatchViaLaravelMail($message);
+                if ($mailResult !== null) {
+                    return $mailResult;
+                }
             }
 
             if ($this->shouldForceDomainFailure($message)) {
@@ -220,6 +230,86 @@ class NotificationDispatchSimulationService
         ]);
 
         return ['message' => $message->fresh('attempts'), 'attempt' => $attempt, 'simulated' => false];
+    }
+
+    /**
+     * Send email via Laravel Mail (SMTP/log/array). Returns null only when recipient is empty.
+     *
+     * @return array{message: NotificationMessage, attempt: NotificationMessageAttempt, simulated: bool}|null
+     */
+    private function dispatchViaLaravelMail(NotificationMessage $message): ?array
+    {
+        $to = trim((string) ($message->recipient_address ?? ''));
+        if ($to === '') {
+            return null;
+        }
+
+        // Preserve intentional simulation failure hooks used by admin tests / QA.
+        if (($message->metadata['simulate_failure'] ?? false) === true
+            || str_contains(strtolower($to), 'fail')
+        ) {
+            return null;
+        }
+
+        $send = $this->mailTransport->send(
+            $to,
+            (string) ($message->subject ?? 'Message from your salon'),
+            (string) ($message->body_text ?? ''),
+            $message->body_html,
+        );
+
+        if (! ($send['ok'] ?? false)) {
+            $message->status = NotificationMessageStatus::FAILED;
+            $message->failed_at = now();
+            $message->failure_reason = $send['error'] ?? 'Email send failed.';
+            $message->save();
+
+            $attempt = $this->recordAttempt($message, NotificationMessageStatus::FAILED, [
+                'outcome' => 'failed',
+                'reason' => $message->failure_reason,
+                'via' => 'laravel_mail',
+            ], null, 'laravel_mail');
+
+            $this->auditLogger->log('notification_message.failed', $message, null, [
+                'channel' => $message->channel,
+                'purpose' => $message->purpose,
+                'provider' => 'laravel_mail',
+            ]);
+
+            $this->providerBridge->recordNotificationDispatch($message, null, NotificationMessageStatus::FAILED);
+
+            return ['message' => $message->fresh('attempts'), 'attempt' => $attempt, 'simulated' => false];
+        }
+
+        $message->status = NotificationMessageStatus::SENT;
+        $message->sent_at = now();
+        $message->failure_reason = null;
+        $message->save();
+
+        $reference = 'mail:'.substr(md5($to.now()->timestamp), 0, 12);
+        $mailer = (string) config('mail.default');
+        $attempt = $this->recordAttempt($message, NotificationMessageStatus::SENT, [
+            'outcome' => 'sent',
+            'reference' => $reference,
+            'via' => 'laravel_mail',
+            'mailer' => $mailer,
+            'simulated' => in_array($mailer, ['array', 'log'], true),
+        ], $reference, 'laravel_mail');
+
+        $this->auditLogger->log('notification_message.sent', $message, null, [
+            'channel' => $message->channel,
+            'purpose' => $message->purpose,
+            'provider' => 'laravel_mail',
+            'mailer' => $mailer,
+        ]);
+
+        $this->providerBridge->recordNotificationDispatch($message, $reference, NotificationMessageStatus::SENT);
+
+        return [
+            'message' => $message->fresh('attempts'),
+            'attempt' => $attempt,
+            'simulated' => in_array($mailer, ['array', 'log'], true),
+        ];
     }
 
     private function recordAttempt(
