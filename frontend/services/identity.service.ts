@@ -238,6 +238,42 @@ export async function uploadBrandingHeroImage(
   return json.data;
 }
 
+export async function uploadBrandingLogo(
+  file: File,
+): Promise<{ url: string; path: string; branding: BrandingSettings }> {
+  const form = new FormData();
+  form.append('image', file);
+
+  const headers: HeadersInit = { Accept: 'application/json' };
+  const token = getStoredToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const slug = getStoredTenantSlug();
+  if (slug) headers['X-Tenant-Slug'] = slug;
+
+  const res = await fetch(`${API_BASE}/admin/branding/upload-logo`, {
+    method: 'POST',
+    headers,
+    body: form,
+    credentials: 'omit',
+  });
+
+  const json = (await res.json()) as {
+    success: boolean;
+    message: string;
+    data?: { url: string; path: string; branding: BrandingSettings };
+    errors?: Record<string, string[]>;
+  };
+
+  if (!res.ok || !json.success || !json.data) {
+    const firstError = json.errors
+      ? Object.values(json.errors).flat()[0]
+      : undefined;
+    throw new Error(firstError || json.message || 'Upload failed');
+  }
+
+  return json.data;
+}
+
 export async function fetchPermissions(): Promise<PermissionGroup[]> {
   return api<PermissionGroup[]>('/admin/permissions', auth);
 }

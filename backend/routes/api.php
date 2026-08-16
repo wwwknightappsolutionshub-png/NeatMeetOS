@@ -337,6 +337,7 @@ Route::prefix('v1')->group(function () {
             Route::put('/branding', [BrandingController::class, 'update']);
             Route::post('/branding/upload-emblem', [BrandingController::class, 'uploadEmblem']);
             Route::post('/branding/upload-hero', [BrandingController::class, 'uploadHeroImage']);
+            Route::post('/branding/upload-logo', [BrandingController::class, 'uploadLogo']);
             Route::post('/locations', [LocationController::class, 'store']);
             Route::put('/locations/{id}', [LocationController::class, 'update']);
             Route::patch('/locations/{id}/status', [LocationController::class, 'updateStatus']);

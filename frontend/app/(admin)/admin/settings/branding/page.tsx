@@ -12,6 +12,7 @@ import {
   updateBranding,
   uploadBrandingEmblem,
   uploadBrandingHeroImage,
+  uploadBrandingLogo,
 } from '@/services/identity.service';
 
 const emptyBranding: BrandingSettings = {
@@ -37,6 +38,7 @@ export default function BrandingSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadingHero, setUploadingHero] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
@@ -78,6 +80,28 @@ export default function BrandingSettingsPage() {
       setError(e instanceof Error ? e.message : 'Save failed');
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleLogoUpload(file: File | null) {
+    if (!file || !form) return;
+    setUploadingLogo(true);
+    setError(null);
+    setSaved(false);
+    try {
+      const uploaded = await uploadBrandingLogo(file);
+      setForm({
+        ...emptyBranding,
+        ...uploaded.branding,
+        logo_url: uploaded.branding.logo_url ?? uploaded.url,
+        hero_emblem_mode: uploaded.branding.hero_emblem_mode ?? 'none',
+        store_status: uploaded.branding.store_status ?? 'auto',
+      });
+      setSaved(true);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Logo upload failed');
+    } finally {
+      setUploadingLogo(false);
     }
   }
 
@@ -141,16 +165,38 @@ export default function BrandingSettingsPage() {
                 }
               />
             </Field>
-            <Field label="Logo URL">
+            <Field label="Logo">
               <input
+                type="file"
+                accept="image/*"
                 className={inputClass}
-                value={form.logo_url ?? ''}
-                onChange={(e) => setForm({ ...form, logo_url: e.target.value || null })}
-                placeholder="https://… or /storage/…"
+                disabled={uploadingLogo}
+                onChange={(e) => void handleLogoUpload(e.target.files?.[0] ?? null)}
               />
               <p className="mt-1 text-xs text-zinc-500">
-                Used in the booking top bar, and optionally as the hero circular emblem.
+                Upload from your device (max ~4MB). Used in the booking top bar, and optionally as
+                the hero circular emblem.
               </p>
+              {uploadingLogo ? (
+                <p className="mt-1 text-xs text-zinc-500">Uploading logo…</p>
+              ) : null}
+              {form.logo_url ? (
+                <div className="mt-2 flex items-center gap-3">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={resolveMediaUrl(form.logo_url) ?? form.logo_url}
+                    alt=""
+                    className="h-16 w-16 rounded-lg border border-zinc-200 object-contain bg-white"
+                  />
+                  <button
+                    type="button"
+                    className="text-xs text-zinc-600 underline"
+                    onClick={() => setForm({ ...form, logo_url: null })}
+                  >
+                    Clear logo
+                  </button>
+                </div>
+              ) : null}
             </Field>
             <div className="grid grid-cols-2 gap-3">
               <Field label="Primary color">
@@ -338,7 +384,7 @@ export default function BrandingSettingsPage() {
               />
             </Field>
             <div className="flex items-center gap-3">
-              <Button type="submit" disabled={saving || uploading}>
+              <Button type="submit" disabled={saving || uploading || uploadingHero || uploadingLogo}>
                 {saving ? 'Saving…' : 'Save branding'}
               </Button>
               {saved ? <span className="text-sm text-emerald-600">Saved</span> : null}

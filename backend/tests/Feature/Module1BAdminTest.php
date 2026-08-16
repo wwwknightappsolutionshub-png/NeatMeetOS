@@ -38,6 +38,30 @@ class Module1BAdminTest extends TestCase
         ]);
     }
 
+    public function test_branding_logo_can_be_uploaded_from_device(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('public');
+        $ctx = $this->seedTenantContext();
+        $file = \Illuminate\Http\UploadedFile::fake()->image('logo.png', 200, 200);
+
+        $upload = $this->withTenantAuth($ctx['token'])
+            ->post('/api/v1/admin/branding/upload-logo', [
+                'image' => $file,
+            ], ['Accept' => 'application/json'])
+            ->assertCreated();
+
+        $logoUrl = $upload->json('data.branding.logo_url');
+        $this->assertIsString($logoUrl);
+        $this->assertStringContainsString('/storage/', $logoUrl);
+
+        $branding = $this->withTenantAuth($ctx['token'])
+            ->getJson('/api/v1/admin/branding')
+            ->assertOk()
+            ->json('data');
+
+        $this->assertNotEmpty($branding['logo_url'] ?? null);
+    }
+
     public function test_roles_can_be_created_updated_and_permissions_assigned(): void
     {
         $ctx = $this->seedTenantContext();

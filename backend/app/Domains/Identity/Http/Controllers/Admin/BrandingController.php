@@ -93,4 +93,26 @@ class BrandingController extends Controller
             'branding' => (new BrandingResource($branding))->resolve(),
         ], 'Hero image uploaded and saved', 201);
     }
+
+    public function uploadLogo(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'image' => ['required', 'image', 'max:4096'],
+        ]);
+
+        $tenant = $this->tenantContext->get();
+        $tenantId = $tenant?->id ?? 'shared';
+        $path = $data['image']->store('branding/'.$tenantId.'/logos', 'public');
+        $url = PublicStorageUrl::fromDiskPath($path);
+
+        $branding = $this->brandingService->update([
+            'logo_url' => $url,
+        ]);
+
+        return ApiResponse::success([
+            'url' => $url,
+            'path' => $path,
+            'branding' => (new BrandingResource($branding))->resolve(),
+        ], 'Logo uploaded and saved', 201);
+    }
 }
