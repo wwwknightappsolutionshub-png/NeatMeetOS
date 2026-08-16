@@ -125,8 +125,8 @@ class NotificationTriggerService
             ? ' Late cancel fee: '.((int) ($request->late_fee_cents ?? 0)).' cents of deposit.'
             : ' Free window — please confirm (decline is not allowed).';
         $body = "Cancel request for {$ref}: {$clientName} at {$when}.{$fee}"
-            ."\nConfirm: {$links['accept_url']}"
-            .($request->decline_allowed ? "\nDecline: {$links['decline_url']}" : '');
+            .$this->linkBlock('Confirm', $links['accept_url'])
+            .($request->decline_allowed ? $this->linkBlock('Decline', $links['decline_url']) : '');
 
         $internal = $this->messageService->createSystemMessage([
             'client_id' => $appointment->client_id,
@@ -174,8 +174,8 @@ class NotificationTriggerService
         $newWhen = $request->proposed_starts_at?->toDayDateTimeString() ?? 'a new time';
         $ref = $appointment->booking_reference ?? $appointment->id;
         $body = "The salon proposed moving your appointment ({$ref}) from {$when} to {$newWhen}."
-            ."\nConfirm: {$links['accept_url']}"
-            ."\nKeep original time: {$links['decline_url']}";
+            .$this->linkBlock('Confirm', $links['accept_url'])
+            .$this->linkBlock('Keep original time', $links['decline_url']);
 
         return $this->fanOutClientChannels($appointment->client, [
             'source_type' => NotificationSourceType::BOOKING,
@@ -207,8 +207,8 @@ class NotificationTriggerService
             $links = $this->changeRequestLinks($request);
             $ref = $appointment->booking_reference ?? $appointment->id;
             $body = "Reminder: cancel request {$ref} still needs a response (reminder {$request->reminder_count})."
-                ."\nConfirm: {$links['accept_url']}"
-                .($request->decline_allowed ? "\nDecline: {$links['decline_url']}" : '');
+                .$this->linkBlock('Confirm', $links['accept_url'])
+                .($request->decline_allowed ? $this->linkBlock('Decline', $links['decline_url']) : '');
 
             $this->notifyTenantChannels(
                 subject: "Reminder: cancel request {$ref}",
@@ -241,8 +241,8 @@ class NotificationTriggerService
         $links = $this->changeRequestLinks($request);
         $ref = $appointment->booking_reference ?? $appointment->id;
         $body = "Reminder: please confirm or decline the proposed new time for booking {$ref}."
-            ."\nConfirm: {$links['accept_url']}"
-            ."\nKeep original: {$links['decline_url']}";
+            .$this->linkBlock('Confirm', $links['accept_url'])
+            .$this->linkBlock('Keep original time', $links['decline_url']);
 
         return $this->fanOutClientChannels($appointment->client, [
             'source_type' => NotificationSourceType::BOOKING,
@@ -322,8 +322,8 @@ class NotificationTriggerService
         $ref = $appointment->booking_reference ?? $appointment->id;
         $when = $appointment->starts_at?->toDayDateTimeString() ?? 'soon';
         $manage = $this->manageLinksFor($appointment);
-        $manageLine = $manage['manage_url'] ? " Manage: {$manage['manage_url']}" : '';
-        $body = "Reminder: you have about 10 minutes left to cancel or postpone booking {$ref} (at {$when}) without a late fee.{$manageLine}";
+        $body = "Reminder: you have about 10 minutes left to cancel or postpone booking {$ref} (at {$when}) without a late fee."
+            .$this->manageLinkBlock($manage['manage_url']);
 
         return $this->fanOutClientChannels($appointment->client, [
             'source_type' => NotificationSourceType::BOOKING,
@@ -750,9 +750,7 @@ HTML;
         $when = $appointment->starts_at?->toDayDateTimeString() ?? 'your scheduled time';
         $ref = $appointment->booking_reference ?? $appointment->id;
         $manage = $this->manageLinksFor($appointment);
-        $manageLine = $manage['manage_url']
-            ? " Manage your booking: {$manage['manage_url']}"
-            : '';
+        $manageBlock = $this->manageLinkBlock($manage['manage_url']);
 
         $metadata = [
             'booking_reference' => $appointment->booking_reference,
@@ -763,12 +761,12 @@ HTML;
         return match ($purpose) {
             NotificationPurpose::BOOKING_CONFIRMATION => [
                 'subject' => "Booking confirmed ({$ref})",
-                'body_text' => "Your appointment is confirmed for {$when}. Reference {$ref}.{$manageLine}",
+                'body_text' => "Your appointment is confirmed for {$when}. Reference {$ref}.{$manageBlock}",
                 'metadata' => $metadata,
             ],
             NotificationPurpose::BOOKING_REMINDER => [
                 'subject' => "Appointment reminder ({$ref})",
-                'body_text' => "Reminder: your appointment is at {$when}. Reference {$ref}.{$manageLine}",
+                'body_text' => "Reminder: your appointment is at {$when}. Reference {$ref}.{$manageBlock}",
                 'metadata' => $metadata,
             ],
             NotificationPurpose::BOOKING_CANCELLATION => [
@@ -778,7 +776,7 @@ HTML;
             ],
             NotificationPurpose::BOOKING_RESCHEDULE => [
                 'subject' => "Booking rescheduled ({$ref})",
-                'body_text' => $this->rescheduleBody($appointment, $when, $ref, $manageLine, $context),
+                'body_text' => $this->rescheduleBody($appointment, $when, $ref, $manageBlock, $context),
                 'metadata' => $metadata,
             ],
             default => [
@@ -796,7 +794,7 @@ HTML;
         Appointment $appointment,
         string $when,
         string $ref,
-        string $manageLine,
+        string $manageBlock,
         array $context,
     ): string {
         $shift = isset($context['shift_minutes']) ? (int) $context['shift_minutes'] : null;
@@ -810,7 +808,25 @@ HTML;
 
         $prevLine = $prev ? " Previous time: {$prev}." : '';
 
-        return "{$intro} New time: {$when}. Reference {$ref}.{$prevLine}{$manageLine}";
+        return "{$intro} New time: {$when}. Reference {$ref}.{$prevLine}{$manageBlock}";
+    }
+
+    /**
+     * WhatsApp-friendly link: label on one line, URL alone on the next (better link preview).
+     */
+    private function linkBlock(string $label, ?string $url): string
+    {
+        $url = trim((string) $url);
+        if ($url === '') {
+            return '';
+        }
+
+        return "\n\n{$label}\n{$url}";
+    }
+
+    private function manageLinkBlock(?string $url): string
+    {
+        return $this->linkBlock('Manage your booking', $url);
     }
 
     /**
