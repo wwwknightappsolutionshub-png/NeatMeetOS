@@ -68,6 +68,15 @@ class OnlineBookingController extends Controller
         return ApiResponse::success(['slots' => $slots]);
     }
 
+    public function lookupGuest(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'phone' => ['required', 'string', 'min:7', 'max:40'],
+        ]);
+
+        return ApiResponse::success($this->booking->lookupGuestContactFields($validated['phone']));
+    }
+
     public function book(Request $request): JsonResponse
     {
         $validated = $request->validate([

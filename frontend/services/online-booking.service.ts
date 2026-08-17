@@ -46,6 +46,14 @@ export async function fetchOnlineSlots(
   return data.slots;
 }
 
+export async function lookupGuestContact(
+  tenantSlug: string,
+  phone: string,
+): Promise<{ found: boolean; has_name: boolean; has_email: boolean; has_notes: boolean }> {
+  const search = new URLSearchParams({ phone });
+  return api(`/book/guest-contact?${search.toString()}`, publicOpts(tenantSlug));
+}
+
 export async function createOnlineAppointment(
   tenantSlug: string,
   payload: OnlineBookPayload,

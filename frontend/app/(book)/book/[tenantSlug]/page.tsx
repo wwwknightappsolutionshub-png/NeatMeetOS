@@ -15,11 +15,13 @@ import {
   createOnlineAppointment,
   fetchOnlineCatalog,
   fetchOnlineSlots,
+  lookupGuestContact,
 } from '@/services/online-booking.service';
 import {
   ReservationFeePanel,
   reservationFeeRequired,
 } from '@/components/booking/ReservationFeePanel';
+import { BookingInstallPrompt } from '@/components/booking/BookingInstallPrompt';
 import { buildGoogleCalendarUrl, downloadIcsFile } from '@/lib/booking-calendar';
 import { resolveMediaUrl } from '@/lib/media-url';
 import {
@@ -485,6 +487,12 @@ function OnlineBookingPageInner() {
   const [phone, setPhone] = useState('');
   const [whatsappOptIn, setWhatsappOptIn] = useState(false);
   const [notes, setNotes] = useState('');
+  const [guestContact, setGuestContact] = useState<{
+    found: boolean;
+    has_name: boolean;
+    has_email: boolean;
+    has_notes: boolean;
+  } | null>(null);
   const [reservationDocumentId, setReservationDocumentId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -589,6 +597,24 @@ function OnlineBookingPageInner() {
     }
   }, [step, loadSlots]);
 
+  useEffect(() => {
+    const trimmed = phone.trim();
+    if (trimmed.length < 7) {
+      setGuestContact(null);
+      return;
+    }
+    const id = window.setTimeout(() => {
+      void lookupGuestContact(tenantSlug, trimmed)
+        .then(setGuestContact)
+        .catch(() => setGuestContact(null));
+    }, 450);
+    return () => window.clearTimeout(id);
+  }, [phone, tenantSlug]);
+
+  const hideKnownName = Boolean(guestContact?.has_name);
+  const hideKnownEmail = Boolean(guestContact?.has_email);
+  const hideKnownNotes = Boolean(guestContact?.has_notes);
+
   async function handleBook() {
     if (!selectedSlot || !selectedService) return;
     if (
@@ -608,12 +634,12 @@ function OnlineBookingPageInner() {
         team_member_id: selectedSlot.team_member_id,
         workspace_id: selectedSlot.workspace_id,
         starts_at: selectedSlot.starts_at,
-        first_name: firstName.trim() || undefined,
-        last_name: lastName.trim() || undefined,
-        email: email.trim() || undefined,
+        first_name: hideKnownName ? undefined : firstName.trim() || undefined,
+        last_name: hideKnownName ? undefined : lastName.trim() || undefined,
+        email: hideKnownEmail ? undefined : email.trim() || undefined,
         phone: phone.trim(),
         whatsapp_opt_in: Boolean(whatsappOptIn && phone.trim()),
-        client_notes: notes.trim() || undefined,
+        client_notes: hideKnownNotes ? undefined : notes.trim() || undefined,
         pricing_tier: pricingTier,
         member_token: pricingTier !== 'regular' ? member?.token : undefined,
         reservation_document_id: reservationDocumentId || undefined,
@@ -730,13 +756,18 @@ function OnlineBookingPageInner() {
   const showLocationPicker = (catalog?.locations.length ?? 0) > 1;
   const showStaffPicker = (catalog?.providers.length ?? 0) > 1;
   const membershipCompare = (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--book-line)] bg-white px-4 py-3 shadow-[var(--book-shadow)] sm:px-5">
-      <p className="text-sm text-[var(--book-muted)]">
-        Plans, packages, and loyalty — see which benefit fits how you visit.
-      </p>
+    <div className="flex flex-col gap-3 rounded-2xl border border-[var(--book-line)] bg-white px-4 py-4 shadow-[var(--book-shadow)] sm:flex-row sm:items-center sm:justify-between sm:px-5">
+      <div className="min-w-0">
+        <p className="text-base font-semibold text-[var(--book-ink)] sm:text-lg">
+          Save Extra 20% Off [ Signup for Membership/Plan]
+        </p>
+        <p className="mt-1 text-sm text-[var(--book-muted)]">
+          Plans, packages, and loyalty — see which benefit fits how you visit.
+        </p>
+      </div>
       <Link
         href={`/book/${tenantSlug}/memberships`}
-        className="inline-flex items-center justify-center rounded-md bg-[var(--book-moss)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--book-moss-deep)]"
+        className="inline-flex shrink-0 items-center justify-center rounded-md bg-[var(--book-moss)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--book-moss-deep)]"
       >
         Compare memberships
       </Link>
@@ -1155,13 +1186,13 @@ function OnlineBookingPageInner() {
                     </p>
                   ) : (
                     <ul className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                      {slots.map((slot) => {
+                      {(selectedSlot ? [selectedSlot] : slots).map((slot) => {
                         const key = `${slot.starts_at}-${slot.team_member_id}`;
                         const selected =
                           selectedSlot?.starts_at === slot.starts_at &&
                           selectedSlot.team_member_id === slot.team_member_id;
                         return (
-                          <li key={key}>
+                          <li key={key} className={selectedSlot ? 'sm:col-span-2 lg:col-span-3' : undefined}>
                             <button
                               type="button"
                               onClick={() => setSelectedSlot(slot)}
@@ -1187,14 +1218,24 @@ function OnlineBookingPageInner() {
                       })}
                     </ul>
                   )}
-                  <button
-                    type="button"
-                    className={`${primaryBtnClass(!selectedSlot)} mt-5`}
-                    disabled={!selectedSlot}
-                    onClick={() => setStep('details')}
-                  >
-                    Continue
-                  </button>
+                  {selectedSlot ? (
+                    <div className="mt-5 flex flex-col gap-2 sm:flex-row">
+                      <button
+                        type="button"
+                        className={secondaryBtnClass()}
+                        onClick={() => setSelectedSlot(null)}
+                      >
+                        Back
+                      </button>
+                      <button
+                        type="button"
+                        className={primaryBtnClass()}
+                        onClick={() => setStep('details')}
+                      >
+                        Continue
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
 
                 {membershipCompare}
@@ -1253,6 +1294,7 @@ function OnlineBookingPageInner() {
                         </span>
                       </span>
                     </label>
+                    {hideKnownName ? null : (
                     <label className="block text-sm">
                       <span className="mb-1.5 block font-semibold text-[var(--book-muted)]">
                         First name <span className="font-normal">(optional)</span>
@@ -1264,6 +1306,8 @@ function OnlineBookingPageInner() {
                         autoComplete="given-name"
                       />
                     </label>
+                    )}
+                    {hideKnownName ? null : (
                     <label className="block text-sm">
                       <span className="mb-1.5 block font-semibold text-[var(--book-muted)]">
                         Last name <span className="font-normal">(optional)</span>
@@ -1275,6 +1319,8 @@ function OnlineBookingPageInner() {
                         autoComplete="family-name"
                       />
                     </label>
+                    )}
+                    {hideKnownEmail ? null : (
                     <label className="block text-sm sm:col-span-2">
                       <span className="mb-1.5 block font-semibold text-[var(--book-muted)]">
                         Email <span className="font-normal">(optional)</span>
@@ -1287,6 +1333,8 @@ function OnlineBookingPageInner() {
                         autoComplete="email"
                       />
                     </label>
+                    )}
+                    {hideKnownNotes ? null : (
                     <label className="block text-sm sm:col-span-2">
                       <span className="mb-1.5 block font-semibold text-[var(--book-muted)]">
                         Notes (optional)
@@ -1298,6 +1346,7 @@ function OnlineBookingPageInner() {
                         onChange={(e) => setNotes(e.target.value)}
                       />
                     </label>
+                    )}
                     <ReservationFeePanel
                       tenantSlug={tenantSlug}
                       service={selectedService}
@@ -1483,6 +1532,11 @@ function OnlineBookingPageInner() {
           salonName={salonName}
         />
       ) : null}
+      <BookingInstallPrompt
+        salonName={salonName}
+        tenantSlug={tenantSlug}
+        active={step === 'done' && Boolean(appointment)}
+      />
     </div>
   );
 }

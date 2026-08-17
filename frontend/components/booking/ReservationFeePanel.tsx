@@ -71,7 +71,7 @@ export function ReservationFeePanel({
   const bank = catalog?.bank_details;
   const notice =
     catalog?.commitment_notice ??
-    'This is just a commitment charge and it counts towards your actual charge when you arrive at the shop.';
+    'To secure your choosen slot we\'d require a small amount as your commitment charges towards the service. This amount counts towards the full service charge amount.';
 
   async function handleFile(file: File | null) {
     if (!file || method !== 'transfer') return;
@@ -111,7 +111,7 @@ export function ReservationFeePanel({
   return (
     <div className="sm:col-span-2 space-y-4 rounded-xl border border-[var(--book-line)] bg-[var(--book-wash)] p-4">
       <div>
-        <p className="text-sm font-semibold text-[var(--book-ink)]">
+        <p className="text-base font-semibold text-[var(--book-ink)] sm:text-lg">
           Reservation fee · {formatMoney(feeCents)}
         </p>
         <p className="mt-1 text-xs leading-relaxed text-[var(--book-muted)]">{notice}</p>
@@ -164,7 +164,9 @@ export function ReservationFeePanel({
           ) : (
             <>
               <div className="rounded-md border border-[var(--book-line)] bg-white p-3">
-                <p className="font-semibold text-[var(--book-ink)]">Bank transfer details</p>
+                <p className="font-semibold text-[var(--book-ink)]">
+                  You Can Now Transfer To The Account Below
+                </p>
                 <dl className="mt-2 space-y-1 text-xs text-[var(--book-muted)]">
                   {bank.account_name ? (
                     <div className="flex justify-between gap-3">

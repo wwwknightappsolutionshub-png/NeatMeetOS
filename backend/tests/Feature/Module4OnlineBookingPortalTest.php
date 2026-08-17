@@ -367,6 +367,36 @@ class Module4OnlineBookingPortalTest extends TestCase
             ->count());
     }
 
+    public function test_guest_contact_lookup_returns_presence_flags_without_pii(): void
+    {
+        $ctx = $this->seedOnlineBookingContext();
+
+        Client::withoutGlobalScopes()->create([
+            'tenant_id' => $ctx['tenant']->id,
+            'first_name' => 'Existing',
+            'last_name' => 'Guest',
+            'email' => 'reuse@example.com',
+            'phone' => '+447700900555',
+            'is_active' => true,
+            'primary_location_id' => $ctx['location']->id,
+        ]);
+
+        $this->withHeaders(['X-Tenant-Slug' => $ctx['tenant']->slug])
+            ->getJson('/api/v1/book/guest-contact?phone='.urlencode('+44 7700 900555'))
+            ->assertOk()
+            ->assertJsonPath('data.found', true)
+            ->assertJsonPath('data.has_name', true)
+            ->assertJsonPath('data.has_email', true)
+            ->assertJsonMissingPath('data.first_name')
+            ->assertJsonMissingPath('data.email');
+
+        $this->withHeaders(['X-Tenant-Slug' => $ctx['tenant']->slug])
+            ->getJson('/api/v1/book/guest-contact?phone='.urlencode('+447700900000'))
+            ->assertOk()
+            ->assertJsonPath('data.found', false)
+            ->assertJsonPath('data.has_name', false);
+    }
+
     public function test_book_allows_optional_name_and_requires_phone(): void
     {
         $ctx = $this->seedOnlineBookingContext();

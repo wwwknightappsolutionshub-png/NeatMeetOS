@@ -154,6 +154,7 @@ Route::prefix('v1')->group(function () {
     Route::middleware(['throttle:public-book', 'tenant.resolve', 'tenant.require'])->prefix('book')->group(function () {
         Route::get('/catalog', [OnlineBookingController::class, 'catalog']);
         Route::get('/slots', [OnlineBookingController::class, 'slots']);
+        Route::get('/guest-contact', [OnlineBookingController::class, 'lookupGuest']);
         Route::get('/memberships', [PublicMembershipLandingController::class, 'show']);
         Route::post('/appointments', [OnlineBookingController::class, 'book'])->middleware('throttle:public-book-write');
         Route::post('/reservation-proof', [PublicReservationPaymentController::class, 'storeProof'])->middleware('throttle:public-book-write');

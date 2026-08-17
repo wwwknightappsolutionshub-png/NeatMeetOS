@@ -117,7 +117,7 @@ class OnlineBookingService
             'ai_hairstyle_landing' => $this->entitlements->isEnabled($tenant, 'ai_hairstyle'),
             'booking_policy' => $this->bookingPolicy->publicSummary(),
             'reservation_payment' => [
-                'commitment_notice' => 'This is just a commitment charge and it counts towards your actual charge when you arrive at the shop.',
+                'commitment_notice' => 'To secure your choosen slot we\'d require a small amount as your commitment charges towards the service. This amount counts towards the full service charge amount.',
                 'min_fee_cents' => ReservationPaymentDocumentService::MIN_FEE_CENTS,
                 'transfer_ready' => $transferReady,
                 'bank_details' => $transferReady ? $this->paymentsSettings->publicBankDetails() : null,
@@ -367,6 +367,45 @@ class OnlineBookingService
         }
 
         return $appointment;
+    }
+
+    /**
+     * Public, PII-safe flags so the book form can hide fields already on file.
+     *
+     * @return array{found: bool, has_name: bool, has_email: bool, has_notes: bool}
+     */
+    public function lookupGuestContactFields(string $phone): array
+    {
+        $empty = [
+            'found' => false,
+            'has_name' => false,
+            'has_email' => false,
+            'has_notes' => false,
+        ];
+
+        $normalized = PhoneNormalizer::normalize($phone);
+        if (! PhoneNormalizer::isValid($normalized)) {
+            return $empty;
+        }
+
+        $client = Client::query()->where('phone_normalized', $normalized)->first();
+        if ($client === null) {
+            return $empty;
+        }
+
+        $hasNotes = $client->notes()->exists()
+            || Appointment::query()
+                ->where('client_id', $client->id)
+                ->whereNotNull('client_notes')
+                ->where('client_notes', '!=', '')
+                ->exists();
+
+        return [
+            'found' => true,
+            'has_name' => filled($client->first_name) || filled($client->last_name) || filled($client->display_name),
+            'has_email' => filled($client->email),
+            'has_notes' => $hasNotes,
+        ];
     }
 
     /**
