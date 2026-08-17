@@ -2,12 +2,18 @@
 
 import Link from 'next/link';
 import { Suspense, useEffect, useState, type CSSProperties } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import {
   fetchPublicMembershipLanding,
   formatMoneyCents,
   type PublicMembershipLanding,
 } from '@/services/public-memberships.service';
+import { registerMemberServiceWorker } from '@/services/member-portal.service';
+import {
+  bookingPagePath,
+  promptTenantCustomerPwaInstall,
+  type BeforeInstallPromptEvent,
+} from '@/lib/tenant-customer-pwa';
 
 function primaryBtnClass(): string {
   return 'inline-flex items-center justify-center rounded-md bg-[var(--book-moss)] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[var(--book-moss-deep)]';
@@ -33,10 +39,13 @@ export default function PublicMembershipsPage() {
 
 function PublicMembershipsPageInner() {
   const params = useParams<{ tenantSlug: string }>();
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const tenantSlug = params.tenantSlug;
   const [data, setData] = useState<PublicMembershipLanding | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [installEvent, setInstallEvent] = useState<BeforeInstallPromptEvent | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -55,6 +64,29 @@ function PublicMembershipsPageInner() {
       cancelled = true;
     };
   }, [tenantSlug]);
+
+  useEffect(() => {
+    void registerMemberServiceWorker();
+    const onBeforeInstall = (event: Event) => {
+      event.preventDefault();
+      setInstallEvent(event as BeforeInstallPromptEvent);
+    };
+    window.addEventListener('beforeinstallprompt', onBeforeInstall);
+    return () => window.removeEventListener('beforeinstallprompt', onBeforeInstall);
+  }, []);
+
+  function goToBookingPage(fallbackPath: string) {
+    const cameFromBooking = searchParams.get('from') === 'book';
+    if (cameFromBooking) {
+      router.back();
+      return;
+    }
+    router.push(fallbackPath || bookingPagePath(tenantSlug));
+  }
+
+  function handleMembershipApp() {
+    void promptTenantCustomerPwaInstall(tenantSlug, installEvent, (path) => router.push(path));
+  }
 
   if (loading) {
     return (
@@ -89,16 +121,24 @@ function PublicMembershipsPageInner() {
             </p>
             <h1 className="book-display text-2xl font-bold tracking-tight sm:text-3xl">{salonName}</h1>
           </div>
-          <nav className="flex flex-wrap gap-2 text-sm">
-            <Link href={data.paths.book} className="text-[var(--book-muted)] underline-offset-2 hover:underline">
+          <nav className="flex flex-wrap items-center gap-3 text-sm">
+            <button
+              type="button"
+              onClick={() => goToBookingPage(data.paths.book)}
+              className="text-[var(--book-muted)] underline-offset-2 hover:underline"
+            >
               Book
-            </Link>
+            </button>
             <Link href={data.paths.join} className="text-[var(--book-muted)] underline-offset-2 hover:underline">
               Join
             </Link>
-            <Link href={data.paths.member} className="text-[var(--book-muted)] underline-offset-2 hover:underline">
-              Member app
-            </Link>
+            <button
+              type="button"
+              onClick={handleMembershipApp}
+              className="text-[var(--book-muted)] underline-offset-2 hover:underline"
+            >
+              Membership app
+            </button>
           </nav>
         </div>
       </header>
@@ -271,12 +311,16 @@ function PublicMembershipsPageInner() {
           <Link href={data.paths.join} className={primaryBtnClass()}>
             Join as a client
           </Link>
-          <Link href={data.paths.member} className={secondaryBtnClass()}>
-            Open member app to buy
-          </Link>
-          <Link href={data.paths.book} className={secondaryBtnClass()}>
+          <button type="button" onClick={handleMembershipApp} className={secondaryBtnClass()}>
+            Open membership app to buy
+          </button>
+          <button
+            type="button"
+            onClick={() => goToBookingPage(data.paths.book)}
+            className={secondaryBtnClass()}
+          >
             Book an appointment
-          </Link>
+          </button>
         </section>
       </main>
     </div>

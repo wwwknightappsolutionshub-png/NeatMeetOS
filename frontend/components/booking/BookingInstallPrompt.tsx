@@ -2,19 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-
-type BeforeInstallPromptEvent = Event & {
-  prompt: () => Promise<void>;
-  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
-};
-
-function isStandalone(): boolean {
-  if (typeof window === 'undefined') return false;
-  return (
-    window.matchMedia('(display-mode: standalone)').matches ||
-    Boolean((navigator as Navigator & { standalone?: boolean }).standalone)
-  );
-}
+import {
+  isStandaloneDisplay,
+  promptTenantCustomerPwaInstall,
+  type BeforeInstallPromptEvent,
+} from '@/lib/tenant-customer-pwa';
 
 interface BookingInstallPromptProps {
   salonName: string;
@@ -41,7 +33,7 @@ export function BookingInstallPrompt({
   }, []);
 
   useEffect(() => {
-    if (!active || isStandalone()) {
+    if (!active || isStandaloneDisplay()) {
       setVisible(false);
       return;
     }
@@ -55,17 +47,8 @@ export function BookingInstallPrompt({
   }
 
   async function handleInstall() {
-    if (installEvent) {
-      try {
-        await installEvent.prompt();
-        await installEvent.userChoice;
-        setVisible(false);
-        return;
-      } catch {
-        // Fall through to the salon membership app, which is the tenant PWA.
-      }
-    }
-    router.push(`/member/${tenantSlug}`);
+    await promptTenantCustomerPwaInstall(tenantSlug, installEvent, (path) => router.push(path));
+    setVisible(false);
   }
 
   return (

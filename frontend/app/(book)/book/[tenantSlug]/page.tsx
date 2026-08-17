@@ -357,7 +357,7 @@ function PricingGateModal({
         <p className="mt-2 text-sm text-[var(--book-muted)]">
           Log in to the membership app to use this rate. If you have not joined yet, sign up on the
           CRM form first. Or{' '}
-          <Link href={`/book/${tenantSlug}/memberships`} className="font-semibold text-[var(--book-moss)] underline-offset-2 hover:underline">
+          <Link href={`/book/${tenantSlug}/memberships?from=book`} className="font-semibold text-[var(--book-moss)] underline-offset-2 hover:underline">
             compare plans, packages, and loyalty
           </Link>
           .
@@ -766,7 +766,7 @@ function OnlineBookingPageInner() {
         </p>
       </div>
       <Link
-        href={`/book/${tenantSlug}/memberships`}
+        href={`/book/${tenantSlug}/memberships?from=book`}
         className="inline-flex shrink-0 items-center justify-center rounded-md bg-[var(--book-moss)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--book-moss-deep)]"
       >
         Compare memberships
@@ -818,39 +818,39 @@ function OnlineBookingPageInner() {
       ) : null}
 
       <div className="border-b border-[var(--book-line)] bg-white/90 backdrop-blur">
-        <div className="mx-auto flex max-w-5xl flex-col gap-2 px-4 py-3.5 sm:px-6">
-          <div className="flex min-w-0 items-center justify-between gap-2">
-            <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
-              {brandLogo ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={brandLogo}
-                  alt=""
-                  className="h-9 w-9 shrink-0 rounded-md object-cover"
-                />
-              ) : (
-                <NeatMeetLogo size={36} variant="color" />
-              )}
-              <div className="min-w-0 max-sm:hidden">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--book-muted)]">
-                  NeatMeet OS
-                </p>
-                <p className="text-sm font-semibold leading-tight">Online booking</p>
-              </div>
+        <div className="mx-auto flex max-w-5xl items-start gap-2.5 px-4 py-3.5 sm:gap-3 sm:px-6">
+          {brandLogo ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={brandLogo}
+              alt=""
+              className="h-9 w-9 shrink-0 rounded-md object-cover"
+            />
+          ) : (
+            <NeatMeetLogo size={36} variant="color" />
+          )}
+          <div className="min-w-0 flex-1">
+            <div className="mb-1 hidden min-w-0 sm:block">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--book-muted)]">
+                NeatMeet OS
+              </p>
+              <p className="text-sm font-semibold leading-tight">Online booking</p>
             </div>
-            <div className="flex min-w-0 flex-wrap items-center justify-end gap-x-2 gap-y-1 sm:gap-x-3">
-              <span className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--book-ink)] sm:text-sm">
-                <span
-                  className={`h-2 w-2 shrink-0 rounded-full ${statusMeta.beaconClass}`}
-                  aria-hidden
-                />
-                <span className="truncate">{statusMeta.label}</span>
-              </span>
-              {locationName ? (
-                <span className="max-w-[7rem] truncate text-xs text-[var(--book-muted)] sm:max-w-none sm:text-sm">
-                  {locationName}
+            <div className="flex min-w-0 items-center justify-between gap-2">
+              <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 sm:gap-x-3">
+                <span className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--book-ink)] sm:text-sm">
+                  <span
+                    className={`h-2 w-2 shrink-0 rounded-full ${statusMeta.beaconClass}`}
+                    aria-hidden
+                  />
+                  <span className="truncate">{statusMeta.label}</span>
                 </span>
-              ) : null}
+                {locationName ? (
+                  <span className="max-w-[7rem] truncate text-xs text-[var(--book-muted)] sm:max-w-none sm:text-sm">
+                    {locationName}
+                  </span>
+                ) : null}
+              </div>
               <button
                 type="button"
                 onClick={handleReferFriend}
@@ -859,21 +859,21 @@ function OnlineBookingPageInner() {
                 Refer a friend
               </button>
             </div>
+            {(locationAddress || locationPhone) && (
+              <p className="mt-1 text-xs leading-relaxed text-[var(--book-muted)]">
+                {locationAddress}
+                {locationAddress && locationPhone ? ' · ' : null}
+                {locationPhone ? (
+                  <a
+                    href={`tel:${locationPhone.replace(/\s+/g, '')}`}
+                    className="font-medium text-[var(--book-ink)] underline-offset-2 hover:underline"
+                  >
+                    {locationPhone}
+                  </a>
+                ) : null}
+              </p>
+            )}
           </div>
-          {(locationAddress || locationPhone) && (
-            <p className="text-xs leading-relaxed text-[var(--book-muted)]">
-              {locationAddress}
-              {locationAddress && locationPhone ? ' · ' : null}
-              {locationPhone ? (
-                <a
-                  href={`tel:${locationPhone.replace(/\s+/g, '')}`}
-                  className="font-medium text-[var(--book-ink)] underline-offset-2 hover:underline"
-                >
-                  {locationPhone}
-                </a>
-              ) : null}
-            </p>
-          )}
         </div>
       </div>
 

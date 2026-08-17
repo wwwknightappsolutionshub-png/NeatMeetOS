@@ -1,7 +1,9 @@
 'use client';
 
+import Link from 'next/link';
 import { Suspense, useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
+import { bookingPagePath } from '@/lib/tenant-customer-pwa';
 import {
   fetchCrmJoinBootstrap,
   submitCrmJoin,
@@ -303,9 +305,17 @@ function CrmJoinFormInner() {
     <div className="book-portal min-h-screen" style={{ ['--book-moss' as string]: accent } as CSSProperties}>
       <main className="mx-auto flex min-h-screen max-w-lg flex-col justify-center px-4 py-10 sm:px-6">
         <div className="rounded-2xl border border-[var(--book-line)] bg-white p-6 shadow-[var(--book-shadow)] sm:p-8">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--book-muted)]">
-            Client details
-          </p>
+          <div className="flex items-start justify-between gap-3">
+            <p className="text-xs font-semibold tracking-[0.04em] text-[var(--book-muted)]">
+              Join our customer&apos;s family
+            </p>
+            <Link
+              href={bookingPagePath(tenantSlug)}
+              className="shrink-0 text-sm font-semibold text-[var(--book-moss)] underline-offset-2 hover:underline"
+            >
+              Home
+            </Link>
+          </div>
           <h1 className="book-display mt-2 text-3xl font-bold text-[var(--book-ink)]">{salonName}</h1>
           <p className="mt-2 text-sm text-[var(--book-muted)]">
             Quick form so we can keep you on our client list. WhatsApp is required. Name is optional.
