@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { DashboardBookingCalendar } from '@/components/admin/DashboardBookingCalendar';
 import { DashboardTrendChart } from '@/components/admin/DashboardTrendChart';
 import { AnalyticsSectionCard } from '@/components/admin/analytics/AnalyticsSectionCard';
@@ -258,6 +258,9 @@ export default function AdminDashboardPage() {
   }, [load]);
 
   const bookHref = `/book/${shell?.tenant?.slug ?? 'demo-salon'}`;
+  const showMyMoney =
+    Boolean(shell?.features?.money) &&
+    (shell?.permissions == null || shell.permissions.includes('money.view'));
 
   const todaysAppointments = useMemo(() => {
     if (!board?.appointments) return [];
@@ -382,7 +385,7 @@ export default function AdminDashboardPage() {
   return (
     <div className="grid gap-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
+        <div className="min-w-0">
           <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--admin-muted)]">
             Operations
           </p>
@@ -398,41 +401,38 @@ export default function AdminDashboardPage() {
             )}
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Link
-            href="/admin/bookings"
-            className="rounded-lg bg-[var(--admin-accent)] px-3 py-1.5 text-sm font-semibold text-white hover:brightness-110"
-          >
-            Day board
-          </Link>
-          <Link
-            href="/admin/pos"
-            className="rounded-lg border border-[var(--admin-line)] bg-white px-3 py-1.5 text-sm font-medium text-[var(--admin-ink)] hover:bg-[var(--admin-wash)]"
-          >
-            Open POS
-          </Link>
-          {shell?.features?.next_visit ? (
-            <Link
-              href="/admin/next-visit"
-              className="rounded-lg border border-[var(--admin-line)] bg-white px-3 py-1.5 text-sm font-medium text-[var(--admin-ink)] hover:bg-[var(--admin-wash)]"
-            >
-              Next visit
-            </Link>
+        <div
+          className="flex w-full min-w-0 flex-nowrap items-center justify-start gap-1.5 overflow-x-auto sm:w-auto sm:justify-end"
+          role="toolbar"
+          aria-label="Dashboard shortcuts"
+        >
+          <DashIconLink href="/admin/bookings" label="Day board" primary>
+            <CalendarIcon />
+          </DashIconLink>
+          <DashIconLink href="/admin/pos" label="Open POS">
+            <TillIcon />
+          </DashIconLink>
+          {showMyMoney ? (
+            <DashIconLink href="/admin/money" label="My money">
+              <WalletIcon />
+            </DashIconLink>
           ) : null}
-          <Link
-            href={bookHref}
-            target="_blank"
-            rel="noreferrer"
-            className="rounded-lg border border-[var(--admin-line)] bg-white px-3 py-1.5 text-sm font-medium text-[var(--admin-ink)] hover:bg-[var(--admin-wash)]"
-          >
-            Booking portal
-          </Link>
+          {shell?.features?.next_visit ? (
+            <DashIconLink href="/admin/next-visit" label="Next visit">
+              <NextVisitIcon />
+            </DashIconLink>
+          ) : null}
+          <DashIconLink href={bookHref} label="Booking portal" external>
+            <GlobeIcon />
+          </DashIconLink>
           <button
             type="button"
             onClick={() => void load()}
-            className="rounded-lg border border-[var(--admin-line)] bg-white px-3 py-1.5 text-sm font-medium text-[var(--admin-ink)] hover:bg-[var(--admin-wash)]"
+            title="Refresh"
+            aria-label="Refresh"
+            className={dashIconClass(false)}
           >
-            Refresh
+            <RefreshIcon />
           </button>
         </div>
       </div>
@@ -637,5 +637,99 @@ function PulseRow({ label, value }: { label: string; value: string }) {
       <dt className="text-zinc-500">{label}</dt>
       <dd className="font-medium text-zinc-900">{value}</dd>
     </div>
+  );
+}
+
+function dashIconClass(primary: boolean): string {
+  return [
+    'inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition',
+    primary
+      ? 'bg-[var(--admin-accent)] text-white hover:brightness-110'
+      : 'border border-[var(--admin-line)] bg-white text-[var(--admin-ink)] hover:bg-[var(--admin-wash)]',
+  ].join(' ');
+}
+
+function DashIconLink({
+  href,
+  label,
+  children,
+  primary = false,
+  external = false,
+}: {
+  href: string;
+  label: string;
+  children: ReactNode;
+  primary?: boolean;
+  external?: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      title={label}
+      aria-label={label}
+      target={external ? '_blank' : undefined}
+      rel={external ? 'noreferrer' : undefined}
+      className={dashIconClass(primary)}
+    >
+      {children}
+    </Link>
+  );
+}
+
+function iconSvgClass(): string {
+  return 'h-4 w-4';
+}
+
+function CalendarIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={iconSvgClass()} aria-hidden>
+      <rect x="3.5" y="5" width="17" height="15.5" rx="2" />
+      <path strokeLinecap="round" d="M8 3.5v4M16 3.5v4M3.5 10h17" />
+    </svg>
+  );
+}
+
+function TillIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={iconSvgClass()} aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4 10h16v9H4zM8 10V8a4 4 0 0 1 8 0v2" />
+      <path strokeLinecap="round" d="M8 14.5h8" />
+    </svg>
+  );
+}
+
+function WalletIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={iconSvgClass()} aria-hidden>
+      <rect x="3" y="6" width="18" height="13" rx="2" />
+      <path strokeLinecap="round" d="M3 10h18" />
+      <circle cx="16.5" cy="14.5" r="1.2" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+function NextVisitIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={iconSvgClass()} aria-hidden>
+      <rect x="3.5" y="5" width="17" height="15.5" rx="2" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M8 3.5v4M16 3.5v4M9 14.5l2.2 2.2L16 12" />
+    </svg>
+  );
+}
+
+function GlobeIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={iconSvgClass()} aria-hidden>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M3.5 12h17M12 3.5c2.4 2.6 3.6 5.5 3.6 8.5s-1.2 5.9-3.6 8.5c-2.4-2.6-3.6-5.5-3.6-8.5s1.2-5.9 3.6-8.5z" />
+    </svg>
+  );
+}
+
+function RefreshIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={iconSvgClass()} aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M20 12a8 8 0 1 1-2.2-5.5M20 5v5h-5" />
+    </svg>
   );
 }

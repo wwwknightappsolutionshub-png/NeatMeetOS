@@ -7,6 +7,7 @@ const BENEFITS: Record<string, string> = {
   booking: 'Run your day board, services, walk-ins, and waitlist in one place.',
   crm: 'Keep client profiles, notes, consents, and history organised.',
   payments: 'Track payments, refunds, and collection reporting.',
+  money: 'See what you took, what you spent, and what’s left — a simple money notebook.',
   pos: 'Check out clients at the chair with retail, gift cards, and tips.',
   inventory: 'Manage stock levels, suppliers, and low-stock alerts.',
   memberships: 'Sell plans, packages, wallet credit, and loyalty rewards.',

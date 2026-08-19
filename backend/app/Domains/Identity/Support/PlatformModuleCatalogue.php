@@ -32,6 +32,12 @@ final class PlatformModuleCatalogue
                 'core' => false,
             ],
             [
+                'key' => 'money',
+                'label' => 'My money',
+                'description' => 'Simple notebook: what you took, what you spent, and what’s left.',
+                'core' => false,
+            ],
+            [
                 'key' => 'pos',
                 'label' => 'POS',
                 'description' => 'In-salon checkout and receipts.',
@@ -131,6 +137,7 @@ final class PlatformModuleCatalogue
             'crm' => 'crm',
             'booking' => 'booking',
             'payments' => 'payments',
+            'money' => 'money',
             'inventory' => 'inventory',
             'ecommerce' => 'ecommerce',
             'pos' => 'pos',
@@ -157,6 +164,7 @@ final class PlatformModuleCatalogue
         $allOff['booking'] = true;
         $allOff['crm'] = true;
         $allOff['payments'] = true;
+        $allOff['money'] = true;
 
         return match ($slug) {
             'basic' => array_merge($allOff, [

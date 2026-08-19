@@ -98,6 +98,13 @@ const navGroups: NavGroup[] = [
         feature: 'pos',
       },
       {
+        href: '/admin/money',
+        label: 'My money',
+        match: (p) => p.startsWith('/admin/money'),
+        feature: 'money',
+        permission: 'money.view',
+      },
+      {
         href: '/admin/ecommerce',
         label: 'Shop',
         match: (p) => p.startsWith('/admin/ecommerce'),

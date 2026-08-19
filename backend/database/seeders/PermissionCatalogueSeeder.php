@@ -37,6 +37,8 @@ class PermissionCatalogueSeeder extends Seeder
             ['id' => 'payments.manage', 'name' => 'Manage payments', 'slug' => 'payments.manage', 'module' => 'payments'],
             ['id' => 'payments.refund', 'name' => 'Refund payments', 'slug' => 'payments.refund', 'module' => 'payments'],
             ['id' => 'payments.reporting.view', 'name' => 'View payment reporting', 'slug' => 'payments.reporting.view', 'module' => 'payments'],
+            ['id' => 'money.view', 'name' => 'View my money', 'slug' => 'money.view', 'module' => 'money'],
+            ['id' => 'money.manage', 'name' => 'Manage my money', 'slug' => 'money.manage', 'module' => 'money'],
             ['id' => 'commerce.inventory.view', 'name' => 'View inventory (commerce)', 'slug' => 'commerce.inventory.view', 'module' => 'commerce'],
             ['id' => 'commerce.inventory.manage', 'name' => 'Manage inventory (commerce)', 'slug' => 'commerce.inventory.manage', 'module' => 'commerce'],
             ['id' => 'inventory.view', 'name' => 'View inventory', 'slug' => 'inventory.view', 'module' => 'inventory'],

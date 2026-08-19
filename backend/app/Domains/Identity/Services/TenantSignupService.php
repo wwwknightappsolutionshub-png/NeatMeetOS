@@ -865,6 +865,8 @@ class TenantSignupService
             'payments.manage',
             'payments.refund',
             'payments.reporting.view',
+            'money.view',
+            'money.manage',
             'inventory.view',
             'inventory.manage',
             'inventory.adjust',

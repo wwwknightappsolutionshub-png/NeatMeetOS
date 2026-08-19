@@ -26,6 +26,7 @@ use App\Domains\Ecommerce\Http\Controllers\ShopController;
 use App\Domains\Gallery\Http\Controllers\Admin\GalleryWorkController;
 use App\Domains\Gallery\Http\Controllers\PublicGalleryController;
 use App\Domains\Lookbook\Http\Controllers\Admin\LookbookItemController;
+use App\Domains\Money\Http\Controllers\Admin\MoneyNotebookController;
 use App\Domains\Lookbook\Http\Controllers\PublicLookbookController;
 use App\Domains\Crm\Http\Controllers\PublicJoin\PublicClientCaptureController;
 use App\Domains\Crm\Http\Controllers\PublicMember\MemberPortalController;
@@ -543,6 +544,15 @@ Route::prefix('v1')->group(function () {
             Route::put('/ecommerce/products/{id}', [EcommerceProductController::class, 'update']);
             Route::patch('/ecommerce/products/{id}/status', [EcommerceProductController::class, 'updateStatus']);
             Route::patch('/ecommerce/orders/{id}/status', [EcommerceOrderController::class, 'updateStatus']);
+        });
+
+        Route::middleware('permission:money.view')->group(function () {
+            Route::get('/money/summary', [MoneyNotebookController::class, 'summary']);
+        });
+
+        Route::middleware('permission:money.manage')->group(function () {
+            Route::post('/money/entries', [MoneyNotebookController::class, 'store']);
+            Route::delete('/money/entries/{id}', [MoneyNotebookController::class, 'destroy']);
         });
 
         Route::middleware('permission:gallery.view')->group(function () {
