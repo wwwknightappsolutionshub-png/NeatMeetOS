@@ -402,18 +402,22 @@ export default function AdminDashboardPage() {
           </p>
         </div>
         <div
-          className="flex w-full min-w-0 flex-nowrap items-center justify-start gap-1.5 overflow-x-auto sm:w-auto sm:justify-end"
+          className="flex w-full flex-wrap items-start justify-start gap-x-2 gap-y-3 lg:w-auto lg:flex-nowrap lg:justify-end lg:gap-1.5"
           role="toolbar"
           aria-label="Dashboard shortcuts"
         >
           <DashIconLink href="/admin/bookings" label="Day board" primary>
             <CalendarIcon />
           </DashIconLink>
-          <DashIconLink href="/admin/pos" label="Open POS">
+          <DashIconLink href="/admin/pos" label="POS" tooltip="Open POS">
             <TillIcon />
           </DashIconLink>
           {showMyMoney ? (
-            <DashIconLink href="/admin/money" label="My Finance So Far">
+            <DashIconLink
+              href="/admin/money"
+              label="Finance"
+              tooltip="My Finance So Far"
+            >
               <WalletIcon />
             </DashIconLink>
           ) : null}
@@ -422,18 +426,12 @@ export default function AdminDashboardPage() {
               <NextVisitIcon />
             </DashIconLink>
           ) : null}
-          <DashIconLink href={bookHref} label="Booking portal" external>
+          <DashIconLink href={bookHref} label="Booking" tooltip="Booking portal" external>
             <GlobeIcon />
           </DashIconLink>
-          <button
-            type="button"
-            onClick={() => void load()}
-            aria-label="Refresh"
-            className={`group relative ${dashIconClass(false)}`}
-          >
+          <DashIconButton label="Refresh" onClick={() => void load()}>
             <RefreshIcon />
-            <DashTooltip label="Refresh" />
-          </button>
+          </DashIconButton>
         </div>
       </div>
 
@@ -649,11 +647,20 @@ function dashIconClass(primary: boolean): string {
   ].join(' ');
 }
 
+function DashCaption({ label }: { label: string }) {
+  return (
+    <span className="mt-1 max-w-[4.5rem] text-center text-[10px] font-medium leading-tight text-[var(--admin-muted)] lg:hidden">
+      {label}
+    </span>
+  );
+}
+
+/** Hover tooltip — laptop/desktop only (touch devices use captions below icons). */
 function DashTooltip({ label }: { label: string }) {
   return (
     <span
       role="tooltip"
-      className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-zinc-900 px-2 py-1 text-[11px] font-medium text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
+      className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 hidden -translate-x-1/2 whitespace-nowrap rounded-md bg-zinc-900 px-2 py-1 text-[11px] font-medium text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 lg:block"
     >
       {label}
     </span>
@@ -663,27 +670,57 @@ function DashTooltip({ label }: { label: string }) {
 function DashIconLink({
   href,
   label,
+  tooltip,
   children,
   primary = false,
   external = false,
 }: {
   href: string;
   label: string;
+  /** Longer name for desktop hover; defaults to label. */
+  tooltip?: string;
   children: ReactNode;
   primary?: boolean;
   external?: boolean;
 }) {
+  const tip = tooltip ?? label;
   return (
-    <span className="group relative shrink-0">
+    <span className="group relative flex w-[4.5rem] shrink-0 flex-col items-center lg:w-auto">
       <Link
         href={href}
-        aria-label={label}
+        aria-label={tip}
         target={external ? '_blank' : undefined}
         rel={external ? 'noreferrer' : undefined}
         className={dashIconClass(primary)}
       >
         {children}
       </Link>
+      <DashCaption label={label} />
+      <DashTooltip label={tip} />
+    </span>
+  );
+}
+
+function DashIconButton({
+  label,
+  onClick,
+  children,
+}: {
+  label: string;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <span className="group relative flex w-[4.5rem] shrink-0 flex-col items-center lg:w-auto">
+      <button
+        type="button"
+        onClick={onClick}
+        aria-label={label}
+        className={dashIconClass(false)}
+      >
+        {children}
+      </button>
+      <DashCaption label={label} />
       <DashTooltip label={label} />
     </span>
   );
