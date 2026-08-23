@@ -257,7 +257,6 @@ export default function AdminDashboardPage() {
     return () => window.removeEventListener('neatmeet:staff-sos', onSos);
   }, [load]);
 
-  const bookHref = `/book/${shell?.tenant?.slug ?? 'demo-salon'}`;
   const showMyMoney =
     Boolean(shell?.features?.money) &&
     (shell?.permissions == null || shell.permissions.includes('money.view'));
@@ -402,7 +401,7 @@ export default function AdminDashboardPage() {
           </p>
         </div>
         <div
-          className="flex w-full flex-wrap items-start justify-start gap-x-2 gap-y-3 lg:w-auto lg:flex-nowrap lg:justify-end lg:gap-1.5"
+          className="grid w-full grid-cols-4 gap-2 sm:w-auto sm:flex sm:flex-nowrap sm:justify-end sm:gap-1.5"
           role="toolbar"
           aria-label="Dashboard shortcuts"
         >
@@ -426,12 +425,6 @@ export default function AdminDashboardPage() {
               <NextVisitIcon />
             </DashIconLink>
           ) : null}
-          <DashIconLink href={bookHref} label="Booking" tooltip="Booking portal" external>
-            <GlobeIcon />
-          </DashIconLink>
-          <DashIconButton label="Refresh" onClick={() => void load()}>
-            <RefreshIcon />
-          </DashIconButton>
         </div>
       </div>
 
@@ -649,7 +642,7 @@ function dashIconClass(primary: boolean): string {
 
 function DashCaption({ label }: { label: string }) {
   return (
-    <span className="mt-1 max-w-[4.5rem] text-center text-[10px] font-medium leading-tight text-[var(--admin-muted)] lg:hidden">
+    <span className="mt-1 max-w-full px-0.5 text-center text-[10px] font-medium leading-tight text-[var(--admin-muted)] lg:hidden">
       {label}
     </span>
   );
@@ -685,7 +678,7 @@ function DashIconLink({
 }) {
   const tip = tooltip ?? label;
   return (
-    <span className="group relative flex w-[4.5rem] shrink-0 flex-col items-center lg:w-auto">
+    <span className="group relative flex w-full min-w-0 flex-col items-center sm:w-auto sm:shrink-0">
       <Link
         href={href}
         aria-label={tip}
@@ -697,31 +690,6 @@ function DashIconLink({
       </Link>
       <DashCaption label={label} />
       <DashTooltip label={tip} />
-    </span>
-  );
-}
-
-function DashIconButton({
-  label,
-  onClick,
-  children,
-}: {
-  label: string;
-  onClick: () => void;
-  children: ReactNode;
-}) {
-  return (
-    <span className="group relative flex w-[4.5rem] shrink-0 flex-col items-center lg:w-auto">
-      <button
-        type="button"
-        onClick={onClick}
-        aria-label={label}
-        className={dashIconClass(false)}
-      >
-        {children}
-      </button>
-      <DashCaption label={label} />
-      <DashTooltip label={label} />
     </span>
   );
 }
@@ -763,23 +731,6 @@ function NextVisitIcon() {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={iconSvgClass()} aria-hidden>
       <rect x="3.5" y="5" width="17" height="15.5" rx="2" />
       <path strokeLinecap="round" strokeLinejoin="round" d="M8 3.5v4M16 3.5v4M9 14.5l2.2 2.2L16 12" />
-    </svg>
-  );
-}
-
-function GlobeIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={iconSvgClass()} aria-hidden>
-      <circle cx="12" cy="12" r="8.5" />
-      <path d="M3.5 12h17M12 3.5c2.4 2.6 3.6 5.5 3.6 8.5s-1.2 5.9-3.6 8.5c-2.4-2.6-3.6-5.5-3.6-8.5s1.2-5.9 3.6-8.5z" />
-    </svg>
-  );
-}
-
-function RefreshIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={iconSvgClass()} aria-hidden>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M20 12a8 8 0 1 1-2.2-5.5M20 5v5h-5" />
     </svg>
   );
 }
