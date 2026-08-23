@@ -235,6 +235,221 @@ class MoneyNotebookService
         ];
     }
 
+    /**
+     * Combined cash inflow / outflow lines for a date range (cards, till, notebook entries).
+     *
+     * @return array{
+     *     from: string,
+     *     to: string,
+     *     direction: string,
+     *     inflow_cents: int,
+     *     outflow_cents: int,
+     *     net_cents: int,
+     *     rows: list<array<string, mixed>>
+     * }
+     */
+    public function ledger(?string $from, ?string $to, ?string $direction): array
+    {
+        $tenantId = $this->requireTenantId();
+        $tz = $this->timezone();
+        [$rangeStart, $rangeEnd] = $this->parseDateRange($from, $to, $tz);
+        $direction = $direction ?: 'all';
+        if (! in_array($direction, ['all', 'inflow', 'outflow'], true)) {
+            throw ValidationException::withMessages([
+                'direction' => ['Use all, inflow, or outflow.'],
+            ]);
+        }
+
+        $rows = [];
+
+        $payments = DB::table('payment_transactions')
+            ->where('tenant_id', $tenantId)
+            ->where('status', PaymentTransactionStatus::SUCCEEDED)
+            ->where('direction', PaymentDirection::INBOUND)
+            ->whereBetween('created_at', [$rangeStart, $rangeEnd])
+            ->orderByDesc('created_at')
+            ->get(['id', 'amount_cents', 'created_at']);
+
+        foreach ($payments as $payment) {
+            $rows[] = $this->ledgerRow(
+                'payment:'.$payment->id,
+                'inflow',
+                'Cards / the app',
+                (int) $payment->amount_cents,
+                CarbonImmutable::parse($payment->created_at, $tz)->toDateString(),
+                null,
+                false,
+            );
+        }
+
+        $refunds = DB::table('payment_refunds')
+            ->where('tenant_id', $tenantId)
+            ->where('status', PaymentTransactionStatus::SUCCEEDED)
+            ->whereBetween('created_at', [$rangeStart, $rangeEnd])
+            ->orderByDesc('created_at')
+            ->get(['id', 'amount_cents', 'created_at']);
+
+        foreach ($refunds as $refund) {
+            $rows[] = $this->ledgerRow(
+                'refund:'.$refund->id,
+                'outflow',
+                'Card refund',
+                (int) $refund->amount_cents,
+                CarbonImmutable::parse($refund->created_at, $tz)->toDateString(),
+                null,
+                false,
+            );
+        }
+
+        $checkouts = DB::table('commerce_checkouts')
+            ->where('tenant_id', $tenantId)
+            ->where('status', CheckoutStatus::COMPLETED)
+            ->whereNotNull('completed_at')
+            ->whereBetween('completed_at', [$rangeStart, $rangeEnd])
+            ->orderByDesc('completed_at')
+            ->get(['id', 'total_cents', 'refunded_total_cents', 'completed_at']);
+
+        foreach ($checkouts as $checkout) {
+            $net = max(0, (int) $checkout->total_cents - (int) $checkout->refunded_total_cents);
+            if ($net < 1) {
+                continue;
+            }
+            $rows[] = $this->ledgerRow(
+                'till:'.$checkout->id,
+                'inflow',
+                'Till / POS',
+                $net,
+                CarbonImmutable::parse($checkout->completed_at, $tz)->toDateString(),
+                null,
+                false,
+            );
+        }
+
+        $entries = MoneyEntry::query()
+            ->whereBetween('occurred_on', [$rangeStart->toDateString(), $rangeEnd->toDateString()])
+            ->orderByDesc('occurred_on')
+            ->orderByDesc('created_at')
+            ->limit(500)
+            ->get();
+
+        $labels = MoneyEntry::spendCategoryLabels();
+        foreach ($entries as $entry) {
+            $isIn = $entry->kind === MoneyEntry::KIND_CASH_IN;
+            $rows[] = $this->ledgerRow(
+                'entry:'.$entry->id,
+                $isIn ? 'inflow' : 'outflow',
+                $isIn ? 'Cash I added' : ($labels[$entry->category] ?? 'Other'),
+                (int) $entry->amount_cents,
+                $entry->occurred_on?->toDateString() ?? $rangeStart->toDateString(),
+                $entry->note,
+                true,
+                $entry->id,
+            );
+        }
+
+        if ($direction === 'inflow') {
+            $rows = array_values(array_filter($rows, fn (array $r) => $r['direction'] === 'inflow'));
+        } elseif ($direction === 'outflow') {
+            $rows = array_values(array_filter($rows, fn (array $r) => $r['direction'] === 'outflow'));
+        }
+
+        usort($rows, function (array $a, array $b): int {
+            $dateCmp = strcmp($b['occurred_on'], $a['occurred_on']);
+            if ($dateCmp !== 0) {
+                return $dateCmp;
+            }
+
+            return strcmp($b['id'], $a['id']);
+        });
+
+        $inflow = 0;
+        $outflow = 0;
+        foreach ($rows as $row) {
+            if ($row['direction'] === 'inflow') {
+                $inflow += (int) $row['amount_cents'];
+            } else {
+                $outflow += (int) $row['amount_cents'];
+            }
+        }
+
+        return [
+            'from' => $rangeStart->toDateString(),
+            'to' => $rangeEnd->toDateString(),
+            'direction' => $direction,
+            'inflow_cents' => $inflow,
+            'outflow_cents' => $outflow,
+            'net_cents' => $inflow - $outflow,
+            'rows' => $rows,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function ledgerRow(
+        string $id,
+        string $direction,
+        string $source,
+        int $amountCents,
+        string $occurredOn,
+        ?string $note,
+        bool $removable,
+        ?string $entryId = null,
+    ): array {
+        return [
+            'id' => $id,
+            'direction' => $direction,
+            'direction_label' => $direction === 'inflow' ? 'Inflow' : 'Outflow',
+            'source' => $source,
+            'amount_cents' => $amountCents,
+            'occurred_on' => $occurredOn,
+            'note' => $note,
+            'removable' => $removable,
+            'entry_id' => $entryId,
+        ];
+    }
+
+    /**
+     * @return array{0: CarbonImmutable, 1: CarbonImmutable}
+     */
+    private function parseDateRange(?string $from, ?string $to, string $tz): array
+    {
+        $now = CarbonImmutable::now($tz);
+        $defaultFrom = $now->startOfMonth();
+        $defaultTo = $now->endOfMonth();
+
+        $start = $defaultFrom;
+        $end = $defaultTo;
+
+        if (is_string($from) && $from !== '') {
+            if (! preg_match('/^\d{4}-\d{2}-\d{2}$/', $from)) {
+                throw ValidationException::withMessages(['from' => ['Use a date like 2026-08-01.']]);
+            }
+            $start = CarbonImmutable::parse($from, $tz)->startOfDay();
+        }
+
+        if (is_string($to) && $to !== '') {
+            if (! preg_match('/^\d{4}-\d{2}-\d{2}$/', $to)) {
+                throw ValidationException::withMessages(['to' => ['Use a date like 2026-08-31.']]);
+            }
+            $end = CarbonImmutable::parse($to, $tz)->endOfDay();
+        }
+
+        if ($start->greaterThan($end)) {
+            throw ValidationException::withMessages([
+                'from' => ['“From” must be on or before “To”.'],
+            ]);
+        }
+
+        if ($start->diffInDays($end) > 366) {
+            throw ValidationException::withMessages([
+                'to' => ['Pick a range of 366 days or less.'],
+            ]);
+        }
+
+        return [$start, $end];
+    }
+
     private function sentence(int $taken, int $spent, int $left): string
     {
         if ($left < 0) {

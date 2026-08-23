@@ -548,6 +548,7 @@ Route::prefix('v1')->group(function () {
 
         Route::middleware('permission:money.view')->group(function () {
             Route::get('/money/summary', [MoneyNotebookController::class, 'summary']);
+            Route::get('/money/ledger', [MoneyNotebookController::class, 'ledger']);
         });
 
         Route::middleware('permission:money.manage')->group(function () {

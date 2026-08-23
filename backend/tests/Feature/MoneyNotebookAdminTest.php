@@ -167,6 +167,28 @@ class MoneyNotebookAdminTest extends TestCase
             ->assertJsonPath('data.spent_cents', 0);
     }
 
+    public function test_ledger_lists_inflows_and_outflows_for_date_range(): void
+    {
+        $ctx = $this->seedTenantContext($this->moneyPermissions());
+        $this->seedMoneyFixtures($ctx);
+
+        $this->withTenantAuth($ctx['token'])
+            ->getJson('/api/v1/admin/money/ledger?from=2026-08-01&to=2026-08-31')
+            ->assertOk()
+            ->assertJsonPath('data.from', '2026-08-01')
+            ->assertJsonPath('data.to', '2026-08-31')
+            ->assertJsonPath('data.inflow_cents', 13500)
+            ->assertJsonPath('data.outflow_cents', 4000)
+            ->assertJsonPath('data.net_cents', 9500)
+            ->assertJsonCount(5, 'data.rows');
+
+        $this->withTenantAuth($ctx['token'])
+            ->getJson('/api/v1/admin/money/ledger?from=2026-08-01&to=2026-08-31&direction=outflow')
+            ->assertOk()
+            ->assertJsonCount(2, 'data.rows')
+            ->assertJsonPath('data.rows.0.direction', 'outflow');
+    }
+
     /**
      * @param  array<string, mixed>  $ctx
      */

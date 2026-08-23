@@ -6,8 +6,18 @@ import { ErrorAlert, Field, inputClass, LoadingState } from '@/components/admin/
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { formatMoneyCents } from '@/lib/analytics-types';
-import { shiftYearMonth, type MoneySummary } from '@/lib/money-types';
-import { createMoneyEntry, deleteMoneyEntry, fetchMoneySummary } from '@/services/money.service';
+import {
+  monthBounds,
+  shiftYearMonth,
+  type MoneyLedger,
+  type MoneySummary,
+} from '@/lib/money-types';
+import {
+  createMoneyEntry,
+  deleteMoneyEntry,
+  fetchMoneyLedger,
+  fetchMoneySummary,
+} from '@/services/money.service';
 
 function todayIsoDate(): string {
   const now = new Date();
@@ -33,26 +43,56 @@ export default function AdminMyMoneyPage() {
   const [spendCategory, setSpendCategory] = useState('rent');
   const [spendNote, setSpendNote] = useState('');
 
-  const load = useCallback((nextMonth?: string) => {
-    setLoading(true);
-    setError(null);
-    fetchMoneySummary(nextMonth)
-      .then((data) => {
-        setSummary(data);
-        setMonth(data.month);
-        setSpendCategory((current) =>
-          data.spend_categories.some((c) => c.key === current)
-            ? current
-            : (data.spend_categories[0]?.key ?? 'rent'),
-        );
-      })
-      .catch((e) => setError(e instanceof Error ? e.message : 'Could not load My Finance So Far'))
-      .finally(() => setLoading(false));
-  }, []);
+  const [ledger, setLedger] = useState<MoneyLedger | null>(null);
+  const [ledgerLoading, setLedgerLoading] = useState(false);
+  const [ledgerFrom, setLedgerFrom] = useState(todayIsoDate().slice(0, 8) + '01');
+  const [ledgerTo, setLedgerTo] = useState(todayIsoDate());
+  const [ledgerDirection, setLedgerDirection] = useState<'all' | 'inflow' | 'outflow'>('all');
+
+  const loadLedger = useCallback(
+    (from: string, to: string, direction: 'all' | 'inflow' | 'outflow') => {
+      setLedgerLoading(true);
+      fetchMoneyLedger({ from, to, direction })
+        .then((data) => {
+          setLedger(data);
+          setLedgerFrom(data.from);
+          setLedgerTo(data.to);
+        })
+        .catch((e) => setError(e instanceof Error ? e.message : 'Could not load cash flow table'))
+        .finally(() => setLedgerLoading(false));
+    },
+    [],
+  );
+
+  const load = useCallback(
+    (nextMonth?: string) => {
+      setLoading(true);
+      setError(null);
+      fetchMoneySummary(nextMonth)
+        .then((data) => {
+          setSummary(data);
+          setMonth(data.month);
+          setSpendCategory((current) =>
+            data.spend_categories.some((c) => c.key === current)
+              ? current
+              : (data.spend_categories[0]?.key ?? 'rent'),
+          );
+          const bounds = monthBounds(data.month);
+          setLedgerFrom(bounds.from);
+          setLedgerTo(bounds.to);
+          loadLedger(bounds.from, bounds.to, ledgerDirection);
+        })
+        .catch((e) => setError(e instanceof Error ? e.message : 'Could not load My Finance So Far'))
+        .finally(() => setLoading(false));
+    },
+    [ledgerDirection, loadLedger],
+  );
 
   useEffect(() => {
     load();
-  }, [load]);
+    // Initial load only — month navigation / filters call load/loadLedger explicitly.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function handleAddCash(e: React.FormEvent) {
     e.preventDefault();
@@ -118,6 +158,20 @@ export default function AdminMyMoneyPage() {
     } finally {
       setSaving(false);
     }
+  }
+
+  function applyLedgerFilter(e: React.FormEvent) {
+    e.preventDefault();
+    if (!ledgerFrom || !ledgerTo) {
+      setError('Pick a from and to date for the cash flow table.');
+      return;
+    }
+    if (ledgerFrom > ledgerTo) {
+      setError('“From” must be on or before “To”.');
+      return;
+    }
+    setError(null);
+    loadLedger(ledgerFrom, ledgerTo, ledgerDirection);
   }
 
   return (
@@ -375,6 +429,137 @@ export default function AdminMyMoneyPage() {
               )}
             </p>
             <p className="mt-3 text-xs text-zinc-500">{summary.coming_up.warning}</p>
+          </Card>
+
+          <Card title="Cash flow (in & out)">
+            <p className="mb-4 text-sm text-zinc-600">
+              Every inflow and outflow in the dates you pick — cards, till, cash you added, and
+              spends.
+            </p>
+
+            <form
+              onSubmit={applyLedgerFilter}
+              className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 lg:items-end"
+            >
+              <Field label="From">
+                <input
+                  className={inputClass}
+                  type="date"
+                  value={ledgerFrom}
+                  onChange={(e) => setLedgerFrom(e.target.value)}
+                  required
+                />
+              </Field>
+              <Field label="To">
+                <input
+                  className={inputClass}
+                  type="date"
+                  value={ledgerTo}
+                  onChange={(e) => setLedgerTo(e.target.value)}
+                  required
+                />
+              </Field>
+              <Field label="Show">
+                <select
+                  className={inputClass}
+                  value={ledgerDirection}
+                  onChange={(e) =>
+                    setLedgerDirection(e.target.value as 'all' | 'inflow' | 'outflow')
+                  }
+                >
+                  <option value="all">All</option>
+                  <option value="inflow">Inflow only</option>
+                  <option value="outflow">Outflow only</option>
+                </select>
+              </Field>
+              <Button type="submit" variant="secondary" disabled={ledgerLoading}>
+                {ledgerLoading ? 'Loading…' : 'Apply dates'}
+              </Button>
+            </form>
+
+            {ledger ? (
+              <div className="mb-4 grid gap-3 sm:grid-cols-3">
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-zinc-500">Inflow</p>
+                  <p className="text-lg font-semibold text-emerald-800">
+                    {formatMoneyCents(ledger.inflow_cents)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-zinc-500">Outflow</p>
+                  <p className="text-lg font-semibold text-rose-800">
+                    {formatMoneyCents(ledger.outflow_cents)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-zinc-500">Net</p>
+                  <p className="text-lg font-semibold">{formatMoneyCents(ledger.net_cents)}</p>
+                </div>
+              </div>
+            ) : null}
+
+            {ledgerLoading && !ledger ? (
+              <LoadingState label="Loading cash flow…" />
+            ) : ledger && ledger.rows.length === 0 ? (
+              <p className="text-sm text-zinc-500">No cash movement in this date range.</p>
+            ) : ledger ? (
+              <div className="overflow-x-auto rounded-lg border border-zinc-200">
+                <table className="min-w-full text-left text-sm">
+                  <thead className="bg-zinc-50 text-xs uppercase tracking-wide text-zinc-500">
+                    <tr>
+                      <th className="px-3 py-2 font-semibold">Date</th>
+                      <th className="px-3 py-2 font-semibold">Type</th>
+                      <th className="px-3 py-2 font-semibold">Source</th>
+                      <th className="px-3 py-2 font-semibold">Note</th>
+                      <th className="px-3 py-2 text-right font-semibold">Amount</th>
+                      <th className="px-3 py-2 font-semibold">
+                        <span className="sr-only">Actions</span>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {ledger.rows.map((row) => (
+                      <tr key={row.id} className="border-t border-zinc-100">
+                        <td className="whitespace-nowrap px-3 py-2 text-zinc-700">
+                          {row.occurred_on}
+                        </td>
+                        <td className="px-3 py-2">
+                          <span
+                            className={
+                              row.direction === 'inflow'
+                                ? 'font-medium text-emerald-800'
+                                : 'font-medium text-rose-800'
+                            }
+                          >
+                            {row.direction_label}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 text-zinc-800">{row.source}</td>
+                        <td className="max-w-[12rem] truncate px-3 py-2 text-zinc-500">
+                          {row.note || '—'}
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-2 text-right font-medium text-zinc-900">
+                          {row.direction === 'outflow' ? '−' : ''}
+                          {formatMoneyCents(row.amount_cents)}
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          {row.removable && row.entry_id ? (
+                            <button
+                              type="button"
+                              className="text-xs font-semibold text-zinc-500 hover:text-zinc-800"
+                              onClick={() => void handleDelete(row.entry_id!)}
+                              disabled={saving}
+                            >
+                              Remove
+                            </button>
+                          ) : null}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : null}
           </Card>
         </div>
       ) : null}

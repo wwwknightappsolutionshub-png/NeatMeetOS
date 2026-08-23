@@ -26,6 +26,21 @@ class MoneyNotebookController extends Controller
         return ApiResponse::success($this->notebook->summary($data['month'] ?? null));
     }
 
+    public function ledger(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'from' => ['nullable', 'date_format:Y-m-d'],
+            'to' => ['nullable', 'date_format:Y-m-d'],
+            'direction' => ['nullable', 'string', Rule::in(['all', 'inflow', 'outflow'])],
+        ]);
+
+        return ApiResponse::success($this->notebook->ledger(
+            $data['from'] ?? null,
+            $data['to'] ?? null,
+            $data['direction'] ?? 'all',
+        ));
+    }
+
     public function store(Request $request): JsonResponse
     {
         $data = $request->validate([

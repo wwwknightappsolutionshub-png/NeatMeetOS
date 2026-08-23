@@ -25,6 +25,28 @@ export interface MoneyComingUp {
   warning: string;
 }
 
+export interface MoneyLedgerRow {
+  id: string;
+  direction: 'inflow' | 'outflow';
+  direction_label: string;
+  source: string;
+  amount_cents: number;
+  occurred_on: string;
+  note: string | null;
+  removable: boolean;
+  entry_id: string | null;
+}
+
+export interface MoneyLedger {
+  from: string;
+  to: string;
+  direction: 'all' | 'inflow' | 'outflow';
+  inflow_cents: number;
+  outflow_cents: number;
+  net_cents: number;
+  rows: MoneyLedgerRow[];
+}
+
 export interface MoneySummary {
   month: string;
   month_label: string;
@@ -49,4 +71,13 @@ export function shiftYearMonth(ym: string, delta: number): string {
   const y = date.getUTCFullYear();
   const m = String(date.getUTCMonth() + 1).padStart(2, '0');
   return `${y}-${m}`;
+}
+
+/** First/last day of a YYYY-MM month (UTC calendar dates as ISO strings). */
+export function monthBounds(ym: string): { from: string; to: string } {
+  const [year, month] = ym.split('-').map(Number);
+  const from = `${ym}-01`;
+  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const to = `${ym}-${String(lastDay).padStart(2, '0')}`;
+  return { from, to };
 }
