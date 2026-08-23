@@ -99,7 +99,7 @@ const navGroups: NavGroup[] = [
       },
       {
         href: '/admin/money',
-        label: 'My money',
+        label: 'My Finance So Far',
         match: (p) => p.startsWith('/admin/money'),
         feature: 'money',
         permission: 'money.view',

@@ -4,6 +4,7 @@ namespace App\Domains\Identity\Http\Controllers;
 
 use App\Domains\Identity\Models\TeamMember;
 use App\Domains\Identity\Models\User;
+use App\Shared\Services\AbuseGuard;
 use App\Shared\Support\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -12,7 +13,7 @@ use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
-    public function login(Request $request): JsonResponse
+    public function login(Request $request, AbuseGuard $abuse): JsonResponse
     {
         $credentials = $request->validate([
             'email' => ['required', 'email'],
@@ -23,6 +24,8 @@ class AuthController extends Controller
         $user = User::query()->where('email', $credentials['email'])->first();
 
         if ($user === null || ! Hash::check($credentials['password'], $user->password)) {
+            $abuse->recordLoginFailure((string) $request->ip());
+
             throw ValidationException::withMessages([
                 'email' => ['The provided credentials are incorrect.'],
             ]);

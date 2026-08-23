@@ -61,7 +61,7 @@ class AppServiceProvider extends ServiceProvider
         });
 
         RateLimiter::for('public-book-write', function (Request $request) {
-            return Limit::perMinute(12)->by($request->ip());
+            return Limit::perMinute(8)->by($request->ip());
         });
 
         RateLimiter::for('public-join', function (Request $request) {
@@ -73,7 +73,7 @@ class AppServiceProvider extends ServiceProvider
         });
 
         RateLimiter::for('public-signup', function (Request $request) {
-            return Limit::perMinute(10)->by($request->ip());
+            return Limit::perMinute(6)->by($request->ip());
         });
 
         RateLimiter::for('public-webhooks', function (Request $request) {
@@ -81,7 +81,7 @@ class AppServiceProvider extends ServiceProvider
         });
 
         RateLimiter::for('auth-login', function (Request $request) {
-            return Limit::perMinute(15)->by(strtolower((string) $request->input('email')).'|'.$request->ip());
+            return Limit::perMinute(10)->by(strtolower((string) $request->input('email')).'|'.$request->ip());
         });
     }
 }

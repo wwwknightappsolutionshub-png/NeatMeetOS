@@ -1,4 +1,5 @@
 import { api } from '@/lib/api-client';
+import { getTurnstileToken, withTurnstileToken } from '@/lib/turnstile';
 
 export type PricingTier = 'regular' | 'membership' | 'loyalty';
 
@@ -224,10 +225,11 @@ export async function memberLogin(
   email: string,
   phone: string,
 ): Promise<MemberSession> {
+  const turnstile_token = await getTurnstileToken();
   const data = await api<MemberSession>('/member/login', {
     ...publicOpts(tenantSlug, {
       method: 'POST',
-      body: JSON.stringify({ email, phone }),
+      body: JSON.stringify(withTurnstileToken({ email, phone }, turnstile_token)),
     }),
   });
   saveMemberSession(tenantSlug, data);

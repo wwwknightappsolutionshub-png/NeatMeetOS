@@ -1,4 +1,5 @@
 import { api } from '@/lib/api-client';
+import { getTurnstileToken, withTurnstileToken } from '@/lib/turnstile';
 
 export interface CrmJoinMembershipOffer {
   id: string;
@@ -88,10 +89,11 @@ export async function submitCrmJoin(
     date_of_birth?: string;
   },
 ): Promise<CrmJoinResult> {
+  const turnstile_token = await getTurnstileToken();
   return api<CrmJoinResult>('/join/clients', {
     ...publicOpts(tenantSlug, {
       method: 'POST',
-      body: JSON.stringify(payload),
+      body: JSON.stringify(withTurnstileToken({ ...payload }, turnstile_token)),
     }),
   });
 }

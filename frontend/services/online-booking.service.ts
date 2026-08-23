@@ -1,4 +1,5 @@
 import { api, API_BASE } from '@/lib/api-client';
+import { getTurnstileToken, withTurnstileToken } from '@/lib/turnstile';
 import type {
   Appointment,
   BookingChangeRequest,
@@ -58,10 +59,13 @@ export async function createOnlineAppointment(
   tenantSlug: string,
   payload: OnlineBookPayload,
 ): Promise<Appointment> {
+  const turnstile_token = await getTurnstileToken();
   return api<Appointment>('/book/appointments', {
     ...publicOpts(tenantSlug, {
       method: 'POST',
-      body: JSON.stringify(payload),
+      body: JSON.stringify(
+        withTurnstileToken({ ...payload } as Record<string, unknown>, turnstile_token),
+      ),
     }),
   });
 }
@@ -84,6 +88,10 @@ export async function uploadReservationProof(
   form.append('booking_service_id', params.booking_service_id);
   form.append('payment_method', params.payment_method);
   form.append('proof', params.proof);
+  const turnstile_token = await getTurnstileToken();
+  if (turnstile_token) {
+    form.append('turnstile_token', turnstile_token);
+  }
 
   const res = await fetch(`${API_BASE}/book/reservation-proof`, {
     method: 'POST',
@@ -134,12 +142,15 @@ export async function cancelManagedAppointment(
   token: string,
   reason?: string,
 ): Promise<BookingChangeRequest> {
+  const turnstile_token = await getTurnstileToken();
   return api<BookingChangeRequest>(
     `/book/appointments/${encodeURIComponent(bookingReference)}/cancel`,
     {
       ...publicOpts(tenantSlug, {
         method: 'POST',
-        body: JSON.stringify({ token, reason }),
+        body: JSON.stringify(
+          withTurnstileToken({ token, reason }, turnstile_token),
+        ),
       }),
     },
   );
@@ -160,10 +171,13 @@ export async function resolveBookingChangeRequest(
   token: string,
   action: 'accept' | 'decline',
 ): Promise<BookingChangeRequest> {
+  const turnstile_token = await getTurnstileToken();
   return api<BookingChangeRequest>('/book/change-requests/resolve', {
     ...publicOpts(tenantSlug, {
       method: 'POST',
-      body: JSON.stringify({ id, token, action }),
+      body: JSON.stringify(
+        withTurnstileToken({ id, token, action }, turnstile_token),
+      ),
     }),
   });
 }

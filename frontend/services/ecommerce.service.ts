@@ -1,4 +1,5 @@
 import { api } from '@/lib/api-client';
+import { getTurnstileToken, withTurnstileToken } from '@/lib/turnstile';
 import type {
   AdminEcommerceProduct,
   ShopOrder,
@@ -56,10 +57,11 @@ export async function placeShopOrder(
     lines: { ecommerce_product_id: string; quantity: number }[];
   },
 ): Promise<ShopOrder> {
+  const turnstile_token = await getTurnstileToken();
   return api<ShopOrder>('/shop/orders', {
     ...publicOpts(tenantSlug, {
       method: 'POST',
-      body: JSON.stringify(payload),
+      body: JSON.stringify(withTurnstileToken({ ...payload }, turnstile_token)),
     }),
   });
 }

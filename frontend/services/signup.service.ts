@@ -1,4 +1,5 @@
 import { api, setStoredTenantSlug, setStoredToken } from '@/lib/api-client';
+import { getTurnstileToken, withTurnstileToken } from '@/lib/turnstile';
 import type {
   LoginResponse,
   SignupForm,
@@ -36,9 +37,10 @@ export async function lookupAddressByPostcode(
 export async function registerSignup(
   answers: Record<string, unknown>,
 ): Promise<SignupRegisterResponse> {
+  const turnstile_token = await getTurnstileToken();
   return api<SignupRegisterResponse>('/signup/register', {
     method: 'POST',
-    body: JSON.stringify({ answers }),
+    body: JSON.stringify(withTurnstileToken({ answers }, turnstile_token)),
     tenant: false,
   });
 }
@@ -58,16 +60,22 @@ export async function captureSignupLead(payload: {
   hp_trap?: string;
   whatsapp?: string | null;
 }): Promise<SignupLeadResponse> {
+  const turnstile_token = await getTurnstileToken();
   return api<SignupLeadResponse>('/signup/lead', {
     method: 'POST',
-    body: JSON.stringify({
-      name: payload.name,
-      email: payload.email,
-      referral_code: payload.referral_code || undefined,
-      website: payload.website || '',
-      hp_trap: payload.hp_trap || '',
-      whatsapp: payload.whatsapp || undefined,
-    }),
+    body: JSON.stringify(
+      withTurnstileToken(
+        {
+          name: payload.name,
+          email: payload.email,
+          referral_code: payload.referral_code || undefined,
+          website: payload.website || '',
+          hp_trap: payload.hp_trap || '',
+          whatsapp: payload.whatsapp || undefined,
+        },
+        turnstile_token,
+      ),
+    ),
     tenant: false,
   });
 }
@@ -97,6 +105,10 @@ export async function uploadSignupServiceImage(
 ): Promise<{ url: string; path: string }> {
   const form = new FormData();
   form.append('image', file);
+  const turnstile_token = await getTurnstileToken();
+  if (turnstile_token) {
+    form.append('turnstile_token', turnstile_token);
+  }
 
   const res = await fetch(`${API_BASE}/signup/upload-service-image`, {
     method: 'POST',

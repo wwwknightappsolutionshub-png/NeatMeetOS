@@ -1,4 +1,5 @@
 import { api } from '@/lib/api-client';
+import { getTurnstileToken, withTurnstileToken } from '@/lib/turnstile';
 import type {
   AiHairstyleSession,
   AiHairstyleSubmitPayload,
@@ -16,9 +17,13 @@ function publicOpts(tenantSlug: string, init?: RequestInit) {
 export async function createAiHairstyleSession(
   tenantSlug: string,
 ): Promise<AiHairstyleSession> {
+  const turnstile_token = await getTurnstileToken();
   return api<AiHairstyleSession>(
     '/book/ai-hairstyle/sessions',
-    publicOpts(tenantSlug, { method: 'POST', body: JSON.stringify({}) }),
+    publicOpts(tenantSlug, {
+      method: 'POST',
+      body: JSON.stringify(withTurnstileToken({}, turnstile_token)),
+    }),
   );
 }
 
@@ -43,6 +48,10 @@ export async function generateAiHairstylePreviews(
   const body = new FormData();
   body.append('public_token', publicToken);
   body.append('selfie', selfie);
+  const turnstile_token = await getTurnstileToken();
+  if (turnstile_token) {
+    body.append('turnstile_token', turnstile_token);
+  }
 
   return api<AiHairstyleSession>(
     `/book/ai-hairstyle/sessions/${encodeURIComponent(sessionId)}/generate`,
@@ -83,14 +92,20 @@ export async function selectAiHairstylePreviews(
   publicToken: string,
   previewIds: string[],
 ): Promise<AiHairstyleSession> {
+  const turnstile_token = await getTurnstileToken();
   return api<AiHairstyleSession>(
     `/book/ai-hairstyle/sessions/${encodeURIComponent(sessionId)}/select`,
     publicOpts(tenantSlug, {
       method: 'POST',
-      body: JSON.stringify({
-        public_token: publicToken,
-        preview_ids: previewIds,
-      }),
+      body: JSON.stringify(
+        withTurnstileToken(
+          {
+            public_token: publicToken,
+            preview_ids: previewIds,
+          },
+          turnstile_token,
+        ),
+      ),
     }),
   );
 }
@@ -101,14 +116,20 @@ export async function submitAiHairstyleSession(
   publicToken: string,
   payload: AiHairstyleSubmitPayload,
 ): Promise<AiHairstyleSession> {
+  const turnstile_token = await getTurnstileToken();
   return api<AiHairstyleSession>(
     `/book/ai-hairstyle/sessions/${encodeURIComponent(sessionId)}/submit`,
     publicOpts(tenantSlug, {
       method: 'POST',
-      body: JSON.stringify({
-        public_token: publicToken,
-        ...payload,
-      }),
+      body: JSON.stringify(
+        withTurnstileToken(
+          {
+            public_token: publicToken,
+            ...payload,
+          },
+          turnstile_token,
+        ),
+      ),
     }),
   );
 }

@@ -3,6 +3,12 @@ export type BeforeInstallPromptEvent = Event & {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
 };
 
+export type TenantCustomerPwaInstallResult =
+  | 'accepted'
+  | 'dismissed'
+  | 'already_standalone'
+  | 'manual';
+
 export function isStandaloneDisplay(): boolean {
   if (typeof window === 'undefined') return false;
   return (
@@ -23,28 +29,44 @@ export function bookingPagePath(tenantSlug: string): string {
   return `/book/${tenantSlug}`;
 }
 
+/** Platform-specific install steps when the browser has no native install prompt. */
+export function tenantCustomerPwaInstallHint(): string {
+  if (typeof navigator === 'undefined') {
+    return 'Add this page to your home screen for quick access.';
+  }
+  const ua = navigator.userAgent;
+  if (/iPhone|iPad|iPod/i.test(ua)) {
+    return 'On iPhone: tap Share → Add to Home Screen to install this app.';
+  }
+  if (/Android/i.test(ua)) {
+    return 'On Android: open the browser menu → Install app / Add to Home screen.';
+  }
+  return 'Use Install / Add to Home Screen to keep this app handy.';
+}
+
 /**
- * Prompt the tenant customer (membership) PWA install when Chrome has deferred
- * beforeinstallprompt; otherwise open the membership app, which is the install surface.
+ * Prompt the tenant customer PWA install when Chrome has deferred beforeinstallprompt.
+ * Does not open the membership login page — callers show manual steps when result is manual.
  */
 export async function promptTenantCustomerPwaInstall(
   tenantSlug: string,
   installEvent: BeforeInstallPromptEvent | null,
-  navigate: (path: string) => void,
-): Promise<void> {
-  const memberPath = tenantCustomerPwaPath(tenantSlug);
+  navigate?: (path: string) => void,
+): Promise<TenantCustomerPwaInstallResult> {
   if (isStandaloneDisplay()) {
-    navigate(memberPath);
-    return;
+    navigate?.(tenantCustomerPwaPath(tenantSlug));
+    return 'already_standalone';
   }
+
   if (installEvent) {
     try {
       await installEvent.prompt();
-      await installEvent.userChoice;
-      return;
+      const choice = await installEvent.userChoice;
+      return choice.outcome === 'accepted' ? 'accepted' : 'dismissed';
     } catch {
-      // Fall through to the membership app.
+      return 'manual';
     }
   }
-  navigate(memberPath);
+
+  return 'manual';
 }

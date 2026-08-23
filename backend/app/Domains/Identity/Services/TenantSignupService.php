@@ -18,6 +18,7 @@ use App\Domains\Lookbook\Services\LookbookSeedService;
 use App\Domains\Staff\Models\StaffProfile;
 use App\Jobs\SendTenantSignupWelcomeWhatsAppJob;
 use App\Shared\Audit\AuditLogger;
+use App\Shared\Services\AbuseGuard;
 use App\Shared\Tenancy\TenantContext;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
@@ -41,6 +42,7 @@ class TenantSignupService
         private readonly PlatformNotificationService $platformNotifications,
         private readonly PlatformReferralProgramService $platformReferrals,
         private readonly LookbookSeedService $lookbookSeed,
+        private readonly AbuseGuard $abuse,
     ) {}
 
     /**
@@ -55,6 +57,8 @@ class TenantSignupService
         // autofill tokens like "website" (password managers fill those).
         $honeypot = trim((string) ($data['hp_trap'] ?? $data['website'] ?? ''));
         if ($honeypot !== '') {
+            $this->abuse->recordHoneypot((string) request()->ip());
+
             return [
                 'status' => 'created',
                 'message' => 'Check your email for your temporary password and login link.',

@@ -4,6 +4,7 @@ import {
   setStoredTenantSlug,
   setStoredToken,
 } from '@/lib/api-client';
+import { getTurnstileToken, withTurnstileToken } from '@/lib/turnstile';
 import type { LoginResponse, ShellStatus } from '@/lib/types';
 
 function storeSession(data: LoginResponse): LoginResponse {
@@ -16,9 +17,15 @@ export async function login(
   email: string,
   password: string,
 ): Promise<LoginResponse> {
+  const turnstile_token = await getTurnstileToken();
   const data = await api<LoginResponse>('/auth/login', {
     method: 'POST',
-    body: JSON.stringify({ email, password, device_name: 'neatmeet-os-web' }),
+    body: JSON.stringify(
+      withTurnstileToken(
+        { email, password, device_name: 'neatmeet-os-web' },
+        turnstile_token,
+      ),
+    ),
     tenant: false,
   });
 
@@ -26,17 +33,24 @@ export async function login(
 }
 
 export async function requestMagicLink(email: string): Promise<{ sent: boolean }> {
+  const turnstile_token = await getTurnstileToken();
   return api<{ sent: boolean }>('/auth/magic-link', {
     method: 'POST',
-    body: JSON.stringify({ email }),
+    body: JSON.stringify(withTurnstileToken({ email }, turnstile_token)),
     tenant: false,
   });
 }
 
 export async function consumeMagicLink(token: string): Promise<LoginResponse> {
+  const turnstile_token = await getTurnstileToken();
   const data = await api<LoginResponse>('/auth/magic-link/consume', {
     method: 'POST',
-    body: JSON.stringify({ token, device_name: 'neatmeet-os-web' }),
+    body: JSON.stringify(
+      withTurnstileToken(
+        { token, device_name: 'neatmeet-os-web' },
+        turnstile_token,
+      ),
+    ),
     tenant: false,
   });
 
@@ -46,9 +60,10 @@ export async function consumeMagicLink(token: string): Promise<LoginResponse> {
 export async function requestPasswordReset(
   email: string,
 ): Promise<{ sent: boolean }> {
+  const turnstile_token = await getTurnstileToken();
   return api<{ sent: boolean }>('/auth/forgot-password', {
     method: 'POST',
-    body: JSON.stringify({ email }),
+    body: JSON.stringify(withTurnstileToken({ email }, turnstile_token)),
     tenant: false,
   });
 }
@@ -58,13 +73,19 @@ export async function resetPassword(
   password: string,
   passwordConfirmation: string,
 ): Promise<null> {
+  const turnstile_token = await getTurnstileToken();
   return api<null>('/auth/reset-password', {
     method: 'POST',
-    body: JSON.stringify({
-      token,
-      password,
-      password_confirmation: passwordConfirmation,
-    }),
+    body: JSON.stringify(
+      withTurnstileToken(
+        {
+          token,
+          password,
+          password_confirmation: passwordConfirmation,
+        },
+        turnstile_token,
+      ),
+    ),
     tenant: false,
   });
 }
@@ -74,14 +95,20 @@ export async function activateAccount(
   password: string,
   passwordConfirmation: string,
 ): Promise<LoginResponse> {
+  const turnstile_token = await getTurnstileToken();
   const data = await api<LoginResponse>('/signup/activate', {
     method: 'POST',
-    body: JSON.stringify({
-      token,
-      password,
-      password_confirmation: passwordConfirmation,
-      device_name: 'neatmeet-os-web',
-    }),
+    body: JSON.stringify(
+      withTurnstileToken(
+        {
+          token,
+          password,
+          password_confirmation: passwordConfirmation,
+          device_name: 'neatmeet-os-web',
+        },
+        turnstile_token,
+      ),
+    ),
     tenant: false,
   });
 

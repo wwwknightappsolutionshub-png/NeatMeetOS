@@ -33,8 +33,8 @@ final class PlatformModuleCatalogue
             ],
             [
                 'key' => 'money',
-                'label' => 'My money',
-                'description' => 'Simple notebook: what you took, what you spent, and what’s left.',
+                'label' => 'My Finance So Far',
+                'description' => 'Simple notebook: what you earned, what you spent, and your account balance.',
                 'core' => false,
             ],
             [

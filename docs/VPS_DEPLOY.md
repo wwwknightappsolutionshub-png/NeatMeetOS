@@ -169,6 +169,35 @@ Selfies are ephemeral (local temp, deleted after the job or by hourly purge). On
 
 ---
 
+## Cloudflare Turnstile + IP bans (public / auth writes)
+
+Invisible captcha on login, magic link, forgot/reset password, signup, public booking / join / member-login / shop writes. Auto IP bans for repeated Turnstile failures, failed logins, honeypot trips, and excess 429s.
+
+Add to **backend** `.env` and **frontend** `.env` / PM2 env (same site key), then `config:cache` and rebuild frontend:
+
+```bash
+# backend
+TURNSTILE_SITE_KEY=0x4AAAAA...
+TURNSTILE_SECRET_KEY=0x4AAAAA...
+TURNSTILE_ENABLED=true
+
+# frontend (Next.js build-time)
+NEXT_PUBLIC_TURNSTILE_SITE_KEY=0x4AAAAA...
+```
+
+Create keys in the Cloudflare dashboard → Turnstile (widget type: **Managed** or **Invisible**).
+
+Ops unban:
+
+```bash
+cd /www/wwwroot/neatmeet.prohost.cloud/backend
+/www/server/php/83/bin/php artisan security:unban-ip 1.2.3.4
+```
+
+Migration `ip_bans` runs with the normal `artisan migrate --force` deploy step.
+
+---
+
 ## Nginx (aaPanel)
 
 - **Site directory:** `/www/wwwroot/neatmeet.prohost.cloud`

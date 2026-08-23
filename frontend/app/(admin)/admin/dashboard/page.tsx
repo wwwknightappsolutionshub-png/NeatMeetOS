@@ -413,7 +413,7 @@ export default function AdminDashboardPage() {
             <TillIcon />
           </DashIconLink>
           {showMyMoney ? (
-            <DashIconLink href="/admin/money" label="My money">
+            <DashIconLink href="/admin/money" label="My Finance So Far">
               <WalletIcon />
             </DashIconLink>
           ) : null}
@@ -428,11 +428,11 @@ export default function AdminDashboardPage() {
           <button
             type="button"
             onClick={() => void load()}
-            title="Refresh"
             aria-label="Refresh"
-            className={dashIconClass(false)}
+            className={`group relative ${dashIconClass(false)}`}
           >
             <RefreshIcon />
+            <DashTooltip label="Refresh" />
           </button>
         </div>
       </div>
@@ -649,6 +649,17 @@ function dashIconClass(primary: boolean): string {
   ].join(' ');
 }
 
+function DashTooltip({ label }: { label: string }) {
+  return (
+    <span
+      role="tooltip"
+      className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-zinc-900 px-2 py-1 text-[11px] font-medium text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
+    >
+      {label}
+    </span>
+  );
+}
+
 function DashIconLink({
   href,
   label,
@@ -663,16 +674,18 @@ function DashIconLink({
   external?: boolean;
 }) {
   return (
-    <Link
-      href={href}
-      title={label}
-      aria-label={label}
-      target={external ? '_blank' : undefined}
-      rel={external ? 'noreferrer' : undefined}
-      className={dashIconClass(primary)}
-    >
-      {children}
-    </Link>
+    <span className="group relative shrink-0">
+      <Link
+        href={href}
+        aria-label={label}
+        target={external ? '_blank' : undefined}
+        rel={external ? 'noreferrer' : undefined}
+        className={dashIconClass(primary)}
+      >
+        {children}
+      </Link>
+      <DashTooltip label={label} />
+    </span>
   );
 }
 

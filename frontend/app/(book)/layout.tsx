@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
+import { TurnstileBootstrap } from '@/components/security/TurnstileBootstrap';
 import './book.css';
 
 export const metadata: Metadata = {
@@ -8,5 +9,10 @@ export const metadata: Metadata = {
 };
 
 export default function BookLayout({ children }: { children: ReactNode }) {
-  return <div className="book-portal min-h-full">{children}</div>;
+  return (
+    <div className="book-portal min-h-full">
+      <TurnstileBootstrap />
+      {children}
+    </div>
+  );
 }

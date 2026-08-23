@@ -239,7 +239,7 @@ class MoneyNotebookService
     {
         if ($left < 0) {
             return sprintf(
-                'You took %s and spent %s. You spent %s more than you took this month (before tax).',
+                'You have earned %s and spent %s. You spent %s more than you earned this month (before tax).',
                 $this->pounds($taken),
                 $this->pounds($spent),
                 $this->pounds(abs($left)),
@@ -247,7 +247,7 @@ class MoneyNotebookService
         }
 
         return sprintf(
-            'You took %s and spent %s. %s left this month (before tax).',
+            'You have earned %s and spent %s. %s is your account balance this month (before tax).',
             $this->pounds($taken),
             $this->pounds($spent),
             $this->pounds($left),

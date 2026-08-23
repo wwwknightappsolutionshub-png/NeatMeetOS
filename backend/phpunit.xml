@@ -36,5 +36,7 @@
         <env name="INTEGRATIONS_WEBHOOK_REQUIRE_SECRET" value="false"/>
         <env name="VAPID_PUBLIC_KEY" value="BEl62iUYgUivxIkv69yViEuiBIa-Ib27AB1kBKzTqYQ"/>
         <env name="VAPID_PRIVATE_KEY" value="uNrfZ8y_example_not_used_in_unit_tests_only"/>
+        <env name="TURNSTILE_ENABLED" value="false"/>
+        <env name="TURNSTILE_SECRET_KEY" value=""/>
     </php>
 </phpunit>

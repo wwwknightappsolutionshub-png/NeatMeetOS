@@ -9,6 +9,7 @@ import {
   useState,
   type FormEvent,
 } from 'react';
+import { TurnstileBootstrap } from '@/components/security/TurnstileBootstrap';
 import { Button } from '@/components/ui/Button';
 import { NeatMeetLogo } from '@/components/brand/NeatMeetLogo';
 import {
@@ -107,6 +108,7 @@ function LoginAuthPage() {
   const activateToken = searchParams.get('activate');
   const resetToken = searchParams.get('reset');
   const nextPath = searchParams.get('next');
+  const noticeFromQuery = searchParams.get('notice');
   const referralCode = resolveReferralCode(searchParams.get('ref')) ?? '';
   const forceSignupOnly = searchParams.get('tab') === 'signup';
   const wantSignup = forceSignupOnly || Boolean(referralCode);
@@ -120,7 +122,11 @@ function LoginAuthPage() {
   const [password, setPassword] = useState('');
   const [passwordConfirm, setPasswordConfirm] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(
+    noticeFromQuery === 'password-updated'
+      ? 'Password updated. You can sign in now.'
+      : null,
+  );
   const [loading, setLoading] = useState(false);
   const [magicConsuming, setMagicConsuming] = useState(Boolean(magicToken));
   const [workspaceOnboarding, setWorkspaceOnboarding] = useState(false);
@@ -139,6 +145,14 @@ function LoginAuthPage() {
   useEffect(() => {
     if (emailFromQuery) setEmail(emailFromQuery);
   }, [emailFromQuery]);
+
+  useEffect(() => {
+    if (noticeFromQuery === 'password-updated') {
+      setNotice('Password updated. You can sign in now.');
+      setLoginMode('password');
+      setTab('login');
+    }
+  }, [noticeFromQuery]);
 
   useEffect(() => {
     if (!magicToken) return;
@@ -321,11 +335,12 @@ function LoginAuthPage() {
     setNotice(null);
     try {
       await resetPassword(resetToken, password, passwordConfirm);
-      setNotice('Password updated. You can sign in now.');
       setPassword('');
       setPasswordConfirm('');
-      router.replace('/login');
       setLoginMode('password');
+      setTab('login');
+      // Drop ?reset= so specialMode leaves the reset form; keep success on login.
+      router.replace('/login?notice=password-updated');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Reset failed');
     } finally {
@@ -505,6 +520,7 @@ function LoginAuthPage() {
 
   return (
     <div className="flex min-h-screen bg-[#f7f5f2] text-stone-900">
+      <TurnstileBootstrap />
       <Toast message={toastMessage} onDismiss={dismissToast} />
       {/* LEFT — auth forms */}
       <div className="flex w-full flex-col justify-center px-6 py-10 sm:px-10 lg:w-[46%] lg:px-14 xl:px-16">

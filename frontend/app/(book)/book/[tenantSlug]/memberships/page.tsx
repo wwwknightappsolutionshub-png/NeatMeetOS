@@ -12,6 +12,7 @@ import { registerMemberServiceWorker } from '@/services/member-portal.service';
 import {
   bookingPagePath,
   promptTenantCustomerPwaInstall,
+  tenantCustomerPwaInstallHint,
   type BeforeInstallPromptEvent,
 } from '@/lib/tenant-customer-pwa';
 
@@ -85,7 +86,13 @@ function PublicMembershipsPageInner() {
   }
 
   function handleMembershipApp() {
-    void promptTenantCustomerPwaInstall(tenantSlug, installEvent, (path) => router.push(path));
+    void promptTenantCustomerPwaInstall(tenantSlug, installEvent, (path) => router.push(path)).then(
+      (result) => {
+        if (result === 'manual') {
+          window.alert(tenantCustomerPwaInstallHint());
+        }
+      },
+    );
   }
 
   if (loading) {

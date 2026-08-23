@@ -1,4 +1,5 @@
 import { api } from '@/lib/api-client';
+import { getTurnstileToken, withTurnstileToken } from '@/lib/turnstile';
 import type { SalonReview } from '@/lib/review-types';
 
 function publicOpts(tenantSlug: string, init?: RequestInit) {
@@ -18,10 +19,11 @@ export async function submitPublicReview(
   tenantSlug: string,
   payload: { author_name: string; rating: number; body: string },
 ): Promise<SalonReview> {
+  const turnstile_token = await getTurnstileToken();
   return api<SalonReview>('/book/reviews', {
     ...publicOpts(tenantSlug, {
       method: 'POST',
-      body: JSON.stringify(payload),
+      body: JSON.stringify(withTurnstileToken({ ...payload }, turnstile_token)),
     }),
   });
 }

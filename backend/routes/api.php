@@ -132,18 +132,18 @@ Route::prefix('v1')->group(function () {
     Route::get('/version', VersionController::class);
     Route::get('/public/whatsapp/signup-welcome-banner', [PlatformSignupWhatsAppWelcomeImageController::class, 'show']);
 
-    Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:auth-login');
-    Route::post('/auth/magic-link', [AuthLinkController::class, 'requestMagic'])->middleware('throttle:public-signup');
-    Route::post('/auth/magic-link/consume', [AuthLinkController::class, 'consumeMagic'])->middleware('throttle:auth-login');
-    Route::post('/auth/forgot-password', [AuthLinkController::class, 'requestPasswordReset'])->middleware('throttle:public-signup');
-    Route::post('/auth/reset-password', [AuthLinkController::class, 'resetPassword'])->middleware('throttle:public-signup');
+    Route::post('/auth/login', [AuthController::class, 'login'])->middleware(['ip.ban', 'throttle:auth-login', 'turnstile']);
+    Route::post('/auth/magic-link', [AuthLinkController::class, 'requestMagic'])->middleware(['ip.ban', 'throttle:public-signup', 'turnstile']);
+    Route::post('/auth/magic-link/consume', [AuthLinkController::class, 'consumeMagic'])->middleware(['ip.ban', 'throttle:auth-login', 'turnstile']);
+    Route::post('/auth/forgot-password', [AuthLinkController::class, 'requestPasswordReset'])->middleware(['ip.ban', 'throttle:public-signup', 'turnstile']);
+    Route::post('/auth/reset-password', [AuthLinkController::class, 'resetPassword'])->middleware(['ip.ban', 'throttle:public-signup', 'turnstile']);
 
-    Route::prefix('signup')->middleware('throttle:public-signup')->group(function () {
+    Route::prefix('signup')->middleware(['ip.ban', 'throttle:public-signup'])->group(function () {
         Route::get('/form', [PublicSignupController::class, 'form']);
-        Route::post('/register', [PublicSignupController::class, 'register']);
-        Route::post('/lead', [PublicSignupController::class, 'lead']);
-        Route::post('/activate', [PublicSignupController::class, 'activate']);
-        Route::post('/upload-service-image', [PublicSignupController::class, 'uploadServiceImage']);
+        Route::post('/register', [PublicSignupController::class, 'register'])->middleware('turnstile');
+        Route::post('/lead', [PublicSignupController::class, 'lead'])->middleware('turnstile');
+        Route::post('/activate', [PublicSignupController::class, 'activate'])->middleware('turnstile');
+        Route::post('/upload-service-image', [PublicSignupController::class, 'uploadServiceImage'])->middleware('turnstile');
         Route::get('/address-lookup', [PublicSignupController::class, 'addressLookup']);
     });
 
@@ -157,34 +157,34 @@ Route::prefix('v1')->group(function () {
         Route::get('/slots', [OnlineBookingController::class, 'slots']);
         Route::get('/guest-contact', [OnlineBookingController::class, 'lookupGuest']);
         Route::get('/memberships', [PublicMembershipLandingController::class, 'show']);
-        Route::post('/appointments', [OnlineBookingController::class, 'book'])->middleware('throttle:public-book-write');
-        Route::post('/reservation-proof', [PublicReservationPaymentController::class, 'storeProof'])->middleware('throttle:public-book-write');
+        Route::post('/appointments', [OnlineBookingController::class, 'book'])->middleware(['ip.ban', 'throttle:public-book-write', 'turnstile']);
+        Route::post('/reservation-proof', [PublicReservationPaymentController::class, 'storeProof'])->middleware(['ip.ban', 'throttle:public-book-write', 'turnstile']);
         Route::get('/appointments/{bookingReference}', [OnlineBookingController::class, 'showManaged']);
-        Route::post('/appointments/{bookingReference}/cancel', [OnlineBookingController::class, 'cancelManaged'])->middleware('throttle:public-book-write');
+        Route::post('/appointments/{bookingReference}/cancel', [OnlineBookingController::class, 'cancelManaged'])->middleware(['ip.ban', 'throttle:public-book-write', 'turnstile']);
         Route::get('/change-requests', [OnlineBookingController::class, 'showChangeRequest']);
-        Route::post('/change-requests/resolve', [OnlineBookingController::class, 'resolveChangeRequest'])->middleware('throttle:public-book-write');
+        Route::post('/change-requests/resolve', [OnlineBookingController::class, 'resolveChangeRequest'])->middleware(['ip.ban', 'throttle:public-book-write', 'turnstile']);
         Route::get('/reviews', [PublicSalonReviewController::class, 'index']);
-        Route::post('/reviews', [PublicSalonReviewController::class, 'store'])->middleware('throttle:public-book-write');
+        Route::post('/reviews', [PublicSalonReviewController::class, 'store'])->middleware(['ip.ban', 'throttle:public-book-write', 'turnstile']);
 
         Route::prefix('ai-hairstyle')->group(function () {
-            Route::post('/sessions', [PublicAiHairstyleController::class, 'store'])->middleware('throttle:public-book-write');
+            Route::post('/sessions', [PublicAiHairstyleController::class, 'store'])->middleware(['ip.ban', 'throttle:public-book-write', 'turnstile']);
             Route::get('/sessions/{id}', [PublicAiHairstyleController::class, 'show']);
-            Route::post('/sessions/{id}/generate', [PublicAiHairstyleController::class, 'generate'])->middleware('throttle:public-book-write');
-            Route::post('/sessions/{id}/select', [PublicAiHairstyleController::class, 'select'])->middleware('throttle:public-book-write');
-            Route::post('/sessions/{id}/submit', [PublicAiHairstyleController::class, 'submit'])->middleware('throttle:public-book-write');
+            Route::post('/sessions/{id}/generate', [PublicAiHairstyleController::class, 'generate'])->middleware(['ip.ban', 'throttle:public-book-write', 'turnstile']);
+            Route::post('/sessions/{id}/select', [PublicAiHairstyleController::class, 'select'])->middleware(['ip.ban', 'throttle:public-book-write', 'turnstile']);
+            Route::post('/sessions/{id}/submit', [PublicAiHairstyleController::class, 'submit'])->middleware(['ip.ban', 'throttle:public-book-write', 'turnstile']);
         });
     });
 
     // Module 2 extension — Public CRM join form (QR lead capture; WhatsApp required).
-    Route::middleware(['throttle:public-join', 'tenant.resolve', 'tenant.require'])->prefix('join')->group(function () {
+    Route::middleware(['ip.ban', 'throttle:public-join', 'tenant.resolve', 'tenant.require'])->prefix('join')->group(function () {
         Route::get('/bootstrap', [PublicClientCaptureController::class, 'bootstrap']);
-        Route::post('/clients', [PublicClientCaptureController::class, 'store']);
+        Route::post('/clients', [PublicClientCaptureController::class, 'store'])->middleware('turnstile');
     });
 
     // Module 2 / 9 extension — Membership PWA client portal (email + WhatsApp login).
-    Route::middleware(['throttle:public-member', 'tenant.resolve', 'tenant.require'])->prefix('member')->group(function () {
+    Route::middleware(['ip.ban', 'throttle:public-member', 'tenant.resolve', 'tenant.require'])->prefix('member')->group(function () {
         Route::get('/bootstrap', [MemberPortalController::class, 'bootstrap']);
-        Route::post('/login', [MemberPortalController::class, 'login']);
+        Route::post('/login', [MemberPortalController::class, 'login'])->middleware('turnstile');
         Route::get('/me', [MemberPortalController::class, 'me']);
         Route::get('/dashboard', [MemberPortalController::class, 'dashboard']);
         Route::get('/visits', [MemberPortalController::class, 'visits']);
@@ -211,7 +211,7 @@ Route::prefix('v1')->group(function () {
     // Module 11 extension — Public ecommerce shop (click-and-collect).
     Route::middleware(['throttle:public-book', 'tenant.resolve', 'tenant.require'])->prefix('shop')->group(function () {
         Route::get('/products', [ShopController::class, 'products']);
-        Route::post('/orders', [ShopController::class, 'placeOrder'])->middleware('throttle:public-book-write');
+        Route::post('/orders', [ShopController::class, 'placeOrder'])->middleware(['ip.ban', 'throttle:public-book-write', 'turnstile']);
     });
 
     // Gallery + Lookbook public surfaces (feature-gated in controllers).

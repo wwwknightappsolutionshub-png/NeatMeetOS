@@ -46,7 +46,7 @@ export default function AdminMyMoneyPage() {
             : (data.spend_categories[0]?.key ?? 'rent'),
         );
       })
-      .catch((e) => setError(e instanceof Error ? e.message : 'Could not load My money'))
+      .catch((e) => setError(e instanceof Error ? e.message : 'Could not load My Finance So Far'))
       .finally(() => setLoading(false));
   }, []);
 
@@ -58,7 +58,7 @@ export default function AdminMyMoneyPage() {
     e.preventDefault();
     const pounds = Number(cashAmount);
     if (!Number.isFinite(pounds) || pounds <= 0) {
-      setError('Enter how much cash you took.');
+      setError('Enter how much cash you earned.');
       return;
     }
     setSaving(true);
@@ -121,10 +121,10 @@ export default function AdminMyMoneyPage() {
   }
 
   return (
-    <AdminModuleChrome eyebrow="Commerce" title="My money" links={[]}>
+    <AdminModuleChrome eyebrow="Commerce" title="My Finance So Far" links={[]}>
       <p className="mb-6 max-w-2xl text-sm text-zinc-600">
-        See what you took, what you spent, and what’s left. This is a simple notebook — not tax
-        software.
+        See what you earned (Income), what you spent, and your account balance. This is a simple
+        notebook — not tax software.
       </p>
 
       {error ? (
@@ -155,7 +155,7 @@ export default function AdminMyMoneyPage() {
         </Button>
       </div>
 
-      {loading && !summary ? <LoadingState label="Loading your money…" /> : null}
+      {loading && !summary ? <LoadingState label="Loading your finance…" /> : null}
 
       {summary ? (
         <div className="space-y-6">
@@ -163,7 +163,7 @@ export default function AdminMyMoneyPage() {
             <p className="text-base font-medium text-zinc-900">{summary.sentence}</p>
             <div className="mt-4 grid gap-3 sm:grid-cols-3">
               <div>
-                <p className="text-xs uppercase tracking-wide text-zinc-500">Taken</p>
+                <p className="text-xs uppercase tracking-wide text-zinc-500">Earned So Far</p>
                 <p className="text-lg font-semibold">{formatMoneyCents(summary.taken_cents)}</p>
               </div>
               <div>
@@ -171,14 +171,14 @@ export default function AdminMyMoneyPage() {
                 <p className="text-lg font-semibold">{formatMoneyCents(summary.spent_cents)}</p>
               </div>
               <div>
-                <p className="text-xs uppercase tracking-wide text-zinc-500">Left</p>
+                <p className="text-xs uppercase tracking-wide text-zinc-500">Your Account Balance</p>
                 <p className="text-lg font-semibold">{formatMoneyCents(summary.left_cents)}</p>
               </div>
             </div>
           </Card>
 
           <div className="grid gap-6 lg:grid-cols-2">
-            <Card title="Taken (money in)">
+            <Card title="Earned So Far (Income)">
               <ul className="mb-4 space-y-1 text-sm text-zinc-600">
                 <li>
                   From cards / the app:{' '}
@@ -232,7 +232,7 @@ export default function AdminMyMoneyPage() {
               )}
 
               <form onSubmit={(e) => void handleAddCash(e)} className="grid gap-3">
-                <p className="text-sm font-semibold text-zinc-800">Add cash I took</p>
+                <p className="text-sm font-semibold text-zinc-800">Add cash I earned</p>
                 <Field label="How much (£)">
                   <input
                     className={inputClass}
@@ -260,7 +260,7 @@ export default function AdminMyMoneyPage() {
                   />
                 </Field>
                 <Button type="submit" disabled={saving}>
-                  {saving ? 'Saving…' : 'Save cash taken'}
+                  {saving ? 'Saving…' : 'Save cash earned'}
                 </Button>
               </form>
             </Card>
