@@ -1,6 +1,6 @@
 /**
- * Public CRM join / lead-capture form URLs for QR encoding.
- * Path: /join/{slug}  optional ?location={id}
+ * Customer QR still uses the booking page. Join happens after PWA install.
+ * Legacy /join/{slug} URLs redirect to /book/{slug}.
  */
 export function buildCrmJoinPageUrl(
   tenantSlug: string,
@@ -9,7 +9,7 @@ export function buildCrmJoinPageUrl(
   const origin =
     options?.origin ??
     (typeof window !== 'undefined' ? window.location.origin : '');
-  const path = `/join/${encodeURIComponent(tenantSlug)}`;
+  const path = `/book/${encodeURIComponent(tenantSlug)}`;
   const url = new URL(path, origin || 'http://localhost:3000');
   if (options?.locationId) {
     url.searchParams.set('location', options.locationId);

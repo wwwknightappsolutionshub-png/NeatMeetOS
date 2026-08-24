@@ -11,6 +11,7 @@ import {
 import { registerMemberServiceWorker } from '@/services/member-portal.service';
 import {
   bookingPagePath,
+  isStandaloneDisplay,
   promptTenantCustomerPwaInstall,
   tenantCustomerPwaInstallHint,
   type BeforeInstallPromptEvent,
@@ -117,6 +118,7 @@ function PublicMembershipsPageInner() {
   const salonName = data.tenant.branding?.brand_display_name || data.tenant.name;
   const accent = data.tenant.branding?.primary_color || '#2f5a45';
   const style = { ['--book-moss' as string]: accent } as CSSProperties;
+  const joinHref = isStandaloneDisplay() ? data.paths.member : data.paths.book;
 
   return (
     <div className="min-h-screen bg-[var(--book-wash)] text-[var(--book-ink)]" style={style}>
@@ -136,7 +138,7 @@ function PublicMembershipsPageInner() {
             >
               Book
             </button>
-            <Link href={data.paths.join} className="text-[var(--book-muted)] underline-offset-2 hover:underline">
+            <Link href={joinHref} className="text-[var(--book-muted)] underline-offset-2 hover:underline">
               Join
             </Link>
             <button
@@ -315,7 +317,7 @@ function PublicMembershipsPageInner() {
         </section>
 
         <section className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-          <Link href={data.paths.join} className={primaryBtnClass()}>
+          <Link href={joinHref} className={primaryBtnClass()}>
             Join as a client
           </Link>
           <button type="button" onClick={handleMembershipApp} className={secondaryBtnClass()}>

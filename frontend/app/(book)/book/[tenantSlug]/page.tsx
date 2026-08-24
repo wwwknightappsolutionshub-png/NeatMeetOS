@@ -32,6 +32,7 @@ import Link from 'next/link';
 import { AiHairstyleLandingGate } from '@/components/booking/AiHairstyleLandingGate';
 import { SocialFooterIcons } from '@/components/public/SocialFooterIcons';
 import { loadMemberSession } from '@/services/member-portal.service';
+import { captureJoinAttribution } from '@/lib/tenant-customer-pwa';
 
 const VoiceBookingConcierge = dynamic(
   () =>
@@ -300,7 +301,7 @@ function ReferFriendModal({
   tenantSlug: string;
   onClose: () => void;
 }) {
-  const joinHref = `/join/${tenantSlug}`;
+  const bookHref = `/book/${tenantSlug}`;
   const memberHref = `/member/${tenantSlug}`;
 
   return (
@@ -315,10 +316,10 @@ function ReferFriendModal({
         </p>
         <div className="mt-5 flex flex-col gap-2">
           <Link
-            href={joinHref}
+            href={bookHref}
             className="inline-flex items-center justify-center rounded-md bg-[var(--book-moss)] px-4 py-2.5 text-sm font-semibold text-white"
           >
-            Sign up
+            Install &amp; join
           </Link>
           <Link
             href={memberHref}
@@ -346,7 +347,6 @@ function PricingGateModal({
 }) {
   const next = typeof window !== 'undefined' ? window.location.pathname + window.location.search : `/book/${tenantSlug}`;
   const loginHref = `/member/${tenantSlug}?next=${encodeURIComponent(next)}&tier=${tier}`;
-  const joinHref = `/join/${tenantSlug}`;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog">
@@ -355,8 +355,8 @@ function PricingGateModal({
           {tier === 'membership' ? 'Membership pricing' : 'Loyalty pricing'}
         </h3>
         <p className="mt-2 text-sm text-[var(--book-muted)]">
-          Log in to the membership app to use this rate. If you have not joined yet, sign up on the
-          CRM form first. Or{' '}
+          Log in to the membership app to use this rate. New guests install the salon app from this
+          page, then join our membership family. Or{' '}
           <Link href={`/book/${tenantSlug}/memberships?from=book`} className="font-semibold text-[var(--book-moss)] underline-offset-2 hover:underline">
             compare plans, packages, and loyalty
           </Link>
@@ -369,12 +369,13 @@ function PricingGateModal({
           >
             Log in to membership app
           </Link>
-          <Link
-            href={joinHref}
+          <button
+            type="button"
             className="inline-flex items-center justify-center rounded-md border border-[var(--book-line)] px-4 py-2.5 text-sm font-semibold text-[var(--book-ink)]"
+            onClick={onClose}
           >
-            Not registered? CRM signup
-          </Link>
+            New here? Install the salon app
+          </button>
           <button type="button" className="mt-1 text-sm text-[var(--book-muted)]" onClick={onClose}>
             Stay on Regular pricing
           </button>
@@ -509,6 +510,10 @@ function OnlineBookingPageInner() {
   useEffect(() => {
     setHeroGreeting(pickHeroGreeting());
   }, []);
+
+  useEffect(() => {
+    captureJoinAttribution(tenantSlug, searchParams.get('ref'), searchParams.get('location'));
+  }, [tenantSlug, searchParams]);
 
   useEffect(() => {
     setAiLandingSkipped(hasSkippedAiHairstyleLanding(tenantSlug));
@@ -702,7 +707,7 @@ function OnlineBookingPageInner() {
       setReferGateOpen(true);
       return;
     }
-    const url = `${window.location.origin}/join/${tenantSlug}?ref=${encodeURIComponent(member.client.id)}`;
+    const url = `${window.location.origin}/book/${tenantSlug}?ref=${encodeURIComponent(member.client.id)}`;
     void navigator.clipboard.writeText(url).then(
       () => setReferNotice('Referral link copied — share it with a friend.'),
       () => setReferNotice(url),
@@ -1535,7 +1540,7 @@ function OnlineBookingPageInner() {
       <BookingInstallPrompt
         salonName={salonName}
         tenantSlug={tenantSlug}
-        active={step === 'done' && Boolean(appointment)}
+        active={!loadError}
       />
     </div>
   );

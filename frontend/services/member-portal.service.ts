@@ -430,7 +430,7 @@ export function memberLoginUrl(
 
 export function crmJoinUrl(tenantSlug: string, ref?: string): string {
   const q = ref ? `?ref=${encodeURIComponent(ref)}` : '';
-  return `/join/${tenantSlug}${q}`;
+  return `/book/${tenantSlug}${q}`;
 }
 
 export interface MemberReferralPayload {

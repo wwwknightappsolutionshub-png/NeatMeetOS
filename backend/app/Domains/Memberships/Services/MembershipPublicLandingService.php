@@ -40,7 +40,7 @@ class MembershipPublicLandingService
             ],
             'paths' => [
                 'book' => '/book/'.$tenant->slug,
-                'join' => '/join/'.$tenant->slug,
+                'join' => '/member/'.$tenant->slug,
                 'member' => '/member/'.$tenant->slug,
             ],
             'education' => [

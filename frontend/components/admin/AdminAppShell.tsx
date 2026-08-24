@@ -207,7 +207,7 @@ const navGroups: NavGroup[] = [
       },
       {
         href: '/admin/settings/crm-join-qr',
-        label: 'CRM join QR',
+        label: 'Customer QR',
         match: (p) => p.startsWith('/admin/settings/crm-join-qr'),
       },
       {

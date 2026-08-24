@@ -496,7 +496,7 @@ class ClientReferralService
         $ref = rawurlencode($code);
 
         return [
-            'join_url' => "{$frontend}/join/{$slug}?ref={$ref}",
+            'join_url' => "{$frontend}/book/{$slug}?ref={$ref}",
             'book_url' => "{$frontend}/book/{$slug}?ref={$ref}",
         ];
     }

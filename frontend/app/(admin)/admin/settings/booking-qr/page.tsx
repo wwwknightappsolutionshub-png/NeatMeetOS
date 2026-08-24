@@ -43,8 +43,9 @@ export default function BookingQrSettingsPage() {
         <div className="space-y-4">
           <Card title="How it works">
             <p className="text-sm text-zinc-600">
-              Clients scan the QR to open your public booking page. Single-location salons use one
-              QR. Multi-location salons get one QR per location (
+              Clients scan the QR to open your public booking page. New guests see an install gate
+              for the salon membership app; after install they join and log in with WhatsApp OTP.
+              Single-location salons use one QR. Multi-location salons get one QR per location (
               <code className="text-xs">?location=…</code>).
             </p>
           </Card>

@@ -1,12 +1,15 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { registerMemberServiceWorker } from '@/services/member-portal.service';
 import {
+  INSTALL_GATE_REPROMPT_MS,
   isStandaloneDisplay,
   promptTenantCustomerPwaInstall,
+  shouldSkipBookingInstallGate,
   tenantCustomerPwaInstallHint,
+  tenantCustomerPwaPath,
   type BeforeInstallPromptEvent,
 } from '@/lib/tenant-customer-pwa';
 
@@ -16,7 +19,7 @@ interface BookingInstallPromptProps {
   active: boolean;
 }
 
-type PromptPhase = 'offer' | 'manual' | 'installed';
+type PromptPhase = 'offer' | 'manual';
 
 export function BookingInstallPrompt({
   salonName,
@@ -28,6 +31,8 @@ export function BookingInstallPrompt({
   const [phase, setPhase] = useState<PromptPhase>('offer');
   const [installEvent, setInstallEvent] = useState<BeforeInstallPromptEvent | null>(null);
   const [busy, setBusy] = useState(false);
+  const [skipReady, setSkipReady] = useState(false);
+  const repromptTimer = useRef<number | null>(null);
 
   const installHint = useMemo(() => tenantCustomerPwaInstallHint(), []);
 
@@ -41,23 +46,50 @@ export function BookingInstallPrompt({
   }, []);
 
   useEffect(() => {
-    if (!active || isStandaloneDisplay()) {
+    return () => {
+      if (repromptTimer.current != null) {
+        window.clearTimeout(repromptTimer.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!active) {
       setVisible(false);
-      setPhase('offer');
+      setSkipReady(false);
       return;
     }
 
+    let cancelled = false;
     void registerMemberServiceWorker();
 
-    const id = window.setTimeout(() => {
+    void (async () => {
+      const skip = await shouldSkipBookingInstallGate(tenantSlug);
+      if (cancelled) return;
+      if (skip || isStandaloneDisplay()) {
+        router.replace(tenantCustomerPwaPath(tenantSlug));
+        return;
+      }
+      setSkipReady(true);
+      setPhase('offer');
+      setVisible(true);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [active, tenantSlug, router]);
+
+  function scheduleReprompt() {
+    if (repromptTimer.current != null) {
+      window.clearTimeout(repromptTimer.current);
+    }
+    setVisible(false);
+    setPhase('offer');
+    repromptTimer.current = window.setTimeout(() => {
       setVisible(true);
       setPhase('offer');
-    }, 5_000);
-    return () => window.clearTimeout(id);
-  }, [active]);
-
-  if (!visible) {
-    return null;
+    }, INSTALL_GATE_REPROMPT_MS);
   }
 
   async function handleInstall() {
@@ -66,71 +98,69 @@ export function BookingInstallPrompt({
       const result = await promptTenantCustomerPwaInstall(
         tenantSlug,
         installEvent,
-        (path) => router.push(path),
+        (path) => router.replace(path),
       );
 
       if (result === 'accepted' || result === 'already_standalone') {
-        setPhase('installed');
+        router.replace(tenantCustomerPwaPath(tenantSlug));
         return;
       }
-      if (result === 'manual') {
-        setPhase('manual');
+      if (result === 'dismissed') {
+        scheduleReprompt();
         return;
       }
-      setVisible(false);
+      setPhase('manual');
     } finally {
       setBusy(false);
     }
   }
 
+  if (!active || !skipReady || !visible) {
+    return null;
+  }
+
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center">
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4 sm:items-center"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Install ${salonName} app`}
+    >
       <div className="w-full max-w-md rounded-2xl border border-[var(--book-line)] bg-white p-5 shadow-[var(--book-shadow)] sm:p-6">
-        {phase === 'installed' ? (
+        {phase === 'manual' ? (
           <>
             <h3 className="book-display text-2xl font-bold text-[var(--book-ink)]">
-              App installed
+              Install my {salonName} app
             </h3>
             <p className="mt-2 text-sm leading-relaxed text-[var(--book-muted)]">
-              Open the {salonName} app from your home screen when you&apos;re ready. You can log in
-              there to unlock member pricing and loyalty.
-            </p>
-            <button
-              type="button"
-              className="mt-5 inline-flex w-full items-center justify-center rounded-md bg-[var(--book-moss)] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[var(--book-moss-deep)]"
-              onClick={() => setVisible(false)}
-            >
-              Done
-            </button>
-          </>
-        ) : phase === 'manual' ? (
-          <>
-            <h3 className="book-display text-2xl font-bold text-[var(--book-ink)]">
-              Install My {salonName} Salon App
-            </h3>
-            <p className="mt-2 text-sm leading-relaxed text-[var(--book-muted)]">
-              Follow these steps to add the app to your home screen. You can log in after it&apos;s
-              installed.
+              Add the salon app to your home screen, then open it to join and log in.
             </p>
             <p className="mt-3 rounded-lg border border-[var(--book-line)] bg-[var(--book-wash)] px-3 py-2 text-sm text-[var(--book-ink)]">
               {installHint}
             </p>
             <button
               type="button"
-              className="mt-5 inline-flex w-full items-center justify-center rounded-md border border-[var(--book-line)] bg-white px-5 py-2.5 text-sm font-semibold text-[var(--book-ink)] hover:bg-[var(--book-wash)]"
-              onClick={() => setVisible(false)}
+              className="mt-5 inline-flex w-full items-center justify-center rounded-md bg-[var(--book-moss)] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[var(--book-moss-deep)]"
+              onClick={() => router.replace(tenantCustomerPwaPath(tenantSlug))}
             >
-              Got it
+              I installed it — open the app
+            </button>
+            <button
+              type="button"
+              className="mt-2 inline-flex w-full items-center justify-center rounded-md border border-[var(--book-line)] bg-white px-5 py-2.5 text-sm font-semibold text-[var(--book-ink)] hover:bg-[var(--book-wash)]"
+              onClick={scheduleReprompt}
+            >
+              Not now
             </button>
           </>
         ) : (
           <>
             <h3 className="book-display text-2xl font-bold text-[var(--book-ink)]">
-              Install My {salonName} Salon App
+              Install my {salonName} app
             </h3>
             <p className="mt-2 text-sm leading-relaxed text-[var(--book-muted)]">
-              Experience more benefits and features when you install this salon&apos;s app — no login
-              needed yet.
+              Install the salon app for membership, check-in, and rewards. You can continue booking
+              without installing — we&apos;ll ask again in a moment.
             </p>
             <div className="mt-5 flex flex-col gap-2 sm:flex-row">
               <button
@@ -139,12 +169,12 @@ export function BookingInstallPrompt({
                 className="inline-flex flex-1 items-center justify-center rounded-md bg-[var(--book-moss)] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[var(--book-moss-deep)] disabled:opacity-60"
                 onClick={() => void handleInstall()}
               >
-                {busy ? 'Installing…' : 'Install now'}
+                {busy ? 'Installing…' : 'Install PWA'}
               </button>
               <button
                 type="button"
                 className="inline-flex flex-1 items-center justify-center rounded-md border border-[var(--book-line)] bg-white px-5 py-2.5 text-sm font-semibold text-[var(--book-ink)] hover:bg-[var(--book-wash)]"
-                onClick={() => setVisible(false)}
+                onClick={scheduleReprompt}
               >
                 Not now
               </button>

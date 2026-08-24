@@ -9,12 +9,76 @@ export type TenantCustomerPwaInstallResult =
   | 'already_standalone'
   | 'manual';
 
+export const INSTALL_GATE_REPROMPT_MS = 5_000;
+
 export function isStandaloneDisplay(): boolean {
   if (typeof window === 'undefined') return false;
   return (
     window.matchMedia('(display-mode: standalone)').matches ||
     Boolean((navigator as Navigator & { standalone?: boolean }).standalone)
   );
+}
+
+export function memberJoinedStorageKey(tenantSlug: string): string {
+  return `neatmeet_joined_${tenantSlug}`;
+}
+
+export function markMemberJoined(tenantSlug: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(memberJoinedStorageKey(tenantSlug), '1');
+  } catch {
+    // ignore
+  }
+}
+
+export function hasMarkedMemberJoined(tenantSlug: string): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return localStorage.getItem(memberJoinedStorageKey(tenantSlug)) === '1';
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Chrome Android: related web apps listed in the member manifest.
+ * iOS Safari cannot report this — callers must also check standalone / session.
+ */
+export async function hasInstalledRelatedWebApp(): Promise<boolean> {
+  if (typeof navigator === 'undefined') return false;
+  const nav = navigator as Navigator & {
+    getInstalledRelatedApps?: () => Promise<Array<{ platform?: string }>>;
+  };
+  if (typeof nav.getInstalledRelatedApps !== 'function') {
+    return false;
+  }
+  try {
+    const apps = await nav.getInstalledRelatedApps();
+    return apps.some((app) => app.platform === 'webapp' || app.platform === 'play');
+  } catch {
+    return false;
+  }
+}
+
+export async function shouldSkipBookingInstallGate(tenantSlug: string): Promise<boolean> {
+  if (isStandaloneDisplay()) {
+    return true;
+  }
+  if (typeof window !== 'undefined') {
+    try {
+      const raw = localStorage.getItem(`neatmeet_member_${tenantSlug}`);
+      if (raw) {
+        const parsed = JSON.parse(raw) as { token?: string };
+        if (parsed?.token) {
+          return true;
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+  return hasInstalledRelatedWebApp();
 }
 
 export function tenantCustomerPwaPath(tenantSlug: string): string {
@@ -27,6 +91,50 @@ export function tenantCustomerManifestPath(tenantSlug: string): string {
 
 export function bookingPagePath(tenantSlug: string): string {
   return `/book/${tenantSlug}`;
+}
+
+function referralStorageKey(tenantSlug: string): string {
+  return `neatmeet_ref_${tenantSlug}`;
+}
+
+function locationStorageKey(tenantSlug: string): string {
+  return `neatmeet_join_location_${tenantSlug}`;
+}
+
+export function captureJoinAttribution(
+  tenantSlug: string,
+  referralCode?: string | null,
+  locationId?: string | null,
+): void {
+  if (typeof window === 'undefined') return;
+  try {
+    if (referralCode?.trim()) {
+      sessionStorage.setItem(referralStorageKey(tenantSlug), referralCode.trim());
+    }
+    if (locationId?.trim()) {
+      sessionStorage.setItem(locationStorageKey(tenantSlug), locationId.trim());
+    }
+  } catch {
+    // ignore
+  }
+}
+
+export function readJoinReferralCode(tenantSlug: string): string | undefined {
+  if (typeof window === 'undefined') return undefined;
+  try {
+    return sessionStorage.getItem(referralStorageKey(tenantSlug)) || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+export function readJoinLocationId(tenantSlug: string): string | undefined {
+  if (typeof window === 'undefined') return undefined;
+  try {
+    return sessionStorage.getItem(locationStorageKey(tenantSlug)) || undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /** Platform-specific install steps when the browser has no native install prompt. */

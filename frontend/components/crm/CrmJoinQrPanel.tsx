@@ -19,7 +19,7 @@ export function CrmJoinQrPanel({
   variant = 'admin',
 }: CrmJoinQrPanelProps) {
   const url = buildCrmJoinPageUrl(tenantSlug, { locationId: locationId ?? null });
-  const heading = locationName ? `CRM join QR · ${locationName}` : 'CRM join QR';
+  const heading = locationName ? `Customer QR · ${locationName}` : 'Customer QR';
 
   return (
     <PublicQrPanel
@@ -28,8 +28,8 @@ export function CrmJoinQrPanel({
       heading={heading}
       printSubtitle={
         locationName
-          ? `Scan to share your details · ${locationName}`
-          : 'Scan to share your details with the salon'
+          ? `Scan to book & install · ${locationName}`
+          : 'Scan to book, install the app, then join'
       }
       brandName={brandName}
       variant={variant}

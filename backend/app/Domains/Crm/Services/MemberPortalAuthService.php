@@ -66,7 +66,7 @@ class MemberPortalAuthService
                 'slug' => $slug,
                 'branding' => $tenant->getBranding() ?? [],
             ],
-            'join_path' => '/join/'.$slug,
+            'join_path' => '/member/'.$slug,
             'book_path' => '/book/'.$slug,
             'terms_url' => rtrim((string) config('app.frontend_url'), '/').'/terms',
             'vapid_public_key' => $this->push->publicKey(),

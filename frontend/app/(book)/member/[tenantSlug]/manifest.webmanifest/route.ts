@@ -2,9 +2,11 @@ import { NextResponse } from 'next/server';
 
 type Params = { params: Promise<{ tenantSlug: string }> };
 
-export async function GET(_request: Request, { params }: Params) {
+export async function GET(request: Request, { params }: Params) {
   const { tenantSlug } = await params;
   const startUrl = `/member/${encodeURIComponent(tenantSlug)}`;
+  const origin = new URL(request.url).origin;
+  const manifestUrl = `${origin}${startUrl}/manifest.webmanifest`;
 
   const manifest = {
     name: 'Salon Membership',
@@ -13,6 +15,12 @@ export async function GET(_request: Request, { params }: Params) {
     start_url: startUrl,
     scope: '/',
     display: 'standalone',
+    related_applications: [
+      {
+        platform: 'webapp',
+        url: manifestUrl,
+      },
+    ],
     orientation: 'portrait-primary',
     background_color: '#f5f1e8',
     theme_color: '#2f5a45',

@@ -4,7 +4,14 @@ import Link from 'next/link';
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { SocialFooterIcons } from '@/components/public/SocialFooterIcons';
+import { MembershipJoinForm } from '@/components/member/MembershipJoinForm';
 import type { Appointment, OnlineBookingCatalog } from '@/lib/booking-types';
+import {
+  hasMarkedMemberJoined,
+  isStandaloneDisplay,
+  readJoinLocationId,
+  readJoinReferralCode,
+} from '@/lib/tenant-customer-pwa';
 import { fetchOnlineCatalog } from '@/services/online-booking.service';
 import {
   fetchMemberNextVisit,
@@ -46,6 +53,7 @@ import {
 } from '@/services/member-portal.service';
 
 type Tab = 'home' | 'visits' | 'points' | 'membership' | 'shop' | 'gifts' | 'inbox' | 'refer';
+type GuestFlow = 'notify' | 'join' | 'login';
 
 function fieldClass(): string {
   return 'w-full rounded-md border border-[var(--book-line)] bg-white px-3 py-2.5 text-sm text-[var(--book-ink)] outline-none transition focus:border-[var(--book-moss)] focus:ring-2 focus:ring-[var(--book-moss-soft)]';
@@ -127,6 +135,8 @@ function MemberPortalInner() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [notRegistered, setNotRegistered] = useState(false);
+  const [guestFlow, setGuestFlow] = useState<GuestFlow>('login');
+  const [notifyNudgeDismissed, setNotifyNudgeDismissed] = useState(false);
   const [installPrompt, setInstallPrompt] = useState<{ prompt: () => Promise<void> } | null>(null);
   const [giftPackageId, setGiftPackageId] = useState('');
   const [giftQty, setGiftQty] = useState('1');
@@ -218,6 +228,13 @@ function MemberPortalInner() {
         setBootstrap(data);
         await registerMemberServiceWorker();
         await refreshSession();
+        const stored = loadMemberSession(tenantSlug);
+        const standalone = isStandaloneDisplay();
+        if (!stored?.token && standalone && !hasMarkedMemberJoined(tenantSlug)) {
+          setGuestFlow('notify');
+        } else {
+          setGuestFlow('login');
+        }
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Unable to load membership app');
       } finally {
@@ -340,6 +357,25 @@ function MemberPortalInner() {
     return 'Use Install / Add to Home Screen to keep this app handy.';
   }, []);
 
+  async function requestOnboardNotifications() {
+    permissionAskedRef.current = true;
+    if (typeof Notification === 'undefined') {
+      setGuestFlow('join');
+      return;
+    }
+    try {
+      await Notification.requestPermission();
+    } catch {
+      // ignore
+    }
+    setGuestFlow('join');
+  }
+
+  function continueWithoutNotifications() {
+    permissionAskedRef.current = true;
+    setGuestFlow('join');
+  }
+
   async function handleRequestOtp(e: React.FormEvent) {
     e.preventDefault();
     setSubmitting(true);
@@ -354,6 +390,9 @@ function MemberPortalInner() {
       const message = err instanceof Error ? err.message : 'Could not send OTP';
       if (/sign up|not found|No membership|join our membership/i.test(message)) {
         setNotRegistered(true);
+        if (isStandaloneDisplay()) {
+          setGuestFlow('join');
+        }
       }
       setError(message);
     } finally {
@@ -377,6 +416,9 @@ function MemberPortalInner() {
       const message = err instanceof Error ? err.message : 'Login failed';
       if (/sign up|not found|No membership|join our membership/i.test(message)) {
         setNotRegistered(true);
+        if (isStandaloneDisplay()) {
+          setGuestFlow('join');
+        }
       }
       setError(message);
     } finally {
@@ -666,6 +708,35 @@ function MemberPortalInner() {
                 <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
                   {notice}
                 </p>
+              ) : null}
+
+              {!notifyNudgeDismissed &&
+              typeof Notification !== 'undefined' &&
+              Notification.permission !== 'granted' ? (
+                <div className="rounded-lg border border-[var(--book-line)] bg-[var(--book-wash)] px-3 py-3 text-sm">
+                  <p className="font-semibold text-[var(--book-ink)]">Turn on notifications</p>
+                  <p className="mt-1 text-[var(--book-muted)]">
+                    Get a nudge when you arrive so you can check in and earn points.
+                  </p>
+                  <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                    <button
+                      type="button"
+                      className="inline-flex items-center justify-center rounded-md bg-[var(--book-moss)] px-4 py-2 text-sm font-semibold text-white"
+                      onClick={() => {
+                        void Notification.requestPermission();
+                      }}
+                    >
+                      Allow notifications
+                    </button>
+                    <button
+                      type="button"
+                      className="inline-flex items-center justify-center rounded-md border border-[var(--book-line)] bg-white px-4 py-2 text-sm font-semibold text-[var(--book-ink)]"
+                      onClick={() => setNotifyNudgeDismissed(true)}
+                    >
+                      Not now
+                    </button>
+                  </div>
+                </div>
               ) : null}
 
               {promptNextVisit ? (
@@ -1168,6 +1239,11 @@ function MemberPortalInner() {
                   void memberLogout(tenantSlug, session.token).then(() => {
                     setSession(null);
                     setDashboard(null);
+                    setGuestFlow(
+                      isStandaloneDisplay() && !hasMarkedMemberJoined(tenantSlug)
+                        ? 'notify'
+                        : 'login',
+                    );
                   })
                 }
               >
@@ -1177,113 +1253,177 @@ function MemberPortalInner() {
           ) : null}
 
           {!loading && !session ? (
-            <form
-              onSubmit={(e) => void (otpSent ? handleLogin(e) : handleRequestOtp(e))}
-              className="mt-8 grid gap-4"
-            >
-              <p className="text-sm text-[var(--book-muted)]">
-                Join Our Membership Family first, then log in with your email and WhatsApp number.
-                We send a one-time code to WhatsApp.
-              </p>
-              {tierHint ? (
-                <p className="text-sm font-medium text-[var(--book-moss)]">
-                  Continue to use {tierHint} pricing after login.
-                </p>
+            <div className="mt-8">
+              {guestFlow === 'notify' ? (
+                <div className="grid gap-4 rounded-2xl border border-[var(--book-line)] bg-[var(--book-wash)] p-5">
+                  <h2 className="text-lg font-semibold text-[var(--book-ink)]">Stay in the loop</h2>
+                  <p className="text-sm text-[var(--book-muted)]">
+                    Allow notifications so {salonName} can nudge you to check in when you arrive.
+                    You can still join if you skip this.
+                  </p>
+                  <button
+                    type="button"
+                    className={primaryBtnClass()}
+                    onClick={() => void requestOnboardNotifications()}
+                  >
+                    Allow notifications
+                  </button>
+                  <button
+                    type="button"
+                    className="text-sm font-semibold text-[var(--book-moss)]"
+                    onClick={continueWithoutNotifications}
+                  >
+                    Continue without notifications
+                  </button>
+                </div>
               ) : null}
-              <label className="block text-sm">
-                <span className="mb-1.5 block font-semibold text-[var(--book-muted)]">Email</span>
-                <input
-                  className={fieldClass()}
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  autoComplete="email"
-                  disabled={otpSent}
-                />
-              </label>
-              <label className="block text-sm">
-                <span className="mb-1.5 block font-semibold text-[var(--book-muted)]">WhatsApp number</span>
-                <input
-                  className={fieldClass()}
-                  type="tel"
-                  required
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="+44…"
-                  autoComplete="tel"
-                  disabled={otpSent}
-                />
-              </label>
-              {otpSent ? (
-                <label className="block text-sm">
-                  <span className="mb-1.5 block font-semibold text-[var(--book-muted)]">
-                    WhatsApp OTP {maskedPhone ? `(sent to ${maskedPhone})` : ''}
-                  </span>
-                  <input
-                    className={fieldClass()}
-                    inputMode="numeric"
-                    pattern="[0-9]{6}"
-                    maxLength={6}
-                    required
-                    value={otp}
-                    onChange={(e) => setOtp(e.target.value)}
-                    autoComplete="one-time-code"
-                    placeholder="6-digit code"
-                  />
-                </label>
-              ) : null}
-              {error ? (
-                <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-                  {error}
-                </p>
-              ) : null}
-              {notice && !session ? (
-                <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-                  {notice}
-                </p>
-              ) : null}
-              {notRegistered ? (
-                <Link
-                  href={bootstrap?.join_path || `/join/${tenantSlug}`}
-                  className="text-center text-sm font-semibold text-[var(--book-moss)]"
-                >
-                  Not registered yet? Join Our Membership Family →
-                </Link>
-              ) : null}
-              <button type="submit" className={primaryBtnClass(submitting)} disabled={submitting}>
-                {submitting
-                  ? otpSent
-                    ? 'Signing in…'
-                    : 'Sending code…'
-                  : otpSent
-                    ? 'Verify OTP & log in'
-                    : 'Send WhatsApp OTP'}
-              </button>
-              {otpSent ? (
-                <button
-                  type="button"
-                  className="text-sm font-semibold text-[var(--book-moss)]"
-                  onClick={() => {
-                    setOtpSent(false);
-                    setOtp('');
-                    setNotice(null);
+
+              {guestFlow === 'join' ? (
+                <MembershipJoinForm
+                  tenantSlug={tenantSlug}
+                  referralCode={search.get('ref') || readJoinReferralCode(tenantSlug)}
+                  locationFromQuery={search.get('location') || readJoinLocationId(tenantSlug) || null}
+                  onJoined={({ email: joinedEmail, phone: joinedPhone }) => {
+                    setEmail(joinedEmail);
+                    setPhone(joinedPhone);
+                    setGuestFlow('login');
+                    setNotice('Welcome — now verify with a WhatsApp OTP to open your membership.');
+                    setNotRegistered(false);
+                    setError(null);
                   }}
-                >
-                  Use a different email / number
-                </button>
+                />
               ) : null}
-              <div className="rounded-xl border border-[var(--book-line)] px-4 py-3 text-sm text-[var(--book-muted)]">
-                <p className="font-semibold text-[var(--book-ink)]">Install this app</p>
-                <p className="mt-1">{installHint}</p>
-              </div>
-              <Link
-                href={bootstrap?.join_path || `/join/${tenantSlug}`}
-                className="text-center text-sm text-[var(--book-muted)] underline"
-              >
-                New here? Join Our Membership Family
-              </Link>
-            </form>
+
+              {guestFlow === 'login' ? (
+                <form
+                  onSubmit={(e) => void (otpSent ? handleLogin(e) : handleRequestOtp(e))}
+                  className="grid gap-4"
+                >
+                  <p className="text-sm text-[var(--book-muted)]">
+                    Log in with your email and WhatsApp number. We send a one-time code to WhatsApp.
+                  </p>
+                  {tierHint ? (
+                    <p className="text-sm font-medium text-[var(--book-moss)]">
+                      Continue to use {tierHint} pricing after login.
+                    </p>
+                  ) : null}
+                  <label className="block text-sm">
+                    <span className="mb-1.5 block font-semibold text-[var(--book-muted)]">Email</span>
+                    <input
+                      className={fieldClass()}
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      autoComplete="email"
+                      disabled={otpSent}
+                    />
+                  </label>
+                  <label className="block text-sm">
+                    <span className="mb-1.5 block font-semibold text-[var(--book-muted)]">
+                      WhatsApp number
+                    </span>
+                    <input
+                      className={fieldClass()}
+                      type="tel"
+                      required
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      placeholder="+44…"
+                      autoComplete="tel"
+                      disabled={otpSent}
+                    />
+                  </label>
+                  {otpSent ? (
+                    <label className="block text-sm">
+                      <span className="mb-1.5 block font-semibold text-[var(--book-muted)]">
+                        WhatsApp OTP {maskedPhone ? `(sent to ${maskedPhone})` : ''}
+                      </span>
+                      <input
+                        className={fieldClass()}
+                        inputMode="numeric"
+                        pattern="[0-9]{6}"
+                        maxLength={6}
+                        required
+                        value={otp}
+                        onChange={(e) => setOtp(e.target.value)}
+                        autoComplete="one-time-code"
+                        placeholder="6-digit code"
+                      />
+                    </label>
+                  ) : null}
+                  {error ? (
+                    <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                      {error}
+                    </p>
+                  ) : null}
+                  {notice && !session ? (
+                    <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+                      {notice}
+                    </p>
+                  ) : null}
+                  {notRegistered && !isStandaloneDisplay() ? (
+                    <Link
+                      href={bootstrap?.book_path || `/book/${tenantSlug}`}
+                      className="text-center text-sm font-semibold text-[var(--book-moss)]"
+                    >
+                      New here? Install the salon app to join →
+                    </Link>
+                  ) : null}
+                  {notRegistered && isStandaloneDisplay() ? (
+                    <button
+                      type="button"
+                      className="text-center text-sm font-semibold text-[var(--book-moss)]"
+                      onClick={() => setGuestFlow('join')}
+                    >
+                      Not registered yet? Join Our Membership Family →
+                    </button>
+                  ) : null}
+                  <button type="submit" className={primaryBtnClass(submitting)} disabled={submitting}>
+                    {submitting
+                      ? otpSent
+                        ? 'Signing in…'
+                        : 'Sending code…'
+                      : otpSent
+                        ? 'Verify OTP & log in'
+                        : 'Send WhatsApp OTP'}
+                  </button>
+                  {otpSent ? (
+                    <button
+                      type="button"
+                      className="text-sm font-semibold text-[var(--book-moss)]"
+                      onClick={() => {
+                        setOtpSent(false);
+                        setOtp('');
+                        setNotice(null);
+                      }}
+                    >
+                      Use a different email / number
+                    </button>
+                  ) : null}
+                  {!isStandaloneDisplay() ? (
+                    <div className="rounded-xl border border-[var(--book-line)] px-4 py-3 text-sm text-[var(--book-muted)]">
+                      <p className="font-semibold text-[var(--book-ink)]">Install this app</p>
+                      <p className="mt-1">{installHint}</p>
+                      <Link
+                        href={bootstrap?.book_path || `/book/${tenantSlug}`}
+                        className="mt-2 inline-block text-sm font-semibold text-[var(--book-moss)]"
+                      >
+                        Open booking to install →
+                      </Link>
+                    </div>
+                  ) : hasMarkedMemberJoined(tenantSlug) ? null : (
+                    <button
+                      type="button"
+                      className="text-center text-sm text-[var(--book-muted)] underline"
+                      onClick={() => setGuestFlow('join')}
+                    >
+                      New here? Join Our Membership Family
+                    </button>
+                  )}
+                </form>
+              ) : null}
+            </div>
           ) : null}
         </div>
 
