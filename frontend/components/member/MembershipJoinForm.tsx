@@ -5,6 +5,9 @@ import {
   fetchCrmJoinBootstrap,
   submitCrmJoin,
   type CrmJoinBootstrap,
+  type CrmJoinLoyaltyOffer,
+  type CrmJoinMembershipOffer,
+  type CrmJoinPackageOffer,
 } from '@/services/crm-join.service';
 import { markMemberJoined } from '@/lib/tenant-customer-pwa';
 
@@ -18,6 +21,176 @@ function primaryBtnClass(disabled?: boolean): string {
     'bg-[var(--book-moss)] text-white hover:bg-[var(--book-moss-deep)]',
     disabled ? 'cursor-not-allowed opacity-50' : '',
   ].join(' ');
+}
+
+function formatMoney(cents: number | null | undefined): string {
+  if (cents == null) return '';
+  return new Intl.NumberFormat(undefined, { style: 'currency', currency: 'GBP' }).format(cents / 100);
+}
+
+function billingLabel(freq: string | null): string {
+  if (!freq) return '';
+  return freq.replace(/_/g, ' ');
+}
+
+function MembershipOfferCard({ offer }: { offer: CrmJoinMembershipOffer }) {
+  const [open, setOpen] = useState(false);
+  const benefits: string[] = [];
+  if (offer.included_wallet_credit_cents) {
+    benefits.push(`${formatMoney(offer.included_wallet_credit_cents)} wallet credit each period`);
+  }
+  if (offer.included_loyalty_points) {
+    benefits.push(`${offer.included_loyalty_points} loyalty points on join`);
+  }
+  if (offer.included_entitlement_quantity) {
+    benefits.push(`${offer.included_entitlement_quantity} included sessions`);
+  }
+  benefits.push('Member rates on listed services');
+
+  return (
+    <div className="rounded-xl border border-[var(--book-line)] bg-[var(--book-wash)] p-3">
+      <button
+        type="button"
+        className="flex w-full items-start justify-between gap-2 text-left"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+      >
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--book-moss)]">
+            Membership
+          </p>
+          <p className="mt-1 font-semibold text-[var(--book-ink)]">{offer.name}</p>
+          <p className="mt-0.5 text-sm text-[var(--book-muted)]">
+            {formatMoney(offer.price_cents)}
+            {offer.billing_frequency ? ` / ${billingLabel(offer.billing_frequency)}` : ''}
+          </p>
+        </div>
+        <span className="shrink-0 text-sm font-semibold text-[var(--book-moss)]">
+          {open ? 'Hide' : 'See offer'}
+        </span>
+      </button>
+      {open ? (
+        <div className="mt-3 border-t border-[var(--book-line)] pt-3 text-sm text-[var(--book-muted)]">
+          {offer.description ? <p>{offer.description}</p> : null}
+          <ul className="mt-2 list-disc space-y-1 pl-4">
+            {benefits.map((b) => (
+              <li key={b}>{b}</li>
+            ))}
+            {offer.joining_fee_cents ? (
+              <li>Joining fee {formatMoney(offer.joining_fee_cents)}</li>
+            ) : null}
+          </ul>
+          <p className="mt-2 text-xs">Ask the salon to enrol you after saving your details.</p>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function PackageOfferCard({ offer }: { offer: CrmJoinPackageOffer }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="rounded-xl border border-[var(--book-line)] bg-[var(--book-wash)] p-3">
+      <button
+        type="button"
+        className="flex w-full items-start justify-between gap-2 text-left"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+      >
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--book-moss)]">
+            Package
+          </p>
+          <p className="mt-1 font-semibold text-[var(--book-ink)]">{offer.name}</p>
+          <p className="mt-0.5 text-sm text-[var(--book-muted)]">
+            {formatMoney(offer.price_cents)} · {offer.included_quantity} sessions
+          </p>
+        </div>
+        <span className="shrink-0 text-sm font-semibold text-[var(--book-moss)]">
+          {open ? 'Hide' : 'See offer'}
+        </span>
+      </button>
+      {open ? (
+        <div className="mt-3 border-t border-[var(--book-line)] pt-3 text-sm text-[var(--book-muted)]">
+          {offer.description ? <p>{offer.description}</p> : null}
+          {offer.expiry_days ? (
+            <p className="mt-2">Valid for {offer.expiry_days} days after purchase.</p>
+          ) : null}
+          <p className="mt-2 text-xs">Ask the salon to assign this package after joining.</p>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function LoyaltyOfferCard({ offer }: { offer: CrmJoinLoyaltyOffer }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="rounded-xl border border-[var(--book-line)] bg-[var(--book-wash)] p-3">
+      <button
+        type="button"
+        className="flex w-full items-start justify-between gap-2 text-left"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+      >
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--book-moss)]">
+            Loyalty
+          </p>
+          <p className="mt-1 font-semibold text-[var(--book-ink)]">{offer.headline}</p>
+          <p className="mt-0.5 text-sm text-[var(--book-muted)]">
+            {offer.points_per_redemption_block} pts → {formatMoney(offer.value_cents_per_block)}
+          </p>
+        </div>
+        <span className="shrink-0 text-sm font-semibold text-[var(--book-moss)]">
+          {open ? 'Hide' : 'See benefits'}
+        </span>
+      </button>
+      {open ? (
+        <div className="mt-3 border-t border-[var(--book-line)] pt-3 text-sm text-[var(--book-muted)]">
+          <p>{offer.description}</p>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function JoinOffers({
+  offers,
+  tenantSlug,
+}: {
+  offers: CrmJoinBootstrap['offers'];
+  tenantSlug: string;
+}) {
+  const hasAnything =
+    offers.memberships.length > 0 || offers.packages.length > 0 || offers.loyalty != null;
+  if (!hasAnything) return null;
+
+  return (
+    <section className="mt-6 space-y-3">
+      <div>
+        <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--book-muted)]">
+          Offers for you
+        </h2>
+        <p className="mt-1 text-sm text-[var(--book-muted)]">
+          Tap an offer to see benefits. Fill the salon customer form below, then ask us to enrol you.{' '}
+          <a
+            href={`/book/${tenantSlug}/memberships?from=member`}
+            className="font-semibold text-[var(--book-moss)] underline-offset-2 hover:underline"
+          >
+            Compare plan vs package vs loyalty
+          </a>
+        </p>
+      </div>
+      {offers.memberships.map((offer) => (
+        <MembershipOfferCard key={offer.id} offer={offer} />
+      ))}
+      {offers.packages.map((offer) => (
+        <PackageOfferCard key={offer.id} offer={offer} />
+      ))}
+      {offers.loyalty ? <LoyaltyOfferCard offer={offers.loyalty} /> : null}
+    </section>
+  );
 }
 
 export interface MembershipJoinFormProps {
@@ -95,7 +268,7 @@ export function MembershipJoinForm({
   }
 
   if (loading) {
-    return <p className="mt-6 text-sm text-[var(--book-muted)]">Loading…</p>;
+    return <p className="mt-6 text-sm text-[var(--book-muted)]">Loading the salon customer form…</p>;
   }
   if (loadError) {
     return (
@@ -106,133 +279,158 @@ export function MembershipJoinForm({
   }
 
   return (
-    <form onSubmit={(e) => void handleSubmit(e)} className="mt-6 grid gap-4">
-      <p className="text-xs font-semibold tracking-[0.04em] text-[var(--book-muted)]">
-        Join Our Membership Family
+    <div className="mt-2">
+      <h1 className="book-display text-3xl font-bold text-[var(--book-ink)]">
+        Join Freely My Loyal Customer
+      </h1>
+      <p className="mt-2 text-sm leading-relaxed text-[var(--book-muted)]">
+        You have many benefits to gain when you fill the form below and become a loyal partner.
       </p>
-      <label className="block text-sm">
-        <span className="mb-1.5 block font-semibold text-[var(--book-muted)]">
-          Preferred name / nickname <span className="text-red-600">*</span>
-        </span>
-        <input
-          className={fieldClass()}
-          required
-          value={preferredName}
-          onChange={(e) => setPreferredName(e.target.value)}
-          autoComplete="nickname"
+
+      {bootstrap ? (
+        <JoinOffers
+          tenantSlug={tenantSlug}
+          offers={
+            bootstrap.offers ?? {
+              memberships: [],
+              packages: [],
+              loyalty: null,
+            }
+          }
         />
-      </label>
-      <label className="block text-sm">
-        <span className="mb-1.5 block font-semibold text-[var(--book-muted)]">
-          Phone number (WhatsApp) <span className="text-red-600">*</span>
-        </span>
-        <input
-          className={fieldClass()}
-          required
-          type="tel"
-          inputMode="tel"
-          placeholder="+44…"
-          value={whatsapp}
-          onChange={(e) => setWhatsapp(e.target.value)}
-          autoComplete="tel"
-        />
-      </label>
-      <label className="block text-sm">
-        <span className="mb-1.5 block font-semibold text-[var(--book-muted)]">
-          Email address <span className="text-red-600">*</span>
-        </span>
-        <input
-          className={fieldClass()}
-          required
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          autoComplete="email"
-        />
-      </label>
-      <label className="block text-sm">
-        <span className="mb-1.5 block font-semibold text-[var(--book-muted)]">
-          Next visit date <span className="text-red-600">*</span>
-        </span>
-        <input
-          className={fieldClass()}
-          required
-          type="date"
-          value={nextVisitDate}
-          min={new Date().toISOString().slice(0, 10)}
-          onChange={(e) => setNextVisitDate(e.target.value)}
-        />
-      </label>
-      <label className="block text-sm">
-        <span className="mb-1.5 block font-semibold text-[var(--book-muted)]">
-          Special date in your life <span className="font-normal">(optional)</span>
-        </span>
-        <input
-          className={fieldClass()}
-          type="date"
-          value={specialDate}
-          onChange={(e) => setSpecialDate(e.target.value)}
-        />
-      </label>
-      <label className="block text-sm">
-        <span className="mb-1.5 block font-semibold text-[var(--book-muted)]">
-          What is it? <span className="font-normal">(birthday, anniversary…)</span>
-        </span>
-        <input
-          className={fieldClass()}
-          value={specialEventLabel}
-          onChange={(e) => setSpecialEventLabel(e.target.value)}
-          placeholder="Birthday, anniversary…"
-        />
-      </label>
-      {(bootstrap?.locations.length ?? 0) > 1 ? (
-        <label className="block text-sm">
-          <span className="mb-1.5 block font-semibold text-[var(--book-muted)]">Location</span>
-          <select
-            className={fieldClass()}
-            value={locationId}
-            onChange={(e) => setLocationId(e.target.value)}
-          >
-            {bootstrap?.locations.map((loc) => (
-              <option key={loc.id} value={loc.id}>
-                {loc.name}
-              </option>
-            ))}
-          </select>
-        </label>
       ) : null}
 
-      <label className="flex items-start gap-3 text-sm text-[var(--book-muted)]">
-        <input
-          type="checkbox"
-          className="mt-1"
-          checked={acceptTerms}
-          onChange={(e) => setAcceptTerms(e.target.checked)}
-          required
-        />
-        <span>
-          I agree to the{' '}
-          <a
-            href={bootstrap?.terms_url || '/terms'}
-            target="_blank"
-            rel="noreferrer"
-            className="font-semibold text-[var(--book-moss)] underline-offset-2 hover:underline"
-          >
-            Terms &amp; Conditions
-          </a>
-          .
-        </span>
-      </label>
-
-      {submitError ? (
-        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-          {submitError}
+      <form onSubmit={(e) => void handleSubmit(e)} className="mt-6 grid gap-4">
+        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--book-moss)]">
+          Salon customer
         </p>
-      ) : null}
+        <label className="block text-sm">
+          <span className="mb-1.5 block font-semibold text-[var(--book-muted)]">
+            Preferred name / nickname <span className="text-red-600">*</span>
+          </span>
+          <input
+            className={fieldClass()}
+            required
+            value={preferredName}
+            onChange={(e) => setPreferredName(e.target.value)}
+            autoComplete="nickname"
+          />
+        </label>
+        <label className="block text-sm">
+          <span className="mb-1.5 block font-semibold text-[var(--book-muted)]">
+            Phone number (WhatsApp) <span className="text-red-600">*</span>
+          </span>
+          <input
+            className={fieldClass()}
+            required
+            type="tel"
+            inputMode="tel"
+            placeholder="+44…"
+            value={whatsapp}
+            onChange={(e) => setWhatsapp(e.target.value)}
+            autoComplete="tel"
+          />
+        </label>
+        <label className="block text-sm">
+          <span className="mb-1.5 block font-semibold text-[var(--book-muted)]">
+            Email address <span className="text-red-600">*</span>
+          </span>
+          <input
+            className={fieldClass()}
+            required
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            autoComplete="email"
+          />
+        </label>
+        <label className="block text-sm">
+          <span className="mb-1.5 block font-semibold text-[var(--book-muted)]">
+            Next visit date <span className="text-red-600">*</span>
+          </span>
+          <input
+            className={fieldClass()}
+            required
+            type="date"
+            value={nextVisitDate}
+            min={new Date().toISOString().slice(0, 10)}
+            onChange={(e) => setNextVisitDate(e.target.value)}
+          />
+        </label>
+        <label className="block text-sm">
+          <span className="mb-1.5 block font-semibold text-[var(--book-muted)]">
+            Special date in your life <span className="font-normal">(optional)</span>
+          </span>
+          <input
+            className={fieldClass()}
+            type="date"
+            value={specialDate}
+            onChange={(e) => setSpecialDate(e.target.value)}
+          />
+        </label>
+        <label className="block text-sm">
+          <span className="mb-1.5 block font-semibold text-[var(--book-muted)]">
+            What is it? <span className="font-normal">(birthday, anniversary…)</span>
+          </span>
+          <input
+            className={fieldClass()}
+            value={specialEventLabel}
+            onChange={(e) => setSpecialEventLabel(e.target.value)}
+            placeholder="Birthday, anniversary…"
+          />
+        </label>
+        {(bootstrap?.locations.length ?? 0) > 1 ? (
+          <label className="block text-sm">
+            <span className="mb-1.5 block font-semibold text-[var(--book-muted)]">Location</span>
+            <select
+              className={fieldClass()}
+              value={locationId}
+              onChange={(e) => setLocationId(e.target.value)}
+            >
+              {bootstrap?.locations.map((loc) => (
+                <option key={loc.id} value={loc.id}>
+                  {loc.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
 
-      <button type="submit" className={primaryBtnClass(submitting)} disabled={submitting || !acceptTerms}>
-        {submitting ? 'Saving…' : 'Join Our Membership Family'}
-      </button>
-    </form>
+        <label className="flex items-start gap-3 text-sm text-[var(--book-muted)]">
+          <input
+            type="checkbox"
+            className="mt-1"
+            checked={acceptTerms}
+            onChange={(e) => setAcceptTerms(e.target.checked)}
+            required
+          />
+          <span>
+            I agree to the{' '}
+            <a
+              href={bootstrap?.terms_url || '/terms'}
+              target="_blank"
+              rel="noreferrer"
+              className="font-semibold text-[var(--book-moss)] underline-offset-2 hover:underline"
+            >
+              Terms &amp; Conditions
+            </a>
+            .
+          </span>
+        </label>
+
+        {submitError ? (
+          <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {submitError}
+          </p>
+        ) : null}
+
+        <button type="submit" className={primaryBtnClass(submitting)} disabled={submitting || !acceptTerms}>
+          {submitting ? 'Saving…' : 'Join Freely My Loyal Customer'}
+        </button>
+        <p className="text-center text-xs text-[var(--book-muted)]">
+          We&apos;ll use your WhatsApp number to send login codes and appointment updates.
+        </p>
+      </form>
+    </div>
   );
 }

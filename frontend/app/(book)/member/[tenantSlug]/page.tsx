@@ -229,9 +229,10 @@ function MemberPortalInner() {
         await registerMemberServiceWorker();
         await refreshSession();
         const stored = loadMemberSession(tenantSlug);
-        const standalone = isStandaloneDisplay();
-        if (!stored?.token && standalone && !hasMarkedMemberJoined(tenantSlug)) {
-          setGuestFlow('notify');
+        if (!stored?.token && !hasMarkedMemberJoined(tenantSlug)) {
+          const askNotify =
+            typeof Notification !== 'undefined' && Notification.permission === 'default';
+          setGuestFlow(askNotify ? 'notify' : 'join');
         } else {
           setGuestFlow('login');
         }
@@ -654,10 +655,14 @@ function MemberPortalInner() {
     <div className="book-portal min-h-screen" style={{ ['--book-moss' as string]: accent } as CSSProperties}>
       <main className="mx-auto flex min-h-screen max-w-lg flex-col px-4 py-8 sm:px-6">
         <div className="rounded-2xl border border-[var(--book-line)] bg-white p-5 shadow-[var(--book-shadow)] sm:p-7">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--book-muted)]">
-            Membership app
-          </p>
-          <h1 className="book-display mt-2 text-3xl font-bold text-[var(--book-ink)]">{salonName}</h1>
+          {!loading && (session || guestFlow !== 'join') ? (
+            <>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--book-muted)]">
+                Membership app
+              </p>
+              <h1 className="book-display mt-2 text-3xl font-bold text-[var(--book-ink)]">{salonName}</h1>
+            </>
+          ) : null}
 
           {loading ? <p className="mt-8 text-sm text-[var(--book-muted)]">Loading…</p> : null}
 
@@ -1240,9 +1245,7 @@ function MemberPortalInner() {
                     setSession(null);
                     setDashboard(null);
                     setGuestFlow(
-                      isStandaloneDisplay() && !hasMarkedMemberJoined(tenantSlug)
-                        ? 'notify'
-                        : 'login',
+                      !hasMarkedMemberJoined(tenantSlug) ? 'join' : 'login',
                     );
                   })
                 }
