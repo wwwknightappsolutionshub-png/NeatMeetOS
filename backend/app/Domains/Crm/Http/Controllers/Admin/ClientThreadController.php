@@ -23,11 +23,9 @@ class ClientThreadController extends Controller
     public function index(string $clientId): JsonResponse
     {
         $client = $this->findClient($clientId);
-        $messages = $this->threads->listForClient($client);
+        $payload = $this->threads->listForMember($client);
 
-        return ApiResponse::success(
-            $messages->map(fn (ClientThreadMessage $m) => $this->threads->serialize($m))->values()->all(),
-        );
+        return ApiResponse::success($payload['items']);
     }
 
     public function store(Request $request, string $clientId): JsonResponse
@@ -43,6 +41,7 @@ class ClientThreadController extends Controller
                 ClientThreadMessage::CHANNEL_EMAIL,
             ])],
             'include_whatsapp_deeplink' => ['nullable', 'boolean'],
+            'notify_member' => ['nullable', 'boolean'],
         ]);
 
         $tenant = $this->tenantContext->get();
@@ -58,6 +57,11 @@ class ClientThreadController extends Controller
             }
         }
 
+        $notifyMember = (bool) ($data['notify_member'] ?? true);
+        if ($channel !== ClientThreadMessage::CHANNEL_IN_APP) {
+            $notifyMember = false;
+        }
+
         $message = $this->threads->postOutbound($client, [
             'channel' => $channel,
             'subject' => $data['subject'] ?? null,
@@ -67,13 +71,23 @@ class ClientThreadController extends Controller
                 'source' => 'admin_thread',
                 'whatsapp_deeplink' => $deeplink,
             ],
-        ], $request->user()?->id);
+        ], $request->user()?->id, $notifyMember);
+
+        $this->threads->markInboundReadByStaff($client);
 
         return ApiResponse::success(
             $this->threads->serialize($message),
             'Message posted',
             201,
         );
+    }
+
+    public function markRead(string $clientId): JsonResponse
+    {
+        $client = $this->findClient($clientId);
+        $updated = $this->threads->markInboundReadByStaff($client);
+
+        return ApiResponse::success(['updated' => $updated], 'Marked read');
     }
 
     private function findClient(string $clientId): Client

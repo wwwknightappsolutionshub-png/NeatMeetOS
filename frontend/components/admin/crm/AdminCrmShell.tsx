@@ -23,6 +23,11 @@ export function AdminCrmShell({ title, children }: AdminCrmShellProps) {
           active: pathname === '/admin/clients' || (pathname.startsWith('/admin/clients/') && !pathname.startsWith('/admin/clients/import') && !pathname.startsWith('/admin/clients/on-site')),
         },
         {
+          href: '/admin/messages',
+          label: 'Messages',
+          active: pathname.startsWith('/admin/messages'),
+        },
+        {
           href: '/admin/clients/on-site',
           label: "Who's in",
           active: pathname.startsWith('/admin/clients/on-site'),

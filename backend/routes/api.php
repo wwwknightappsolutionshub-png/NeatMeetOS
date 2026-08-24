@@ -30,6 +30,7 @@ use App\Domains\Money\Http\Controllers\Admin\MoneyNotebookController;
 use App\Domains\Lookbook\Http\Controllers\PublicLookbookController;
 use App\Domains\Crm\Http\Controllers\PublicJoin\PublicClientCaptureController;
 use App\Domains\Crm\Http\Controllers\PublicMember\MemberPortalController;
+use App\Domains\Crm\Http\Controllers\PublicMember\MemberMessagesController;
 use App\Domains\Crm\Http\Controllers\PublicMember\NextVisitMemberController;
 use App\Domains\Crm\Http\Controllers\Admin\ClientConsentController;
 use App\Domains\Crm\Http\Controllers\Admin\ClientController;
@@ -40,6 +41,7 @@ use App\Domains\Crm\Http\Controllers\Admin\ClientNoteController;
 use App\Domains\Crm\Http\Controllers\Admin\ClientPhotoController;
 use App\Domains\Crm\Http\Controllers\Admin\ClientTagController;
 use App\Domains\Crm\Http\Controllers\Admin\ClientThreadController;
+use App\Domains\Crm\Http\Controllers\Admin\AdminMessagesController;
 use App\Domains\Crm\Http\Controllers\Admin\ClientTimelineController;
 use App\Domains\Crm\Http\Controllers\Admin\ClientVisitController;
 use App\Domains\Crm\Http\Controllers\Admin\NextVisitController;
@@ -199,6 +201,10 @@ Route::prefix('v1')->group(function () {
         Route::delete('/push-subscriptions', [MemberPortalController::class, 'unsubscribePush']);
         Route::get('/notices', [MemberPortalController::class, 'notices']);
         Route::post('/notices/{id}/read', [MemberPortalController::class, 'markNoticeRead']);
+        Route::get('/messages', [MemberMessagesController::class, 'index']);
+        Route::get('/messages/threads', [MemberMessagesController::class, 'threads']);
+        Route::post('/messages/threads', [MemberMessagesController::class, 'store']);
+        Route::post('/messages/threads/read', [MemberMessagesController::class, 'markThreadRead']);
         Route::get('/referral', [MemberPortalController::class, 'referral']);
         Route::post('/referral/email-invites', [MemberPortalController::class, 'sendReferralEmailInvites']);
         Route::post('/check-in', [MemberPortalController::class, 'checkIn']);
@@ -206,7 +212,7 @@ Route::prefix('v1')->group(function () {
         Route::get('/visit-status', [MemberPortalController::class, 'visitStatus']);
         Route::get('/next-visit', [NextVisitMemberController::class, 'upcoming']);
         Route::post('/next-visit/schedule', [NextVisitMemberController::class, 'schedule']);
-        Route::get('/next-visit/threads', [NextVisitMemberController::class, 'threads']);
+        Route::get('/next-visit/threads', [MemberMessagesController::class, 'threads']);
         Route::post('/logout', [MemberPortalController::class, 'logout']);
     });
 
@@ -378,6 +384,8 @@ Route::prefix('v1')->group(function () {
             Route::get('/clients/{clientId}/formulas/{id}', [ClientFormulaController::class, 'show']);
             Route::get('/clients/{clientId}/photos', [ClientPhotoController::class, 'index']);
             Route::get('/clients/{clientId}/documents', [ClientDocumentController::class, 'index']);
+            Route::get('/messages/conversations', [AdminMessagesController::class, 'conversations']);
+            Route::get('/clients/{clientId}/threads', [ClientThreadController::class, 'index']);
         });
 
         Route::middleware('permission:crm.manage')->group(function () {
@@ -387,6 +395,8 @@ Route::prefix('v1')->group(function () {
             Route::put('/clients/{id}', [ClientController::class, 'update']);
             Route::patch('/clients/{id}/status', [ClientController::class, 'updateStatus']);
             Route::post('/clients/{id}/erase', [ClientController::class, 'erase']);
+            Route::post('/clients/{clientId}/threads', [ClientThreadController::class, 'store']);
+            Route::post('/clients/{clientId}/threads/read', [ClientThreadController::class, 'markRead']);
             Route::post('/crm/tags', [ClientTagController::class, 'store']);
             Route::put('/clients/{clientId}/tags', [ClientTagController::class, 'syncClientTags']);
             Route::post('/clients/{clientId}/notes', [ClientNoteController::class, 'store']);
@@ -594,12 +604,10 @@ Route::prefix('v1')->group(function () {
 
         Route::middleware('permission:next_visit.view')->group(function () {
             Route::get('/next-visit/upcoming', [NextVisitController::class, 'upcoming']);
-            Route::get('/clients/{clientId}/threads', [ClientThreadController::class, 'index']);
         });
 
         Route::middleware('permission:next_visit.manage')->group(function () {
             Route::post('/next-visit/nudge', [NextVisitController::class, 'nudge']);
-            Route::post('/clients/{clientId}/threads', [ClientThreadController::class, 'store']);
         });
 
         Route::middleware('permission:pos.view')->group(function () {

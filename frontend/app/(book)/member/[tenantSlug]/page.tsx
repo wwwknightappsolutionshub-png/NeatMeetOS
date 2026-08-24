@@ -6,7 +6,9 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { SocialFooterIcons } from '@/components/public/SocialFooterIcons';
 import { MembershipJoinForm } from '@/components/member/MembershipJoinForm';
 import type { Appointment, OnlineBookingCatalog } from '@/lib/booking-types';
+import { resolveMediaUrl } from '@/lib/media-url';
 import {
+  bookingPagePath,
   hasMarkedMemberJoined,
   isStandaloneDisplay,
   readJoinLocationId,
@@ -34,7 +36,9 @@ import {
   memberLogin,
   memberRequestOtp,
   memberLogout,
-  memberFetchNotices,
+  memberFetchMessages,
+  memberSendThreadMessage,
+  memberMarkThreadRead,
   memberMarkNoticeRead,
   memberPurchase,
   memberSubscribePush,
@@ -49,10 +53,11 @@ import {
   type MemberPortalLocation,
   type MemberReferralPayload,
   type MemberSession,
+  type MemberThreadMessage,
   type MemberVisitRow,
 } from '@/services/member-portal.service';
 
-type Tab = 'home' | 'visits' | 'points' | 'membership' | 'shop' | 'gifts' | 'inbox' | 'refer';
+type Tab = 'home' | 'visits' | 'points' | 'membership' | 'shop' | 'gifts' | 'messages' | 'refer';
 type GuestFlow = 'notify' | 'join' | 'login';
 
 function fieldClass(): string {
@@ -61,8 +66,8 @@ function fieldClass(): string {
 
 function primaryBtnClass(disabled?: boolean): string {
   return [
-    'inline-flex w-full items-center justify-center rounded-md px-5 py-2.5 text-sm font-semibold tracking-wide transition',
-    'bg-[var(--book-moss)] text-white hover:bg-[var(--book-moss-deep)]',
+    'inline-flex w-full items-center justify-center rounded-xl px-5 py-3 text-sm font-semibold tracking-wide transition',
+    'bg-[var(--book-moss)] text-white hover:bg-[var(--book-moss-deep)] active:scale-[0.99]',
     disabled ? 'cursor-not-allowed opacity-50' : '',
   ].join(' ');
 }
@@ -121,6 +126,10 @@ function MemberPortalInner() {
   const [gifts, setGifts] = useState<MemberGift[]>([]);
   const [notices, setNotices] = useState<MemberNotice[]>([]);
   const [unreadNotices, setUnreadNotices] = useState(0);
+  const [threadMessages, setThreadMessages] = useState<MemberThreadMessage[]>([]);
+  const [unreadThread, setUnreadThread] = useState(0);
+  const [chatDraft, setChatDraft] = useState('');
+  const [chatSending, setChatSending] = useState(false);
   const [tab, setTab] = useState<Tab>('home');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -164,16 +173,29 @@ function MemberPortalInner() {
   const accent = bootstrap?.tenant.branding?.primary_color || '#2f5a45';
   const salonName =
     bootstrap?.tenant.branding?.brand_display_name || bootstrap?.tenant.name || tenantSlug;
+  const brandLogo = resolveMediaUrl(bootstrap?.tenant.branding?.logo_url);
+  const bookHref = bootstrap?.book_path || bookingPagePath(tenantSlug);
+  const standalone = isStandaloneDisplay();
+
+  function visitStatusMeta(): { label: string; live: boolean; tone: string } {
+    if (dashboard?.open_visit) {
+      return { label: 'On site now', live: true, tone: 'text-emerald-800 bg-emerald-50 border-emerald-200' };
+    }
+    if (dashboard?.checked_in_today) {
+      return { label: 'Visited earlier', live: false, tone: 'text-[var(--book-moss)] bg-[var(--book-moss-soft)] border-[var(--book-line)]' };
+    }
+    return { label: 'Not checked in', live: false, tone: 'text-[var(--book-muted)] bg-[var(--book-wash)] border-[var(--book-line)]' };
+  }
 
   const refreshDashboard = useCallback(
     async (token: string) => {
-      const [dash, visitRows, loyalty, giftRows, noticePayload, referralPayload, nextVisitRows] =
+      const [dash, visitRows, loyalty, giftRows, messagesPayload, referralPayload, nextVisitRows] =
         await Promise.all([
           fetchMemberDashboard(tenantSlug, token),
           fetchMemberVisits(tenantSlug, token),
           fetchMemberLoyalty(tenantSlug, token),
           fetchMemberGifts(tenantSlug, token),
-          memberFetchNotices(tenantSlug, token),
+          memberFetchMessages(tenantSlug, token),
           fetchReferral(tenantSlug, token),
           fetchMemberNextVisit(tenantSlug, token).catch(() => [] as Appointment[]),
         ]);
@@ -181,8 +203,10 @@ function MemberPortalInner() {
       setVisits(visitRows);
       setLoyaltyEntries(loyalty.entries);
       setGifts(giftRows);
-      setNotices(noticePayload.items);
-      setUnreadNotices(noticePayload.unread_count);
+      setNotices(messagesPayload.notices);
+      setUnreadNotices(messagesPayload.unread_notices);
+      setThreadMessages(messagesPayload.thread);
+      setUnreadThread(messagesPayload.unread_thread);
       setReferral(referralPayload);
       setNextVisits(nextVisitRows);
       checkedInTodayRef.current = Boolean(dash.checked_in_today);
@@ -640,9 +664,62 @@ function MemberPortalInner() {
     }
   }
 
+  useEffect(() => {
+    if (!session?.token || tab !== 'messages') return;
+    let cancelled = false;
+    const token = session.token;
+
+    async function pull() {
+      try {
+        const payload = await memberFetchMessages(tenantSlug, token);
+        if (cancelled) return;
+        setNotices(payload.notices);
+        setUnreadNotices(payload.unread_notices);
+        setThreadMessages(payload.thread);
+        setUnreadThread(payload.unread_thread);
+        await memberMarkThreadRead(tenantSlug, token);
+        if (!cancelled) setUnreadThread(0);
+      } catch {
+        // ignore poll errors
+      }
+    }
+
+    void pull();
+    const id = window.setInterval(() => void pull(), 10_000);
+    const onFocus = () => void pull();
+    window.addEventListener('focus', onFocus);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [session?.token, tab, tenantSlug]);
+
+  async function handleSendChat(e: React.FormEvent) {
+    e.preventDefault();
+    if (!session?.token || !chatDraft.trim()) return;
+    setChatSending(true);
+    setError(null);
+    try {
+      const sent = await memberSendThreadMessage(tenantSlug, session.token, chatDraft.trim());
+      setThreadMessages((prev) => [...prev, sent]);
+      setChatDraft('');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not send message');
+    } finally {
+      setChatSending(false);
+    }
+  }
+
   const tabs: Array<{ id: Tab; label: string }> = [
     { id: 'home', label: 'Home' },
-    { id: 'inbox', label: unreadNotices > 0 ? `Inbox (${unreadNotices})` : 'Inbox' },
+    {
+      id: 'messages',
+      label:
+        unreadNotices + unreadThread > 0
+          ? `Messages (${unreadNotices + unreadThread})`
+          : 'Messages',
+    },
     { id: 'visits', label: 'Visits' },
     { id: 'points', label: 'Points' },
     { id: 'membership', label: 'Plans' },
@@ -653,64 +730,126 @@ function MemberPortalInner() {
 
   return (
     <div className="book-portal min-h-screen" style={{ ['--book-moss' as string]: accent } as CSSProperties}>
-      <main className="mx-auto flex min-h-screen max-w-lg flex-col px-4 py-8 sm:px-6">
-        <div className="rounded-2xl border border-[var(--book-line)] bg-white p-5 shadow-[var(--book-shadow)] sm:p-7">
-          {!loading && (session || guestFlow !== 'join') ? (
-            <>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--book-muted)]">
-                Membership app
-              </p>
-              <h1 className="book-display mt-2 text-3xl font-bold text-[var(--book-ink)]">{salonName}</h1>
-            </>
-          ) : null}
+      <main className="mx-auto flex min-h-screen max-w-lg flex-col px-4 py-6 sm:px-6 sm:py-8">
+        {loading ? (
+          <div className="rounded-2xl border border-[var(--book-line)] bg-white/90 p-6 shadow-[var(--book-shadow)]">
+            <p className="text-sm text-[var(--book-muted)]">Loading your membership…</p>
+          </div>
+        ) : null}
 
-          {loading ? <p className="mt-8 text-sm text-[var(--book-muted)]">Loading…</p> : null}
+        {!loading && session && dashboard ? (
+          <div className="space-y-4 book-animate-in">
+            <header className="overflow-hidden rounded-3xl border border-[var(--book-line)] bg-white shadow-[var(--book-shadow)]">
+              <div
+                className="relative px-5 pb-5 pt-5 sm:px-6"
+                style={{
+                  background: `linear-gradient(145deg, ${accent}18 0%, transparent 48%), linear-gradient(180deg, #fff 40%, var(--book-wash))`,
+                }}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--book-moss)]">
+                      {salonName}
+                    </p>
+                    <h1 className="book-display mt-1 truncate text-3xl font-bold text-[var(--book-ink)]">
+                      Hi {dashboard.client.first_name || 'there'}
+                    </h1>
+                    <p className="mt-1 text-sm text-[var(--book-muted)]">Your membership hub</p>
+                  </div>
+                  {brandLogo ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={brandLogo}
+                      alt=""
+                      className="h-14 w-14 shrink-0 rounded-2xl border border-[var(--book-line)] bg-white object-contain p-1.5 shadow-sm"
+                    />
+                  ) : (
+                    <div
+                      className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-lg font-bold text-white shadow-sm"
+                      style={{ backgroundColor: accent }}
+                      aria-hidden
+                    >
+                      {(dashboard.client.first_name || salonName).slice(0, 1).toUpperCase()}
+                    </div>
+                  )}
+                </div>
 
-          {!loading && session && dashboard ? (
-            <div className="mt-6 space-y-5">
-              <div className="rounded-xl bg-[var(--book-wash)] px-4 py-4">
-                <p className="font-semibold text-[var(--book-ink)]">
-                  Hi {dashboard.client.first_name || 'there'}
-                </p>
-                <p className="mt-1 text-sm text-[var(--book-muted)]">
-                  {dashboard.loyalty_points_balance} pts · Wallet{' '}
-                  {formatMoney(dashboard.wallet_balance_cents)}
-                </p>
-                <p className="mt-1 text-sm text-[var(--book-ink)]">
-                  Today:{' '}
-                  {dashboard.open_visit
-                    ? 'On site (checked in)'
-                    : dashboard.checked_in_today
-                      ? 'Visited earlier'
-                      : 'Not checked in yet'}
-                </p>
-              </div>
+                <div className="mt-4 flex flex-wrap items-center gap-2">
+                  {(() => {
+                    const status = visitStatusMeta();
+                    return (
+                      <span
+                        className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold ${status.tone}`}
+                      >
+                        {status.live ? (
+                          <span className="member-live-dot h-2 w-2 rounded-full bg-emerald-500" />
+                        ) : (
+                          <span className="h-2 w-2 rounded-full bg-current opacity-40" />
+                        )}
+                        {status.label}
+                      </span>
+                    );
+                  })()}
+                </div>
 
-              <div className="flex gap-1 overflow-x-auto pb-1">
-                {tabs.map((t) => (
+                <div className="mt-4 grid grid-cols-2 gap-2">
                   <button
-                    key={t.id}
                     type="button"
-                    onClick={() => setTab(t.id)}
-                    className={[
-                      'shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold',
-                      tab === t.id
-                        ? 'bg-[var(--book-moss)] text-white'
-                        : 'bg-[var(--book-wash)] text-[var(--book-muted)]',
-                    ].join(' ')}
+                    className="member-metric-tile rounded-2xl border border-[var(--book-line)] bg-white/90 px-3 py-3 text-left"
+                    onClick={() => setTab('points')}
                   >
-                    {t.label}
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--book-muted)]">
+                      Points
+                    </p>
+                    <p className="mt-1 book-display text-2xl font-bold tabular-nums text-[var(--book-ink)]">
+                      {dashboard.loyalty_points_balance}
+                    </p>
                   </button>
-                ))}
+                  <button
+                    type="button"
+                    className="member-metric-tile rounded-2xl border border-[var(--book-line)] bg-white/90 px-3 py-3 text-left"
+                    onClick={() => setTab('membership')}
+                  >
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--book-muted)]">
+                      Wallet
+                    </p>
+                    <p className="mt-1 book-display text-2xl font-bold tabular-nums text-[var(--book-ink)]">
+                      {formatMoney(dashboard.wallet_balance_cents)}
+                    </p>
+                  </button>
+                </div>
               </div>
+            </header>
 
+            <nav
+              className="member-tab-rail flex gap-1.5 overflow-x-auto rounded-2xl border border-[var(--book-line)] bg-white/90 p-1.5 shadow-sm"
+              aria-label="Membership sections"
+            >
+              {tabs.map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => setTab(t.id)}
+                  className={[
+                    'shrink-0 rounded-xl px-3.5 py-2 text-xs font-semibold transition',
+                    tab === t.id
+                      ? 'bg-[var(--book-moss)] text-white shadow-sm'
+                      : 'text-[var(--book-muted)] hover:bg-[var(--book-wash)] hover:text-[var(--book-ink)]',
+                  ].join(' ')}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </nav>
+
+            <div className="rounded-3xl border border-[var(--book-line)] bg-white p-4 shadow-[var(--book-shadow)] sm:p-5 book-animate-in book-animate-delay-1">
               {error ? (
-                <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                <p className="mb-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
                   {error}
                 </p>
               ) : null}
               {notice ? (
-                <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+                <p className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
                   {notice}
                 </p>
               ) : null}
@@ -718,7 +857,7 @@ function MemberPortalInner() {
               {!notifyNudgeDismissed &&
               typeof Notification !== 'undefined' &&
               Notification.permission !== 'granted' ? (
-                <div className="rounded-lg border border-[var(--book-line)] bg-[var(--book-wash)] px-3 py-3 text-sm">
+                <div className="mb-4 rounded-2xl border border-[var(--book-line)] bg-[var(--book-wash)] px-4 py-3 text-sm">
                   <p className="font-semibold text-[var(--book-ink)]">Turn on notifications</p>
                   <p className="mt-1 text-[var(--book-muted)]">
                     Get a nudge when you arrive so you can check in and earn points.
@@ -726,7 +865,7 @@ function MemberPortalInner() {
                   <div className="mt-3 flex flex-col gap-2 sm:flex-row">
                     <button
                       type="button"
-                      className="inline-flex items-center justify-center rounded-md bg-[var(--book-moss)] px-4 py-2 text-sm font-semibold text-white"
+                      className="inline-flex items-center justify-center rounded-xl bg-[var(--book-moss)] px-4 py-2.5 text-sm font-semibold text-white"
                       onClick={() => {
                         void Notification.requestPermission();
                       }}
@@ -735,7 +874,7 @@ function MemberPortalInner() {
                     </button>
                     <button
                       type="button"
-                      className="inline-flex items-center justify-center rounded-md border border-[var(--book-line)] bg-white px-4 py-2 text-sm font-semibold text-[var(--book-ink)]"
+                      className="inline-flex items-center justify-center rounded-xl border border-[var(--book-line)] bg-white px-4 py-2.5 text-sm font-semibold text-[var(--book-ink)]"
                       onClick={() => setNotifyNudgeDismissed(true)}
                     >
                       Not now
@@ -745,14 +884,14 @@ function MemberPortalInner() {
               ) : null}
 
               {promptNextVisit ? (
-                <div className="rounded-lg border border-[#2f5a45]/30 bg-[#f4faf6] px-3 py-3 text-sm">
+                <div className="mb-4 rounded-2xl border border-[var(--book-moss)]/25 bg-[#f4faf6] px-4 py-3 text-sm">
                   <p className="font-semibold text-[var(--book-ink)]">Schedule next visit</p>
                   <p className="mt-1 text-[var(--book-muted)]">
                     Lock in your next appointment while you&apos;re here.
                   </p>
                   <button
                     type="button"
-                    className="mt-3 inline-flex rounded-md bg-[var(--book-moss)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--book-moss-deep)]"
+                    className="mt-3 inline-flex rounded-xl bg-[var(--book-moss)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--book-moss-deep)]"
                     onClick={() => void openSchedulePanel()}
                   >
                     Schedule now
@@ -762,29 +901,43 @@ function MemberPortalInner() {
 
               {tab === 'home' ? (
                 <div className="space-y-4">
-                  {dashboard.open_visit ? (
-                    <button
-                      type="button"
-                      className={primaryBtnClass(checkingOut)}
-                      disabled={checkingOut}
-                      onClick={() => void handleCheckOut()}
-                    >
-                      {checkingOut ? 'Checking out…' : 'Clock out / Check out'}
-                    </button>
-                  ) : dashboard.checked_in_today ? (
-                    <button type="button" className={primaryBtnClass(true)} disabled>
-                      Checked in earlier today
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      className={primaryBtnClass(checkingIn)}
-                      disabled={checkingIn}
-                      onClick={() => void handleCheckIn()}
-                    >
-                      {checkingIn ? 'Checking in…' : 'Clock in / Check in visit'}
-                    </button>
-                  )}
+                  <section className="member-checkin-stage rounded-3xl border border-[var(--book-line)] p-4 sm:p-5">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--book-moss)]">
+                      Today&apos;s visit
+                    </p>
+                    <p className="mt-1 text-sm text-[var(--book-muted)]">
+                      {dashboard.open_visit
+                        ? 'You are checked in. Clock out when you leave to keep your visit record tidy.'
+                        : dashboard.checked_in_today
+                          ? 'You already checked in earlier today. Enjoy the rest of your day.'
+                          : 'Clock in when you arrive to earn loyalty points for this visit.'}
+                    </p>
+                    <div className="mt-4">
+                      {dashboard.open_visit ? (
+                        <button
+                          type="button"
+                          className={primaryBtnClass(checkingOut)}
+                          disabled={checkingOut}
+                          onClick={() => void handleCheckOut()}
+                        >
+                          {checkingOut ? 'Checking out…' : 'Clock out / Check out'}
+                        </button>
+                      ) : dashboard.checked_in_today ? (
+                        <button type="button" className={primaryBtnClass(true)} disabled>
+                          Checked in earlier today
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          className={primaryBtnClass(checkingIn)}
+                          disabled={checkingIn}
+                          onClick={() => void handleCheckIn()}
+                        >
+                          {checkingIn ? 'Checking in…' : 'Clock in / Check in visit'}
+                        </button>
+                      )}
+                    </div>
+                  </section>
 
                   {nextVisits.length > 0 ? (
                     <div className="space-y-2">
@@ -792,7 +945,7 @@ function MemberPortalInner() {
                       {nextVisits.map((a) => (
                         <div
                           key={a.id}
-                          className="rounded-lg border border-[#2f5a45]/25 bg-[#f4faf6] px-3 py-2 text-sm"
+                          className="rounded-2xl border border-[var(--book-moss)]/25 bg-[#f4faf6] px-3.5 py-3 text-sm"
                         >
                           <p className="font-medium text-[var(--book-ink)]">
                             {a.starts_at ? new Date(a.starts_at).toLocaleString() : 'TBC'}
@@ -816,7 +969,7 @@ function MemberPortalInner() {
                       {dashboard.upcoming_appointments.map((a) => (
                         <div
                           key={a.id}
-                          className="rounded-lg border border-[var(--book-line)] px-3 py-2 text-sm"
+                          className="rounded-2xl border border-[var(--book-line)] bg-[var(--book-wash)]/60 px-3.5 py-3 text-sm"
                         >
                           <p className="font-medium text-[var(--book-ink)]">
                             {a.starts_at ? new Date(a.starts_at).toLocaleString() : 'TBC'}
@@ -832,72 +985,135 @@ function MemberPortalInner() {
                     <p className="text-sm text-[var(--book-muted)]">No upcoming appointments.</p>
                   )}
 
-                  <div className="rounded-xl border border-[var(--book-line)] px-4 py-3 text-sm text-[var(--book-muted)]">
-                    <p className="font-semibold text-[var(--book-ink)]">Install this app</p>
-                    <p className="mt-1">{installHint}</p>
-                    {installPrompt ? (
-                      <button
-                        type="button"
-                        className="mt-3 w-full rounded-md border border-[var(--book-line)] px-3 py-2 text-sm font-semibold text-[var(--book-ink)]"
-                        onClick={() => void installPrompt.prompt()}
-                      >
-                        Install now
-                      </button>
-                    ) : null}
-                  </div>
+                  {!standalone ? (
+                    <div className="rounded-2xl border border-dashed border-[var(--book-line)] px-4 py-3 text-sm text-[var(--book-muted)]">
+                      <p className="font-semibold text-[var(--book-ink)]">Install this app</p>
+                      <p className="mt-1">{installHint}</p>
+                      {installPrompt ? (
+                        <button
+                          type="button"
+                          className="mt-3 w-full rounded-xl border border-[var(--book-line)] px-3 py-2.5 text-sm font-semibold text-[var(--book-ink)]"
+                          onClick={() => void installPrompt.prompt()}
+                        >
+                          Install now
+                        </button>
+                      ) : null}
+                    </div>
+                  ) : null}
 
-                  <Link href={bootstrap?.book_path || `/book/${tenantSlug}`} className={primaryBtnClass()}>
+                  <Link href={bookHref} className={primaryBtnClass()}>
                     Book with member pricing
                   </Link>
                 </div>
               ) : null}
 
-              {tab === 'inbox' ? (
-                <div className="space-y-2">
-                  {notices.length === 0 ? (
-                    <p className="text-sm text-[var(--book-muted)]">
-                      No messages yet. Offers and reminders from the salon will appear here.
+              {tab === 'messages' ? (
+                <div className="space-y-6">
+                  <section className="space-y-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--book-moss)]">
+                      Salon updates
                     </p>
-                  ) : (
-                    notices.map((n) => (
+                    {notices.length === 0 ? (
+                      <p className="text-sm text-[var(--book-muted)]">
+                        Offers and reminders from the salon will appear here.
+                      </p>
+                    ) : (
+                      notices.map((n) => (
+                        <button
+                          key={n.id}
+                          type="button"
+                          className={`w-full rounded-2xl border px-3.5 py-3 text-left text-sm transition ${
+                            n.read_at
+                              ? 'border-[var(--book-line)] bg-white'
+                              : 'border-[var(--book-moss)] bg-[var(--book-wash)]'
+                          }`}
+                          onClick={async () => {
+                            if (!session?.token || n.read_at) return;
+                            try {
+                              await memberMarkNoticeRead(tenantSlug, session.token, n.id);
+                              setNotices((prev) =>
+                                prev.map((row) =>
+                                  row.id === n.id
+                                    ? { ...row, read_at: new Date().toISOString() }
+                                    : row,
+                                ),
+                              );
+                              setUnreadNotices((c) => Math.max(0, c - 1));
+                            } catch (err) {
+                              setError(err instanceof Error ? err.message : 'Could not mark read');
+                            }
+                          }}
+                        >
+                          <p className="font-medium text-[var(--book-ink)]">{n.title}</p>
+                          <p className="mt-1 whitespace-pre-wrap text-[var(--book-muted)]">{n.body}</p>
+                          {n.created_at ? (
+                            <p className="mt-1 text-xs text-[var(--book-muted)]">
+                              {new Date(n.created_at).toLocaleString()}
+                              {!n.read_at ? ' · Unread' : ''}
+                            </p>
+                          ) : null}
+                        </button>
+                      ))
+                    )}
+                  </section>
+
+                  <section className="space-y-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--book-moss)]">
+                      Chat with salon
+                    </p>
+                    <div className="max-h-72 space-y-2 overflow-y-auto rounded-2xl border border-[var(--book-line)] bg-[var(--book-wash)]/50 p-3">
+                      {threadMessages.length === 0 ? (
+                        <p className="text-sm text-[var(--book-muted)]">
+                          Say hello — the salon can reply here.
+                        </p>
+                      ) : (
+                        threadMessages.map((m) => {
+                          const mine = m.direction === 'inbound';
+                          return (
+                            <div
+                              key={m.id}
+                              className={`flex ${mine ? 'justify-end' : 'justify-start'}`}
+                            >
+                              <div
+                                className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm ${
+                                  mine
+                                    ? 'bg-[var(--book-moss)] text-white'
+                                    : 'border border-[var(--book-line)] bg-white text-[var(--book-ink)]'
+                                }`}
+                              >
+                                <p className="whitespace-pre-wrap">{m.body}</p>
+                                {m.created_at ? (
+                                  <p
+                                    className={`mt-1 text-[10px] ${
+                                      mine ? 'text-white/70' : 'text-[var(--book-muted)]'
+                                    }`}
+                                  >
+                                    {new Date(m.created_at).toLocaleString()}
+                                  </p>
+                                ) : null}
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                    <form onSubmit={(e) => void handleSendChat(e)} className="flex gap-2">
+                      <input
+                        className={fieldClass()}
+                        value={chatDraft}
+                        onChange={(e) => setChatDraft(e.target.value)}
+                        placeholder="Write a message…"
+                        maxLength={2000}
+                      />
                       <button
-                        key={n.id}
-                        type="button"
-                        className={`w-full rounded-lg border px-3 py-2 text-left text-sm transition ${
-                          n.read_at
-                            ? 'border-[var(--book-line)] bg-white'
-                            : 'border-[var(--book-moss)] bg-[var(--book-wash)]'
-                        }`}
-                        onClick={async () => {
-                          if (!session?.token || n.read_at) return;
-                          try {
-                            await memberMarkNoticeRead(tenantSlug, session.token, n.id);
-                            await refreshDashboard(session.token);
-                          } catch (err) {
-                            setError(err instanceof Error ? err.message : 'Could not mark read');
-                          }
-                        }}
+                        type="submit"
+                        disabled={chatSending || !chatDraft.trim()}
+                        className="shrink-0 rounded-xl bg-[var(--book-moss)] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
                       >
-                        <p className="font-medium text-[var(--book-ink)]">{n.title}</p>
-                        <p className="mt-1 whitespace-pre-wrap text-[var(--book-muted)]">{n.body}</p>
-                        {n.created_at ? (
-                          <p className="mt-1 text-xs text-[var(--book-muted)]">
-                            {new Date(n.created_at).toLocaleString()}
-                            {!n.read_at ? ' · Unread' : ''}
-                          </p>
-                        ) : null}
-                        {n.href ? (
-                          <a
-                            href={n.href}
-                            className="mt-2 inline-block text-xs font-semibold text-[var(--book-moss)] underline-offset-2 hover:underline"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            Open link
-                          </a>
-                        ) : null}
+                        {chatSending ? '…' : 'Send'}
                       </button>
-                    ))
-                  )}
+                    </form>
+                  </section>
                 </div>
               ) : null}
 
@@ -1239,24 +1455,34 @@ function MemberPortalInner() {
 
               <button
                 type="button"
-                className="w-full text-sm font-semibold text-[var(--book-muted)]"
+                className="mt-2 w-full rounded-xl py-2.5 text-sm font-semibold text-[var(--book-muted)] transition hover:bg-[var(--book-wash)] hover:text-[var(--book-ink)]"
                 onClick={() =>
                   void memberLogout(tenantSlug, session.token).then(() => {
                     setSession(null);
                     setDashboard(null);
-                    setGuestFlow(
-                      !hasMarkedMemberJoined(tenantSlug) ? 'join' : 'login',
-                    );
+                    router.replace(bookHref);
                   })
                 }
               >
                 Log out
               </button>
             </div>
+          </div>
           ) : null}
 
           {!loading && !session ? (
-            <div className="mt-8">
+            <div className="book-animate-in rounded-3xl border border-[var(--book-line)] bg-white p-5 shadow-[var(--book-shadow)] sm:p-7">
+              {guestFlow !== 'join' ? (
+                <div className="mb-6">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--book-moss)]">
+                    {salonName}
+                  </p>
+                  <h1 className="book-display mt-1 text-3xl font-bold text-[var(--book-ink)]">
+                    Membership app
+                  </h1>
+                </div>
+              ) : null}
+
               {guestFlow === 'notify' ? (
                 <div className="grid gap-4 rounded-2xl border border-[var(--book-line)] bg-[var(--book-wash)] p-5">
                   <h2 className="text-lg font-semibold text-[var(--book-ink)]">Stay in the loop</h2>
@@ -1356,30 +1582,30 @@ function MemberPortalInner() {
                     </label>
                   ) : null}
                   {error ? (
-                    <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                    <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
                       {error}
                     </p>
                   ) : null}
                   {notice && !session ? (
-                    <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+                    <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
                       {notice}
                     </p>
                   ) : null}
-                  {notRegistered && !isStandaloneDisplay() ? (
+                  {notRegistered && !standalone ? (
                     <Link
-                      href={bootstrap?.book_path || `/book/${tenantSlug}`}
+                      href={bookHref}
                       className="text-center text-sm font-semibold text-[var(--book-moss)]"
                     >
                       New here? Install the salon app to join →
                     </Link>
                   ) : null}
-                  {notRegistered && isStandaloneDisplay() ? (
+                  {notRegistered && standalone ? (
                     <button
                       type="button"
                       className="text-center text-sm font-semibold text-[var(--book-moss)]"
                       onClick={() => setGuestFlow('join')}
                     >
-                      Not registered yet? Join Our Membership Family →
+                      Not registered yet? Join Freely My Loyal Customer →
                     </button>
                   ) : null}
                   <button type="submit" className={primaryBtnClass(submitting)} disabled={submitting}>
@@ -1404,12 +1630,18 @@ function MemberPortalInner() {
                       Use a different email / number
                     </button>
                   ) : null}
-                  {!isStandaloneDisplay() ? (
-                    <div className="rounded-xl border border-[var(--book-line)] px-4 py-3 text-sm text-[var(--book-muted)]">
+                  <Link
+                    href={bookHref}
+                    className="text-center text-sm font-semibold text-[var(--book-muted)] underline-offset-2 hover:underline"
+                  >
+                    Back to booking
+                  </Link>
+                  {!standalone ? (
+                    <div className="rounded-2xl border border-dashed border-[var(--book-line)] px-4 py-3 text-sm text-[var(--book-muted)]">
                       <p className="font-semibold text-[var(--book-ink)]">Install this app</p>
                       <p className="mt-1">{installHint}</p>
                       <Link
-                        href={bootstrap?.book_path || `/book/${tenantSlug}`}
+                        href={bookHref}
                         className="mt-2 inline-block text-sm font-semibold text-[var(--book-moss)]"
                       >
                         Open booking to install →
@@ -1421,14 +1653,13 @@ function MemberPortalInner() {
                       className="text-center text-sm text-[var(--book-muted)] underline"
                       onClick={() => setGuestFlow('join')}
                     >
-                      New here? Join Our Membership Family
+                      New here? Join Freely My Loyal Customer
                     </button>
                   )}
                 </form>
               ) : null}
             </div>
           ) : null}
-        </div>
 
         {scheduleOpen ? (
           <div

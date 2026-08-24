@@ -72,6 +72,12 @@ const navGroups: NavGroup[] = [
         match: (p) => p.startsWith('/admin/clients'),
         feature: 'crm',
       },
+      {
+        href: '/admin/messages',
+        label: 'Messages',
+        match: (p) => p.startsWith('/admin/messages'),
+        feature: 'crm',
+      },
       { href: '/admin/staff', label: 'Staffs', match: (p) => p.startsWith('/admin/staff') },
     ],
   },

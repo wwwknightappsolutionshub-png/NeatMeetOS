@@ -387,6 +387,50 @@ export async function memberMarkNoticeRead(
   return memberMutate(tenantSlug, token, `/member/notices/${noticeId}/read`, 'POST');
 }
 
+export interface MemberThreadMessage {
+  id: string;
+  client_id: string;
+  author_user_id: string | null;
+  direction: 'inbound' | 'outbound' | string;
+  channel: string;
+  subject: string | null;
+  body: string;
+  whatsapp_deeplink: string | null;
+  metadata: Record<string, unknown> | null;
+  read_at: string | null;
+  created_at: string | null;
+}
+
+export interface MemberMessagesPayload {
+  notices: MemberNotice[];
+  unread_notices: number;
+  thread: MemberThreadMessage[];
+  unread_thread: number;
+  unread_total: number;
+}
+
+export async function memberFetchMessages(
+  tenantSlug: string,
+  token: string,
+): Promise<MemberMessagesPayload> {
+  return memberGet(tenantSlug, token, '/member/messages');
+}
+
+export async function memberSendThreadMessage(
+  tenantSlug: string,
+  token: string,
+  body: string,
+): Promise<MemberThreadMessage> {
+  return memberMutate(tenantSlug, token, '/member/messages/threads', 'POST', { body });
+}
+
+export async function memberMarkThreadRead(
+  tenantSlug: string,
+  token: string,
+): Promise<{ updated: number }> {
+  return memberMutate(tenantSlug, token, '/member/messages/threads/read', 'POST');
+}
+
 export async function memberCheckIn(
   tenantSlug: string,
   token: string,
