@@ -198,6 +198,7 @@ export interface PlatformTenantRow {
   business_type: string | null;
   timezone: string | null;
   contact_email: string | null;
+  owner_email?: string | null;
   owner_whatsapp: string | null;
   plan_name: string | null;
   plan_slug: string | null;

@@ -114,6 +114,7 @@ class PlatformAdminService
             $pwaCount = TenantOwnerPushSubscription::withoutGlobalScopes()
                 ->where('tenant_id', $tenant->id)
                 ->count();
+            $owner = $this->resolveOwnerUser($tenant);
 
             return [
                 'id' => $tenant->id,
@@ -126,6 +127,7 @@ class PlatformAdminService
                 'business_type' => $tenant->business_type,
                 'timezone' => $tenant->timezone,
                 'contact_email' => $tenant->contact_email,
+                'owner_email' => $owner?->email ?? $tenant->contact_email,
                 'owner_whatsapp' => $tenant->owner_whatsapp,
                 'plan_name' => $tenant->subscriptionPlan?->name,
                 'plan_slug' => $tenant->subscriptionPlan?->slug,
@@ -141,6 +143,88 @@ class PlatformAdminService
                 'pwa_subscribers' => $pwaCount,
             ];
         })->all();
+    }
+
+    /**
+     * Change the salon owner's login email and keep tenant contact_email in sync.
+     *
+     * @return array{tenant_id: string, owner_email: string, contact_email: string, owner_user_id: string}
+     */
+    public function updateTenantOwnerEmail(Tenant $tenant, string $email): array
+    {
+        $email = strtolower(trim($email));
+
+        return DB::transaction(function () use ($tenant, $email) {
+            $owner = $this->resolveOwnerUser($tenant);
+            if ($owner === null) {
+                throw ValidationException::withMessages([
+                    'email' => ['No owner user is linked to this tenant.'],
+                ]);
+            }
+
+            $taken = User::query()
+                ->whereRaw('LOWER(email) = ?', [$email])
+                ->where('id', '!=', $owner->id)
+                ->exists();
+            if ($taken) {
+                throw ValidationException::withMessages([
+                    'email' => ['That email is already used by another account.'],
+                ]);
+            }
+
+            $old = [
+                'owner_email' => $owner->email,
+                'contact_email' => $tenant->contact_email,
+            ];
+
+            if (strcasecmp((string) $owner->email, $email) !== 0) {
+                $owner->email = $email;
+                $owner->email_verified_at = null;
+                $meta = is_array($owner->signup_meta) ? $owner->signup_meta : [];
+                if (isset($meta['answers']) && is_array($meta['answers'])) {
+                    $meta['answers']['owner_email'] = $email;
+                    $owner->signup_meta = $meta;
+                }
+                $owner->save();
+            }
+
+            $tenant->contact_email = $email;
+            $tenant->save();
+
+            $this->auditLogger->log('platform.tenant.owner_email_updated', $tenant, $old, [
+                'owner_email' => $email,
+                'contact_email' => $email,
+                'owner_user_id' => $owner->id,
+            ]);
+
+            return [
+                'tenant_id' => $tenant->id,
+                'owner_email' => $email,
+                'contact_email' => $email,
+                'owner_user_id' => (string) $owner->id,
+            ];
+        });
+    }
+
+    private function resolveOwnerUser(Tenant $tenant): ?User
+    {
+        $member = TeamMember::withoutGlobalScopes()
+            ->where('tenant_id', $tenant->id)
+            ->where('employment_type', TeamMember::EMPLOYMENT_OWNER)
+            ->where('is_active', true)
+            ->whereNotNull('user_id')
+            ->orderBy('created_at')
+            ->first();
+
+        if ($member?->user_id) {
+            return User::query()->find($member->user_id);
+        }
+
+        if (filled($tenant->contact_email)) {
+            return User::query()->whereRaw('LOWER(email) = ?', [strtolower((string) $tenant->contact_email)])->first();
+        }
+
+        return null;
     }
 
     public function suspendTenant(Tenant $tenant, ?string $reason = null): Tenant

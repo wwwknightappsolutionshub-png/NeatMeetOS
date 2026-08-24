@@ -13,6 +13,7 @@ import {
   pokeTenant,
   purgePlatformTenant,
   unlockTenantTiers,
+  updatePlatformTenantOwnerEmail,
   type PlatformStaffUser,
 } from '@/services/platform.service';
 
@@ -99,9 +100,18 @@ export default function PlatformTenantsPage() {
   const [purgeSlugConfirm, setPurgeSlugConfirm] = useState('');
   const [purging, setPurging] = useState(false);
   const [purgeNotice, setPurgeNotice] = useState<string | null>(null);
+  const [emailTenant, setEmailTenant] = useState<PlatformTenantRow | null>(null);
+  const [emailDraft, setEmailDraft] = useState('');
+  const [savingEmail, setSavingEmail] = useState(false);
+  const [emailNotice, setEmailNotice] = useState<string | null>(null);
 
   const canPurge =
     profile?.platform_role === 'owner' ||
+    (profile?.is_platform_admin === true && !profile?.platform_role);
+
+  const canChangeEmail =
+    profile?.platform_role === 'owner' ||
+    profile?.platform_role === 'manager' ||
     (profile?.is_platform_admin === true && !profile?.platform_role);
 
   const load = useCallback(async () => {
@@ -196,6 +206,39 @@ export default function PlatformTenantsPage() {
     }
   }
 
+  async function handleChangeEmail(e: FormEvent) {
+    e.preventDefault();
+    if (!emailTenant) return;
+    const nextEmail = emailDraft.trim();
+    if (!nextEmail) return;
+    setSavingEmail(true);
+    setError(null);
+    setEmailNotice(null);
+    try {
+      const result = await updatePlatformTenantOwnerEmail(emailTenant.id, nextEmail);
+      setTenants((prev) =>
+        prev.map((t) =>
+          t.id === emailTenant.id
+            ? {
+                ...t,
+                owner_email: result.owner_email,
+                contact_email: result.contact_email,
+              }
+            : t,
+        ),
+      );
+      setEmailNotice(
+        `Updated login email for ${emailTenant.trading_name || emailTenant.name} to ${result.owner_email}.`,
+      );
+      setEmailTenant(null);
+      setEmailDraft('');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not update email');
+    } finally {
+      setSavingEmail(false);
+    }
+  }
+
   return (
     <div className="mx-auto grid max-w-6xl gap-5">
       <div>
@@ -257,6 +300,11 @@ export default function PlatformTenantsPage() {
           {purgeNotice}
         </div>
       ) : null}
+      {emailNotice ? (
+        <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
+          {emailNotice}
+        </div>
+      ) : null}
       {loading ? <LoadingState label="Loading tenants…" /> : null}
 
       {!loading ? (
@@ -285,6 +333,9 @@ export default function PlatformTenantsPage() {
                         <p className="font-semibold text-white">{t.trading_name || t.name}</p>
                         <p className="text-xs text-stone-400">
                           {t.slug}
+                          {t.owner_email || t.contact_email
+                            ? ` · ${t.owner_email || t.contact_email}`
+                            : ''}
                           {t.owner_whatsapp ? ` · ${t.owner_whatsapp}` : ''}
                           {typeof t.pwa_subscribers === 'number'
                             ? ` · ${t.pwa_subscribers} PWA`
@@ -389,6 +440,19 @@ export default function PlatformTenantsPage() {
                           >
                             Booking policy
                           </Button>
+                          {canChangeEmail ? (
+                            <Button
+                              type="button"
+                              className="!border !border-sky-500/40 !bg-sky-500/10 !px-2.5 !py-1.5 !text-xs !text-sky-100"
+                              onClick={() => {
+                                setEmailTenant(t);
+                                setEmailDraft(t.owner_email || t.contact_email || '');
+                                setError(null);
+                              }}
+                            >
+                              Change email
+                            </Button>
+                          ) : null}
                           {canPurge ? (
                             <button
                               type="button"
@@ -485,6 +549,56 @@ export default function PlatformTenantsPage() {
                   onClick={() => {
                     setPurgeTenant(null);
                     setPurgeSlugConfirm('');
+                  }}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          </Card>
+        </div>
+      ) : null}
+
+      {emailTenant ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-950/70 p-4 backdrop-blur-sm">
+          <Card className="w-full max-w-md border-sky-500/30 bg-[#1a1714] p-5">
+            <h2 className="text-lg font-semibold text-white">Change tenant email</h2>
+            <p className="mt-2 text-sm text-stone-300">
+              Updates the owner login email for{' '}
+              <span className="font-semibold text-white">
+                {emailTenant.trading_name || emailTenant.name}
+              </span>{' '}
+              and the salon contact email.
+            </p>
+            <form onSubmit={(e) => void handleChangeEmail(e)} className="mt-4 space-y-3">
+              <label className="block text-sm">
+                <span className="mb-1 block text-stone-400">Owner email</span>
+                <input
+                  type="email"
+                  required
+                  value={emailDraft}
+                  onChange={(e) => setEmailDraft(e.target.value)}
+                  className="w-full rounded-lg border border-white/15 bg-stone-950/40 px-3 py-2 text-sm text-white outline-none focus:border-sky-400"
+                  placeholder="owner@salon.com"
+                  autoComplete="off"
+                  autoFocus
+                />
+              </label>
+              <div className="flex flex-wrap gap-2 pt-1">
+                <Button
+                  type="submit"
+                  disabled={savingEmail || !emailDraft.trim()}
+                  className="!bg-[var(--platform-accent)] !px-3 !py-2 !text-sm"
+                >
+                  {savingEmail ? 'Saving…' : 'Save email'}
+                </Button>
+                <Button
+                  type="button"
+                  disabled={savingEmail}
+                  className="!border !border-white/15 !bg-transparent !px-3 !py-2 !text-sm !text-stone-100"
+                  onClick={() => {
+                    setEmailTenant(null);
+                    setEmailDraft('');
                   }}
                 >
                   Cancel

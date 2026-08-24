@@ -64,6 +64,23 @@ export async function unlockTenantTiers(
   );
 }
 
+export async function updatePlatformTenantOwnerEmail(
+  tenantId: string,
+  email: string,
+): Promise<{
+  tenant_id: string;
+  owner_email: string;
+  contact_email: string;
+  owner_user_id: string;
+}> {
+  return api(`/platform/tenants/${tenantId}/owner-email`, {
+    method: 'PUT',
+    auth: true,
+    tenant: false,
+    body: JSON.stringify({ email }),
+  });
+}
+
 export async function purgePlatformTenant(
   tenantId: string,
   payload: { confirmation_slug: string; confirm: boolean },

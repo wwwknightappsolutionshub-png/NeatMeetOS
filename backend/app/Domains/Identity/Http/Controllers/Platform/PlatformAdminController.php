@@ -92,6 +92,26 @@ class PlatformAdminController extends Controller
         ], 'Tenant unsuspended');
     }
 
+    public function updateTenantOwnerEmail(Request $request, string $id): JsonResponse
+    {
+        $tenant = Tenant::query()->findOrFail($id);
+        $data = $request->validate([
+            'email' => ['required', 'email', 'max:255'],
+        ]);
+
+        try {
+            $result = $this->platform->updateTenantOwnerEmail($tenant, $data['email']);
+        } catch (ValidationException $e) {
+            return ApiResponse::error(
+                collect($e->errors())->flatten()->first() ?: 'Validation failed',
+                422,
+                $e->errors(),
+            );
+        }
+
+        return ApiResponse::success($result, 'Tenant owner email updated');
+    }
+
     public function purgeTenant(Request $request, string $id): JsonResponse
     {
         $tenant = Tenant::query()->findOrFail($id);
