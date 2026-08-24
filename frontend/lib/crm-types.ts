@@ -24,6 +24,8 @@ export interface Client {
   special_event_day: number | null;
   special_event_label: string | null;
   last_visited_at: string | null;
+  membership_joined_at?: string | null;
+  interested_next_visit_date?: string | null;
   active_membership?: {
     id: string;
     status: string;
@@ -41,6 +43,8 @@ export interface ClientVisit {
   client_id: string;
   location_id: string | null;
   location?: { id: string; name: string } | null;
+  checked_in_at?: string | null;
+  checked_out_at?: string | null;
   visited_at: string | null;
   source: string | null;
   notes: string | null;
@@ -120,6 +124,7 @@ export const CONSENT_TYPES = [
   'marketing_email',
   'marketing_sms',
   'privacy_contact',
+  'terms_of_service',
 ] as const;
 
 export const NOTE_TYPES = ['general', 'follow_up', 'internal'] as const;

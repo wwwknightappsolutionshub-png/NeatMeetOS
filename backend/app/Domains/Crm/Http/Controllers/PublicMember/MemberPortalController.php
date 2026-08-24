@@ -34,14 +34,27 @@ class MemberPortalController extends Controller
         return ApiResponse::success($this->portal->bootstrap());
     }
 
-    public function login(Request $request): JsonResponse
+    public function requestOtp(Request $request): JsonResponse
     {
         $data = $request->validate([
             'email' => ['required', 'email', 'max:255'],
             'phone' => ['required', 'string', 'max:40'],
         ]);
 
-        $result = $this->portal->login($data['email'], $data['phone']);
+        $result = $this->portal->requestOtp($data['email'], $data['phone']);
+
+        return ApiResponse::success($result, 'OTP sent to WhatsApp');
+    }
+
+    public function login(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'email' => ['required', 'email', 'max:255'],
+            'phone' => ['required', 'string', 'max:40'],
+            'otp' => ['required', 'string', 'max:12'],
+        ]);
+
+        $result = $this->portal->login($data['email'], $data['phone'], $data['otp']);
 
         return ApiResponse::success($result, 'Logged in');
     }
@@ -178,22 +191,36 @@ class MemberPortalController extends Controller
         $promptNextVisit = $this->nextVisit->shouldPromptNextVisit($visit, $tenant);
 
         return ApiResponse::success([
-            'visit' => [
-                'id' => $visit->id,
-                'client_id' => $visit->client_id,
-                'location_id' => $visit->location_id,
-                'checked_in_at' => $visit->checked_in_at?->toIso8601String(),
-                'source' => $visit->source,
-                'loyalty_points_awarded' => $visit->loyalty_points_awarded,
-                'next_visit_appointment_id' => $visit->next_visit_appointment_id,
-            ],
+            'visit' => $this->visits->serializeVisit($visit),
             'prompt_next_visit' => $promptNextVisit,
             'points' => $result['points'],
             'already_checked_in_today' => $result['already_checked_in_today'],
             'checked_in_today' => true,
+            'open_visit' => $visit->checked_out_at === null ? $this->visits->serializeVisit($visit) : null,
             'last_visited_at' => $client->fresh()->last_visited_at?->toIso8601String(),
             'loyalty_points_balance' => $balance,
-        ], $result['already_checked_in_today'] ? 'Already checked in today' : 'Checked in');
+        ], $result['already_checked_in_today'] ? 'Already checked in' : 'Checked in');
+    }
+
+    public function checkOut(Request $request): JsonResponse
+    {
+        $token = $this->bearerToken($request);
+        $client = $this->portal->findClientByToken($token);
+        if ($client === null) {
+            throw ValidationException::withMessages([
+                'token' => ['Session expired. Please log in again.'],
+            ]);
+        }
+
+        $result = $this->visits->checkOutFromMember($client);
+        $visit = $result['visit'];
+
+        return ApiResponse::success([
+            'visit' => $this->visits->serializeVisit($visit),
+            'open_visit' => null,
+            'checked_in_today' => $this->visits->hasCheckedInToday($client),
+            'last_visited_at' => $client->fresh()->last_visited_at?->toIso8601String(),
+        ], 'Checked out');
     }
 
     public function visitStatus(Request $request): JsonResponse
@@ -206,10 +233,11 @@ class MemberPortalController extends Controller
             ]);
         }
 
-        $checkedInToday = $this->visits->hasCheckedInToday($client);
+        $open = $this->visits->openVisitForClient($client);
 
         return ApiResponse::success([
-            'checked_in_today' => $checkedInToday,
+            'checked_in_today' => $this->visits->hasCheckedInToday($client),
+            'open_visit' => $open ? $this->visits->serializeVisit($open) : null,
             'last_visited_at' => $client->last_visited_at?->toIso8601String(),
         ]);
     }

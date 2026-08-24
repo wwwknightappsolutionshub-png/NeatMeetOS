@@ -130,6 +130,33 @@ export async function fetchClientVisits(clientId: string): Promise<ClientVisit[]
   return api<ClientVisit[]>(`/admin/clients/${clientId}/visits`, auth);
 }
 
+export interface OpenClientVisit {
+  id: string;
+  client_id: string;
+  client?: {
+    id: string;
+    display_name: string | null;
+    first_name: string | null;
+    last_name: string | null;
+    resolved_display_name: string;
+    phone: string | null;
+    email: string | null;
+  } | null;
+  location_id: string | null;
+  location?: { id: string; name: string } | null;
+  checked_in_at: string | null;
+  source: string | null;
+  loyalty_points_awarded: number;
+}
+
+export async function fetchOpenVisits(locationId?: string): Promise<{
+  items: OpenClientVisit[];
+  count: number;
+}> {
+  const q = locationId ? `?location_id=${encodeURIComponent(locationId)}` : '';
+  return api(`/admin/visits/open${q}`, auth);
+}
+
 export async function fetchClientFormulas(clientId: string): Promise<ClientFormula[]> {
   return api<ClientFormula[]>(`/admin/clients/${clientId}/formulas`, auth);
 }

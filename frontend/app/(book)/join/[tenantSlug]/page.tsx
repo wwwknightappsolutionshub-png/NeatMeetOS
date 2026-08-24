@@ -207,18 +207,18 @@ function CrmJoinFormInner() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
+  const [preferredName, setPreferredName] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
   const [email, setEmail] = useState('');
   const [locationId, setLocationId] = useState('');
-  const [specialEventMonth, setSpecialEventMonth] = useState('');
-  const [specialEventDay, setSpecialEventDay] = useState('');
+  const [nextVisitDate, setNextVisitDate] = useState('');
+  const [specialDate, setSpecialDate] = useState('');
   const [specialEventLabel, setSpecialEventLabel] = useState('');
-  const [dateOfBirth, setDateOfBirth] = useState('');
+  const [acceptTerms, setAcceptTerms] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [doneMessage, setDoneMessage] = useState<string | null>(null);
+  const [memberPath, setMemberPath] = useState<string | null>(null);
   const [closeIn, setCloseIn] = useState<number | null>(null);
 
   const load = useCallback(async () => {
@@ -254,20 +254,15 @@ function CrmJoinFormInner() {
         if (prev === null) return null;
         if (prev <= 1) {
           window.clearInterval(tick);
-          window.close();
-          // Tabs not opened by script often ignore window.close(); leave a quiet finish state.
-          window.setTimeout(() => {
-            if (!document.hidden) {
-              window.location.replace(`/book/${tenantSlug}`);
-            }
-          }, 250);
+          const dest = memberPath || `/member/${tenantSlug}`;
+          window.location.replace(dest);
           return 0;
         }
         return prev - 1;
       });
     }, 1000);
     return () => window.clearInterval(tick);
-  }, [doneMessage, tenantSlug]);
+  }, [doneMessage, tenantSlug, memberPath]);
 
   const salonName = useMemo(() => {
     const brand = bootstrap?.tenant.branding?.brand_display_name;
@@ -282,18 +277,18 @@ function CrmJoinFormInner() {
     setSubmitError(null);
     try {
       const result = await submitCrmJoin(tenantSlug, {
-        first_name: firstName.trim() || undefined,
-        last_name: lastName.trim() || undefined,
+        preferred_name: preferredName.trim(),
         whatsapp_number: whatsapp.trim(),
-        email: email.trim() || undefined,
+        email: email.trim(),
+        next_visit_date: nextVisitDate,
+        accept_terms: acceptTerms,
         location_id: locationId || undefined,
-        special_event_month: specialEventMonth ? Number(specialEventMonth) : undefined,
-        special_event_day: specialEventDay ? Number(specialEventDay) : undefined,
+        special_date: specialDate.trim() || undefined,
         special_event_label: specialEventLabel.trim() || undefined,
-        date_of_birth: dateOfBirth.trim() || undefined,
         referral_code: referralCode,
       });
       setDoneMessage(result.message);
+      setMemberPath(result.member_path || `/member/${tenantSlug}`);
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : 'Could not save details');
     } finally {
@@ -307,7 +302,7 @@ function CrmJoinFormInner() {
         <div className="rounded-2xl border border-[var(--book-line)] bg-white p-6 shadow-[var(--book-shadow)] sm:p-8">
           <div className="flex items-start justify-between gap-3">
             <p className="text-xs font-semibold tracking-[0.04em] text-[var(--book-muted)]">
-              Join our customer&apos;s family
+              Join Our Membership Family
             </p>
             <Link
               href={bookingPagePath(tenantSlug)}
@@ -318,8 +313,8 @@ function CrmJoinFormInner() {
           </div>
           <h1 className="book-display mt-2 text-3xl font-bold text-[var(--book-ink)]">{salonName}</h1>
           <p className="mt-2 text-sm text-[var(--book-muted)]">
-            Quick form so we can keep you on our client list. WhatsApp is required. Name is optional.
-            Add an email to receive a branded welcome with membership and loyalty offers.
+            Tell us how to reach you, when you&apos;d like to visit next, and open the membership app
+            to check in with WhatsApp OTP.
           </p>
 
           {loading ? (
@@ -350,15 +345,12 @@ function CrmJoinFormInner() {
                 <p className="text-lg font-semibold text-[var(--book-ink)]">{doneMessage}</p>
                 {closeIn !== null && closeIn > 0 ? (
                   <p className="mt-3 text-xs text-[var(--book-muted)]">
-                    This page closes in {closeIn}s
+                    Opening membership app in {closeIn}s
                   </p>
                 ) : null}
               </div>
-              <a
-                href="mailto:"
-                className={primaryBtnClass()}
-              >
-                Check mail
+              <a href={memberPath || `/member/${tenantSlug}`} className={primaryBtnClass()}>
+                Open membership app
               </a>
             </div>
           ) : null}
@@ -367,7 +359,19 @@ function CrmJoinFormInner() {
             <form onSubmit={(e) => void handleSubmit(e)} className="mt-8 grid gap-4">
               <label className="block text-sm">
                 <span className="mb-1.5 block font-semibold text-[var(--book-muted)]">
-                  WhatsApp number <span className="text-red-600">*</span>
+                  Preferred name / nickname <span className="text-red-600">*</span>
+                </span>
+                <input
+                  className={fieldClass()}
+                  required
+                  value={preferredName}
+                  onChange={(e) => setPreferredName(e.target.value)}
+                  autoComplete="nickname"
+                />
+              </label>
+              <label className="block text-sm">
+                <span className="mb-1.5 block font-semibold text-[var(--book-muted)]">
+                  Phone number (WhatsApp) <span className="text-red-600">*</span>
                 </span>
                 <input
                   className={fieldClass()}
@@ -382,36 +386,50 @@ function CrmJoinFormInner() {
               </label>
               <label className="block text-sm">
                 <span className="mb-1.5 block font-semibold text-[var(--book-muted)]">
-                  First name <span className="font-normal">(optional)</span>
+                  Email address <span className="text-red-600">*</span>
                 </span>
                 <input
                   className={fieldClass()}
-                  value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
-                  autoComplete="given-name"
-                />
-              </label>
-              <label className="block text-sm">
-                <span className="mb-1.5 block font-semibold text-[var(--book-muted)]">
-                  Last name <span className="font-normal">(optional)</span>
-                </span>
-                <input
-                  className={fieldClass()}
-                  value={lastName}
-                  onChange={(e) => setLastName(e.target.value)}
-                  autoComplete="family-name"
-                />
-              </label>
-              <label className="block text-sm">
-                <span className="mb-1.5 block font-semibold text-[var(--book-muted)]">
-                  Email <span className="font-normal">(optional)</span>
-                </span>
-                <input
-                  className={fieldClass()}
+                  required
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   autoComplete="email"
+                />
+              </label>
+              <label className="block text-sm">
+                <span className="mb-1.5 block font-semibold text-[var(--book-muted)]">
+                  Next visit date <span className="text-red-600">*</span>
+                </span>
+                <input
+                  className={fieldClass()}
+                  required
+                  type="date"
+                  value={nextVisitDate}
+                  min={new Date().toISOString().slice(0, 10)}
+                  onChange={(e) => setNextVisitDate(e.target.value)}
+                />
+              </label>
+              <label className="block text-sm">
+                <span className="mb-1.5 block font-semibold text-[var(--book-muted)]">
+                  Special date in your life <span className="font-normal">(optional)</span>
+                </span>
+                <input
+                  className={fieldClass()}
+                  type="date"
+                  value={specialDate}
+                  onChange={(e) => setSpecialDate(e.target.value)}
+                />
+              </label>
+              <label className="block text-sm">
+                <span className="mb-1.5 block font-semibold text-[var(--book-muted)]">
+                  What is it? <span className="font-normal">(birthday, anniversary…)</span>
+                </span>
+                <input
+                  className={fieldClass()}
+                  value={specialEventLabel}
+                  onChange={(e) => setSpecialEventLabel(e.target.value)}
+                  placeholder="Birthday, anniversary…"
                 />
               </label>
               {(bootstrap?.locations.length ?? 0) > 1 ? (
@@ -431,78 +449,26 @@ function CrmJoinFormInner() {
                 </label>
               ) : null}
 
-              <label className="block text-sm">
-                <span className="mb-1.5 block font-semibold text-[var(--book-muted)]">
-                  Date of birth <span className="font-normal">(optional — for birthday greetings)</span>
-                </span>
+              <label className="flex items-start gap-3 text-sm text-[var(--book-muted)]">
                 <input
-                  className={fieldClass()}
-                  type="date"
-                  value={dateOfBirth}
-                  onChange={(e) => setDateOfBirth(e.target.value)}
-                  max={new Date().toISOString().slice(0, 10)}
+                  type="checkbox"
+                  className="mt-1"
+                  checked={acceptTerms}
+                  onChange={(e) => setAcceptTerms(e.target.checked)}
+                  required
                 />
-              </label>
-
-              <div className="grid grid-cols-2 gap-3">
-                <label className="block text-sm">
-                  <span className="mb-1.5 block font-semibold text-[var(--book-muted)]">
-                    Special event month <span className="font-normal">(optional)</span>
-                  </span>
-                  <select
-                    className={fieldClass()}
-                    value={specialEventMonth}
-                    onChange={(e) => setSpecialEventMonth(e.target.value)}
+                <span>
+                  I agree to the{' '}
+                  <a
+                    href={bootstrap?.terms_url || '/terms'}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="font-semibold text-[var(--book-moss)] underline-offset-2 hover:underline"
                   >
-                    <option value="">—</option>
-                    {[
-                      ['1', 'January'],
-                      ['2', 'February'],
-                      ['3', 'March'],
-                      ['4', 'April'],
-                      ['5', 'May'],
-                      ['6', 'June'],
-                      ['7', 'July'],
-                      ['8', 'August'],
-                      ['9', 'September'],
-                      ['10', 'October'],
-                      ['11', 'November'],
-                      ['12', 'December'],
-                    ].map(([value, label]) => (
-                      <option key={value} value={value}>
-                        {label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="block text-sm">
-                  <span className="mb-1.5 block font-semibold text-[var(--book-muted)]">
-                    Day <span className="font-normal">(optional)</span>
-                  </span>
-                  <select
-                    className={fieldClass()}
-                    value={specialEventDay}
-                    onChange={(e) => setSpecialEventDay(e.target.value)}
-                  >
-                    <option value="">—</option>
-                    {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
-                      <option key={d} value={d}>
-                        {d}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-              <label className="block text-sm">
-                <span className="mb-1.5 block font-semibold text-[var(--book-muted)]">
-                  What is it? <span className="font-normal">(birthday, anniversary…)</span>
+                    Terms &amp; Conditions
+                  </a>
+                  .
                 </span>
-                <input
-                  className={fieldClass()}
-                  value={specialEventLabel}
-                  onChange={(e) => setSpecialEventLabel(e.target.value)}
-                  placeholder="Birthday, anniversary…"
-                />
               </label>
 
               {submitError ? (
@@ -511,11 +477,11 @@ function CrmJoinFormInner() {
                 </p>
               ) : null}
 
-              <button type="submit" className={primaryBtnClass(submitting)} disabled={submitting}>
-                {submitting ? 'Saving…' : 'Save my details'}
+              <button type="submit" className={primaryBtnClass(submitting)} disabled={submitting || !acceptTerms}>
+                {submitting ? 'Saving…' : 'Join Our Membership Family'}
               </button>
               <p className="text-center text-xs text-[var(--book-muted)]">
-                We’ll use your WhatsApp number to contact you about appointments.
+                We&apos;ll use your WhatsApp number to send login codes and appointment updates.
               </p>
             </form>
           ) : null}

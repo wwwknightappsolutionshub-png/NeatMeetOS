@@ -25,12 +25,12 @@ class Module2CrmJoinWelcomeAndMemberPortalTest extends TestCase
         $ctx = $this->seedTenantContext(['crm.view', 'crm.manage']);
 
         $this->withHeaders(['X-Tenant-Slug' => $ctx['tenant']->slug])
-            ->postJson('/api/v1/join/clients', [
-                'first_name' => 'Welcome',
+            ->postJson('/api/v1/join/clients', $this->membershipJoinPayload([
+                'preferred_name' => 'Welcome',
                 'last_name' => 'Guest',
                 'whatsapp_number' => '+447700900501',
                 'email' => 'welcome@example.test',
-            ])
+            ]))
             ->assertCreated()
             ->assertJsonPath('data.created', true);
 
@@ -84,22 +84,13 @@ class Module2CrmJoinWelcomeAndMemberPortalTest extends TestCase
         ]);
 
         $unknown = $this->withHeaders(['X-Tenant-Slug' => $ctx['tenant']->slug])
-            ->postJson('/api/v1/member/login', [
+            ->postJson('/api/v1/member/login/request-otp', [
                 'email' => 'missing@example.test',
                 'phone' => '+447700900599',
             ]);
         $unknown->assertStatus(422);
 
-        $login = $this->withHeaders(['X-Tenant-Slug' => $ctx['tenant']->slug])
-            ->postJson('/api/v1/member/login', [
-                'email' => 'member@example.test',
-                'phone' => '+44 7700 900502',
-            ]);
-        $login->assertOk()
-            ->assertJsonPath('data.benefits.has_membership', true)
-            ->assertJsonPath('data.benefits.loyalty_eligible', true);
-
-        $token = $login->json('data.token');
+        $token = $this->memberLoginViaOtp($ctx['tenant']->slug, 'member@example.test', '+44 7700 900502');
         $this->assertNotEmpty($token);
 
         $this->withHeaders([
@@ -107,6 +98,8 @@ class Module2CrmJoinWelcomeAndMemberPortalTest extends TestCase
             'Authorization' => 'Bearer '.$token,
         ])->getJson('/api/v1/member/me')
             ->assertOk()
-            ->assertJsonPath('data.client.email', 'member@example.test');
+            ->assertJsonPath('data.client.email', 'member@example.test')
+            ->assertJsonPath('data.benefits.has_membership', true)
+            ->assertJsonPath('data.benefits.loyalty_eligible', true);
     }
 }

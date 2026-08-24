@@ -28,16 +28,20 @@ class PublicClientCaptureController extends Controller
     public function store(Request $request): JsonResponse
     {
         $data = $request->validate([
+            'preferred_name' => ['required', 'string', 'max:100'],
             'first_name' => ['nullable', 'string', 'max:100'],
             'last_name' => ['nullable', 'string', 'max:100'],
             'whatsapp_number' => ['required', 'string', 'min:7', 'max:40'],
-            'email' => ['nullable', 'email', 'max:255'],
+            'email' => ['required', 'email', 'max:255'],
             'location_id' => ['nullable', 'uuid'],
+            'next_visit_date' => ['required', 'date'],
+            'special_date' => ['nullable', 'date'],
             'special_event_month' => ['nullable', 'integer', 'min:1', 'max:12'],
             'special_event_day' => ['nullable', 'integer', 'min:1', 'max:31'],
             'special_event_label' => ['nullable', 'string', 'max:80'],
             'referral_code' => ['nullable', 'string', 'max:32'],
             'date_of_birth' => ['nullable', 'date', 'before:today'],
+            'accept_terms' => ['required', 'accepted'],
         ]);
 
         $result = $this->captureService->capture($data);

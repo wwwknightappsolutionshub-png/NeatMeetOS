@@ -222,13 +222,10 @@ class MarketingPushAndInAppChannelTest extends TestCase
     {
         app(TenantContext::class)->set($ctx['tenant']);
 
-        $login = $this->withHeaders(['X-Tenant-Slug' => $ctx['tenant']->slug])
-            ->postJson('/api/v1/member/login', [
-                'email' => $client->email,
-                'phone' => $client->phone,
-            ])
-            ->assertOk();
-
-        return (string) $login->json('data.token');
+        return $this->memberLoginViaOtp(
+            $ctx['tenant']->slug,
+            (string) $client->email,
+            (string) $client->phone,
+        );
     }
 }

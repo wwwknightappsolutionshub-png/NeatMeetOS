@@ -41,6 +41,39 @@ class ClientVisitService
     }
 
     /**
+     * Open visits (checked in, not checked out) for the current tenant.
+     *
+     * @return Collection<int, ClientVisit>
+     */
+    public function listOpenVisits(?string $locationId = null): Collection
+    {
+        $query = ClientVisit::query()
+            ->with(['client', 'location'])
+            ->whereNull('checked_out_at')
+            ->orderByDesc('checked_in_at')
+            ->limit(200);
+
+        if ($locationId !== null) {
+            $this->assertLocation($locationId);
+            $query->where('location_id', $locationId);
+        }
+
+        return $query->get();
+    }
+
+    public function openVisitForClient(Client $client): ?ClientVisit
+    {
+        $this->assertTenantClient($client);
+
+        return ClientVisit::query()
+            ->with('location')
+            ->where('client_id', $client->id)
+            ->whereNull('checked_out_at')
+            ->orderByDesc('checked_in_at')
+            ->first();
+    }
+
+    /**
      * @return array{visit: ClientVisit, points: int, already_checked_in_today: bool}
      */
     public function checkInFromMember(Client $client, ?string $locationId = null): array
@@ -51,19 +84,30 @@ class ClientVisitService
             $this->assertLocation($locationId);
         }
 
+        $open = $this->openVisitForClient($client);
+        if ($open !== null) {
+            return [
+                'visit' => $open,
+                'points' => 0,
+                'already_checked_in_today' => true,
+            ];
+        }
+
         $timezone = $this->resolveTimezone($client, $locationId);
         $dayStart = Carbon::now($timezone)->startOfDay()->utc();
         $dayEnd = Carbon::now($timezone)->endOfDay()->utc();
 
-        $existing = ClientVisit::query()
+        $existingToday = ClientVisit::query()
+            ->with('location')
             ->where('client_id', $client->id)
             ->whereBetween('checked_in_at', [$dayStart, $dayEnd])
             ->orderByDesc('checked_in_at')
             ->first();
 
-        if ($existing !== null) {
+        // One presence visit per local day (after clock-out, do not open another).
+        if ($existingToday !== null) {
             return [
-                'visit' => $existing->load('location'),
+                'visit' => $existingToday,
                 'points' => 0,
                 'already_checked_in_today' => true,
             ];
@@ -82,16 +126,18 @@ class ClientVisitService
                 'loyalty_points_awarded' => $points,
             ]);
 
-            $this->loyaltyLedger->postEntry([
-                'client_id' => $client->id,
-                'entry_type' => LoyaltyEntryType::CHECKIN_VISIT,
-                'direction' => LoyaltyEntryDirection::CREDIT,
-                'points' => $points,
-                'effective_at' => $checkedInAt,
-                'source_type' => 'client_visit',
-                'source_id' => $visit->id,
-                'notes' => 'Member app visit check-in',
-            ]);
+            if ($points > 0) {
+                $this->loyaltyLedger->postEntry([
+                    'client_id' => $client->id,
+                    'entry_type' => LoyaltyEntryType::CHECKIN_VISIT,
+                    'direction' => LoyaltyEntryDirection::CREDIT,
+                    'points' => $points,
+                    'effective_at' => $checkedInAt,
+                    'source_type' => 'client_visit',
+                    'source_id' => $visit->id,
+                    'notes' => 'Member app visit check-in',
+                ]);
+            }
 
             $client->last_visited_at = $checkedInAt;
             $client->save();
@@ -124,6 +170,42 @@ class ClientVisitService
         return $result;
     }
 
+    /**
+     * @return array{visit: ClientVisit}
+     */
+    public function checkOutFromMember(Client $client): array
+    {
+        $this->assertTenantClient($client);
+
+        $open = $this->openVisitForClient($client);
+        if ($open === null) {
+            throw ValidationException::withMessages([
+                'visit' => ['You are not checked in.'],
+            ]);
+        }
+
+        $open->checked_out_at = now();
+        $open->save();
+
+        $this->timeline->record(
+            $client->fresh(),
+            ClientTimelineEvent::EVENT_VISIT_CHECKOUT,
+            'Visit check-out',
+            'Checked out via membership app',
+            [
+                'visit_id' => $open->id,
+                'checked_out_at' => $open->checked_out_at?->toIso8601String(),
+            ],
+        );
+
+        $this->auditLogger->log('visit.checkout', $open, null, [
+            'client_id' => $client->id,
+            'checked_out_at' => $open->checked_out_at?->toIso8601String(),
+        ]);
+
+        return ['visit' => $open->fresh()->load('location')];
+    }
+
     public function hasCheckedInToday(Client $client, ?string $locationId = null): bool
     {
         $timezone = $this->resolveTimezone($client, $locationId);
@@ -134,6 +216,58 @@ class ClientVisitService
             ->where('client_id', $client->id)
             ->whereBetween('checked_in_at', [$dayStart, $dayEnd])
             ->exists();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function serializeVisit(ClientVisit $visit): array
+    {
+        return [
+            'id' => $visit->id,
+            'client_id' => $visit->client_id,
+            'location_id' => $visit->location_id,
+            'location' => $visit->relationLoaded('location') && $visit->location
+                ? ['id' => $visit->location->id, 'name' => $visit->location->name]
+                : null,
+            'checked_in_at' => $visit->checked_in_at?->toIso8601String(),
+            'checked_out_at' => $visit->checked_out_at?->toIso8601String(),
+            'source' => $visit->source,
+            'loyalty_points_awarded' => $visit->loyalty_points_awarded,
+            'next_visit_appointment_id' => $visit->next_visit_appointment_id,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function serializeOpenVisit(ClientVisit $visit): array
+    {
+        $client = $visit->client;
+
+        return [
+            'id' => $visit->id,
+            'client_id' => $visit->client_id,
+            'client' => $client ? [
+                'id' => $client->id,
+                'display_name' => $client->display_name,
+                'first_name' => $client->first_name,
+                'last_name' => $client->last_name,
+                'resolved_display_name' => method_exists($client, 'resolvedDisplayName')
+                    ? $client->resolvedDisplayName()
+                    : trim(($client->display_name ?: $client->first_name).' '.($client->last_name ?? '')),
+                'phone' => $client->phone,
+                'email' => $client->email,
+            ] : null,
+            'location_id' => $visit->location_id,
+            'location' => $visit->location ? [
+                'id' => $visit->location->id,
+                'name' => $visit->location->name,
+            ] : null,
+            'checked_in_at' => $visit->checked_in_at?->toIso8601String(),
+            'source' => $visit->source,
+            'loyalty_points_awarded' => $visit->loyalty_points_awarded,
+        ];
     }
 
     private function resolveTimezone(Client $client, ?string $locationId): string

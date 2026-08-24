@@ -49,6 +49,8 @@ class ClientTimelineEvent extends Model
 
     public const EVENT_VISIT_CHECKIN = 'visit.checkin';
 
+    public const EVENT_VISIT_CHECKOUT = 'visit.checkout';
+
     public const EVENT_AI_HAIRSTYLE_SUBMITTED = 'ai_hairstyle.submitted';
 
     public const EVENT_AI_HAIRSTYLE_ACCEPTED = 'ai_hairstyle.accepted';

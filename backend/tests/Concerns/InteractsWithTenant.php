@@ -175,4 +175,41 @@ trait InteractsWithTenant
             ->withHeader('Authorization', 'Bearer '.$token)
             ->withHeader('X-Tenant-Slug', $slug);
     }
+
+    /**
+     * @param  array<string, mixed>  $overrides
+     * @return array<string, mixed>
+     */
+    protected function membershipJoinPayload(array $overrides = []): array
+    {
+        return array_merge([
+            'preferred_name' => 'Pat',
+            'whatsapp_number' => '+447700900111',
+            'email' => 'pat@example.test',
+            'next_visit_date' => now()->addDays(7)->toDateString(),
+            'accept_terms' => true,
+        ], $overrides);
+    }
+
+    protected function memberLoginViaOtp(string $slug, string $email, string $phone): string
+    {
+        $request = $this->withHeaders(['X-Tenant-Slug' => $slug])
+            ->postJson('/api/v1/member/login/request-otp', [
+                'email' => $email,
+                'phone' => $phone,
+            ]);
+        $request->assertOk();
+        $otp = $request->json('data.otp');
+        $this->assertNotEmpty($otp);
+
+        $login = $this->withHeaders(['X-Tenant-Slug' => $slug])
+            ->postJson('/api/v1/member/login', [
+                'email' => $email,
+                'phone' => $phone,
+                'otp' => $otp,
+            ]);
+        $login->assertOk();
+
+        return (string) $login->json('data.token');
+    }
 }

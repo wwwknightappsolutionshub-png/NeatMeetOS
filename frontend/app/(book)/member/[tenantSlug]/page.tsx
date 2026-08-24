@@ -21,9 +21,11 @@ import {
   fetchReferral,
   loadMemberSession,
   memberCheckIn,
+  memberCheckOut,
   memberClaimGift,
   memberCreateGift,
   memberLogin,
+  memberRequestOtp,
   memberLogout,
   memberFetchNotices,
   memberMarkNoticeRead,
@@ -114,9 +116,13 @@ function MemberPortalInner() {
   const [tab, setTab] = useState<Tab>('home');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  const [otp, setOtp] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
+  const [maskedPhone, setMaskedPhone] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [checkingIn, setCheckingIn] = useState(false);
+  const [checkingOut, setCheckingOut] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -177,6 +183,7 @@ function MemberPortalInner() {
               client: dash.client,
               benefits: dash.benefits,
               checked_in_today: dash.checked_in_today,
+              open_visit: dash.open_visit ?? null,
               last_visited_at: dash.last_visited_at,
               loyalty_points_balance: dash.loyalty_points_balance,
             }
@@ -333,13 +340,34 @@ function MemberPortalInner() {
     return 'Use Install / Add to Home Screen to keep this app handy.';
   }, []);
 
+  async function handleRequestOtp(e: React.FormEvent) {
+    e.preventDefault();
+    setSubmitting(true);
+    setError(null);
+    setNotRegistered(false);
+    try {
+      const result = await memberRequestOtp(tenantSlug, email.trim(), phone.trim());
+      setOtpSent(true);
+      setMaskedPhone(result.masked_phone);
+      setNotice(`We sent a code to WhatsApp ${result.masked_phone}.`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Could not send OTP';
+      if (/sign up|not found|No membership|join our membership/i.test(message)) {
+        setNotRegistered(true);
+      }
+      setError(message);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     setSubmitting(true);
     setError(null);
     setNotRegistered(false);
     try {
-      const result = await memberLogin(tenantSlug, email.trim(), phone.trim());
+      const result = await memberLogin(tenantSlug, email.trim(), phone.trim(), otp.trim());
       setSession(result);
       await refreshDashboard(result.token);
       if (nextPath.startsWith('/')) {
@@ -347,7 +375,7 @@ function MemberPortalInner() {
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Login failed';
-      if (/sign up|not found|No membership/i.test(message)) {
+      if (/sign up|not found|No membership|join our membership/i.test(message)) {
         setNotRegistered(true);
       }
       setError(message);
@@ -366,6 +394,7 @@ function MemberPortalInner() {
       const next: MemberSession = {
         ...session,
         checked_in_today: true,
+        open_visit: status.open_visit ?? status.visit ?? null,
         last_visited_at: status.last_visited_at,
         loyalty_points_balance: status.loyalty_points_balance ?? session.loyalty_points_balance,
       };
@@ -374,7 +403,7 @@ function MemberPortalInner() {
       checkedInTodayRef.current = true;
       setNotice(
         status.already_checked_in_today
-          ? 'Already checked in today.'
+          ? 'You are already checked in.'
           : `Checked in! +${status.points ?? 0} loyalty points.`,
       );
       if (status.prompt_next_visit && status.visit?.id) {
@@ -386,6 +415,22 @@ function MemberPortalInner() {
       setError(err instanceof Error ? err.message : 'Check-in failed');
     } finally {
       setCheckingIn(false);
+    }
+  }
+
+  async function handleCheckOut() {
+    if (!session?.token) return;
+    setCheckingOut(true);
+    setNotice(null);
+    setError(null);
+    try {
+      await memberCheckOut(tenantSlug, session.token);
+      setNotice('Checked out. See you next time.');
+      await refreshDashboard(session.token);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Check-out failed');
+    } finally {
+      setCheckingOut(false);
     }
   }
 
@@ -586,7 +631,11 @@ function MemberPortalInner() {
                 </p>
                 <p className="mt-1 text-sm text-[var(--book-ink)]">
                   Today:{' '}
-                  {dashboard.checked_in_today ? 'Checked in' : 'Not checked in yet'}
+                  {dashboard.open_visit
+                    ? 'On site (checked in)'
+                    : dashboard.checked_in_today
+                      ? 'Visited earlier'
+                      : 'Not checked in yet'}
                 </p>
               </div>
 
@@ -637,18 +686,29 @@ function MemberPortalInner() {
 
               {tab === 'home' ? (
                 <div className="space-y-4">
-                  <button
-                    type="button"
-                    className={primaryBtnClass(checkingIn || dashboard.checked_in_today)}
-                    disabled={checkingIn || dashboard.checked_in_today}
-                    onClick={() => void handleCheckIn()}
-                  >
-                    {dashboard.checked_in_today
-                      ? 'Checked in today'
-                      : checkingIn
-                        ? 'Checking in…'
-                        : 'Clock in / Check in visit'}
-                  </button>
+                  {dashboard.open_visit ? (
+                    <button
+                      type="button"
+                      className={primaryBtnClass(checkingOut)}
+                      disabled={checkingOut}
+                      onClick={() => void handleCheckOut()}
+                    >
+                      {checkingOut ? 'Checking out…' : 'Clock out / Check out'}
+                    </button>
+                  ) : dashboard.checked_in_today ? (
+                    <button type="button" className={primaryBtnClass(true)} disabled>
+                      Checked in earlier today
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className={primaryBtnClass(checkingIn)}
+                      disabled={checkingIn}
+                      onClick={() => void handleCheckIn()}
+                    >
+                      {checkingIn ? 'Checking in…' : 'Clock in / Check in visit'}
+                    </button>
+                  )}
 
                   {nextVisits.length > 0 ? (
                     <div className="space-y-2">
@@ -774,6 +834,9 @@ function MemberPortalInner() {
                       <div key={v.id} className="rounded-lg border border-[var(--book-line)] px-3 py-2 text-sm">
                         <p className="font-medium text-[var(--book-ink)]">
                           {v.checked_in_at ? new Date(v.checked_in_at).toLocaleString() : '—'}
+                          {v.checked_out_at
+                            ? ` → ${new Date(v.checked_out_at).toLocaleString()}`
+                            : ' (open)'}
                         </p>
                         <p className="text-[var(--book-muted)]">
                           {v.location?.name || 'Salon'} · +{v.loyalty_points_awarded} pts
@@ -1114,10 +1177,13 @@ function MemberPortalInner() {
           ) : null}
 
           {!loading && !session ? (
-            <form onSubmit={(e) => void handleLogin(e)} className="mt-8 grid gap-4">
+            <form
+              onSubmit={(e) => void (otpSent ? handleLogin(e) : handleRequestOtp(e))}
+              className="mt-8 grid gap-4"
+            >
               <p className="text-sm text-[var(--book-muted)]">
-                Log in with the email and WhatsApp number from your CRM signup to unlock member and
-                loyalty pricing.
+                Join Our Membership Family first, then log in with your email and WhatsApp number.
+                We send a one-time code to WhatsApp.
               </p>
               {tierHint ? (
                 <p className="text-sm font-medium text-[var(--book-moss)]">
@@ -1133,6 +1199,7 @@ function MemberPortalInner() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   autoComplete="email"
+                  disabled={otpSent}
                 />
               </label>
               <label className="block text-sm">
@@ -1145,11 +1212,35 @@ function MemberPortalInner() {
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="+44…"
                   autoComplete="tel"
+                  disabled={otpSent}
                 />
               </label>
+              {otpSent ? (
+                <label className="block text-sm">
+                  <span className="mb-1.5 block font-semibold text-[var(--book-muted)]">
+                    WhatsApp OTP {maskedPhone ? `(sent to ${maskedPhone})` : ''}
+                  </span>
+                  <input
+                    className={fieldClass()}
+                    inputMode="numeric"
+                    pattern="[0-9]{6}"
+                    maxLength={6}
+                    required
+                    value={otp}
+                    onChange={(e) => setOtp(e.target.value)}
+                    autoComplete="one-time-code"
+                    placeholder="6-digit code"
+                  />
+                </label>
+              ) : null}
               {error ? (
                 <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
                   {error}
+                </p>
+              ) : null}
+              {notice && !session ? (
+                <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+                  {notice}
                 </p>
               ) : null}
               {notRegistered ? (
@@ -1157,12 +1248,31 @@ function MemberPortalInner() {
                   href={bootstrap?.join_path || `/join/${tenantSlug}`}
                   className="text-center text-sm font-semibold text-[var(--book-moss)]"
                 >
-                  Not registered yet? Go to CRM signup →
+                  Not registered yet? Join Our Membership Family →
                 </Link>
               ) : null}
               <button type="submit" className={primaryBtnClass(submitting)} disabled={submitting}>
-                {submitting ? 'Signing in…' : 'Log in'}
+                {submitting
+                  ? otpSent
+                    ? 'Signing in…'
+                    : 'Sending code…'
+                  : otpSent
+                    ? 'Verify OTP & log in'
+                    : 'Send WhatsApp OTP'}
               </button>
+              {otpSent ? (
+                <button
+                  type="button"
+                  className="text-sm font-semibold text-[var(--book-moss)]"
+                  onClick={() => {
+                    setOtpSent(false);
+                    setOtp('');
+                    setNotice(null);
+                  }}
+                >
+                  Use a different email / number
+                </button>
+              ) : null}
               <div className="rounded-xl border border-[var(--book-line)] px-4 py-3 text-sm text-[var(--book-muted)]">
                 <p className="font-semibold text-[var(--book-ink)]">Install this app</p>
                 <p className="mt-1">{installHint}</p>
@@ -1171,7 +1281,7 @@ function MemberPortalInner() {
                 href={bootstrap?.join_path || `/join/${tenantSlug}`}
                 className="text-center text-sm text-[var(--book-muted)] underline"
               >
-                New here? Join the client list
+                New here? Join Our Membership Family
               </Link>
             </form>
           ) : null}

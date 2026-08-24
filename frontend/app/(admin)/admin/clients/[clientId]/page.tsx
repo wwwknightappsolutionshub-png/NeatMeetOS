@@ -401,6 +401,15 @@ export default function ClientDetailPage() {
                   ? new Date(client.last_visited_at).toLocaleString()
                   : 'Never'}
               </p>
+              <p className="text-xs text-zinc-500">
+                Membership joined:{' '}
+                {client?.membership_joined_at
+                  ? new Date(client.membership_joined_at).toLocaleString()
+                  : '—'}
+              </p>
+              <p className="text-xs text-zinc-500">
+                Interested next visit: {client?.interested_next_visit_date || '—'}
+              </p>
               <Button type="submit">Save profile</Button>
             </form>
           </Card>

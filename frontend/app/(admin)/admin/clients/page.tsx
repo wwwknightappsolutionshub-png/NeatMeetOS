@@ -290,7 +290,9 @@ export default function ClientsListPage() {
                       {client.email ?? '—'} · {client.phone ?? '—'}
                     </p>
                     <p className="mt-1 text-xs text-zinc-500">
-                      Joined {formatShortDate(client.created_at)}
+                      Joined {formatShortDate(client.membership_joined_at || client.created_at)}
+                      {' · '}
+                      Next visit interest {formatShortDate(client.interested_next_visit_date)}
                       {' · '}
                       Last visit {formatShortDate(client.last_visited_at)}
                       {' · '}

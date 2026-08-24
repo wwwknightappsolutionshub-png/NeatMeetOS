@@ -68,11 +68,15 @@ class MemberPortalExperienceService
                 'id' => $client->id,
                 'first_name' => $client->first_name,
                 'last_name' => $client->last_name,
+                'display_name' => $client->display_name,
                 'email' => $client->email,
                 'phone' => $client->phone,
             ],
             'benefits' => $benefits,
             'checked_in_today' => $this->visits->hasCheckedInToday($client),
+            'open_visit' => ($open = $this->visits->openVisitForClient($client))
+                ? $this->visits->serializeVisit($open)
+                : null,
             'last_visited_at' => $client->last_visited_at?->toIso8601String(),
             'loyalty_points_balance' => $this->loyaltyLedger->balanceForClient($client->id),
             'wallet_balance_cents' => $this->walletLedger->balanceForClient($client->id),
@@ -91,6 +95,7 @@ class MemberPortalExperienceService
         return $this->visits->listForClient($client->id)->map(fn ($visit) => [
             'id' => $visit->id,
             'checked_in_at' => $visit->checked_in_at?->toIso8601String(),
+            'checked_out_at' => $visit->checked_out_at?->toIso8601String(),
             'source' => $visit->source,
             'loyalty_points_awarded' => (int) $visit->loyalty_points_awarded,
             'location' => $visit->location ? [

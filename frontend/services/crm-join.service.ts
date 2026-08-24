@@ -44,6 +44,7 @@ export interface CrmJoinBootstrap {
     };
   };
   locations: { id: string; name: string }[];
+  terms_url: string;
   offers: {
     memberships: CrmJoinMembershipOffer[];
     packages: CrmJoinPackageOffer[];
@@ -55,6 +56,7 @@ export interface CrmJoinResult {
   client_id: string;
   created: boolean;
   message: string;
+  member_path?: string;
 }
 
 function publicOpts(tenantSlug: string, init?: RequestInit) {
@@ -77,13 +79,13 @@ export async function fetchCrmJoinBootstrap(
 export async function submitCrmJoin(
   tenantSlug: string,
   payload: {
-    first_name?: string;
-    last_name?: string;
+    preferred_name: string;
     whatsapp_number: string;
-    email?: string;
+    email: string;
+    next_visit_date: string;
+    accept_terms: boolean;
     location_id?: string;
-    special_event_month?: number;
-    special_event_day?: number;
+    special_date?: string;
     special_event_label?: string;
     referral_code?: string;
     date_of_birth?: string;

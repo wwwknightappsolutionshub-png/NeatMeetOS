@@ -17,12 +17,12 @@ use App\Domains\Memberships\Services\LoyaltyLedgerService;
 use App\Domains\Memberships\Services\LoyaltyRedemptionSettingsService;
 use App\Shared\Support\PhoneNormalizer;
 use App\Shared\Tenancy\TenantContext;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Public QR join form — short CRM capture (WhatsApp / phone required).
- * Extension of Module 2 Client CRM for walk-up / QR lead capture.
+ * Public QR join form — membership family capture (WhatsApp + email required).
  */
 class PublicClientCaptureService
 {
@@ -41,6 +41,7 @@ class PublicClientCaptureService
      * @return array{
      *     tenant: array{name: string, slug: string, branding: array<string, mixed>},
      *     locations: list<array{id: string, name: string}>,
+     *     terms_url: string,
      *     offers: array{
      *         memberships: list<array<string, mixed>>,
      *         packages: list<array<string, mixed>>,
@@ -70,6 +71,7 @@ class PublicClientCaptureService
                 'id' => $l->id,
                 'name' => $l->name,
             ])->all(),
+            'terms_url' => rtrim((string) config('app.frontend_url'), '/').'/terms',
             'offers' => $this->getPublicOffers(),
         ];
     }
@@ -137,19 +139,8 @@ class PublicClientCaptureService
     }
 
     /**
-     * @param  array{
-     *     first_name: string,
-     *     last_name?: string|null,
-     *     whatsapp_number: string,
-     *     email?: string|null,
-     *     location_id?: string|null,
-     *     special_event_month?: int|null,
-     *     special_event_day?: int|null,
-     *     special_event_label?: string|null,
-     *     referral_code?: string|null,
-     *     date_of_birth?: string|null
-     * }  $data
-     * @return array{client_id: string, created: bool, message: string}
+     * @param  array<string, mixed>  $data
+     * @return array{client_id: string, created: bool, message: string, member_path: string}
      */
     public function capture(array $data): array
     {
@@ -162,6 +153,29 @@ class PublicClientCaptureService
             ]);
         }
 
+        if (! filter_var($data['accept_terms'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
+            throw ValidationException::withMessages([
+                'accept_terms' => ['You must agree to the Terms & Conditions.'],
+            ]);
+        }
+
+        $email = strtolower(trim((string) ($data['email'] ?? '')));
+        if ($email === '' || ! filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            throw ValidationException::withMessages([
+                'email' => ['A valid email address is required.'],
+            ]);
+        }
+
+        $preferredName = trim((string) ($data['preferred_name'] ?? $data['first_name'] ?? ''));
+        if ($preferredName === '') {
+            throw ValidationException::withMessages([
+                'preferred_name' => ['Preferred name / nickname is required.'],
+            ]);
+        }
+
+        $nextVisitDate = $this->resolveInterestedNextVisitDate($data);
+        $special = $this->resolveSpecialDate($data);
+
         $locationId = $data['location_id'] ?? null;
         if ($locationId) {
             $this->assertLocation($locationId);
@@ -173,81 +187,103 @@ class PublicClientCaptureService
             $referralCode = null;
         }
 
-        $result = DB::transaction(function () use ($data, $phone, $locationId, $tenantId, $thankYou) {
+        $tenant = Tenant::query()->findOrFail($tenantId);
+        $memberPath = '/member/'.$tenant->slug;
+
+        $result = DB::transaction(function () use (
+            $data,
+            $phone,
+            $email,
+            $preferredName,
+            $nextVisitDate,
+            $special,
+            $locationId,
+            $tenantId,
+            $thankYou,
+            $memberPath,
+        ) {
             $existing = $this->findByPhone($tenantId, $phone);
+            $joinedAt = now();
 
             if ($existing !== null) {
-                $patch = [];
-                if (empty($existing->first_name) && ! empty($data['first_name'])) {
-                    $patch['first_name'] = $data['first_name'];
+                $patch = [
+                    'display_name' => $preferredName,
+                    'email' => $email,
+                ];
+                if (empty($existing->first_name)) {
+                    $patch['first_name'] = $preferredName;
                 }
                 if (empty($existing->last_name) && ! empty($data['last_name'])) {
-                    $patch['last_name'] = $data['last_name'];
-                }
-                if (empty($existing->email) && ! empty($data['email'])) {
-                    $patch['email'] = strtolower(trim((string) $data['email']));
+                    $patch['last_name'] = trim((string) $data['last_name']);
                 }
                 if (empty($existing->primary_location_id) && $locationId) {
                     $patch['primary_location_id'] = $locationId;
                 }
-                if (array_key_exists('special_event_month', $data)) {
-                    $patch['special_event_month'] = $data['special_event_month'];
+                if ($existing->membership_joined_at === null) {
+                    $patch['membership_joined_at'] = $joinedAt;
                 }
-                if (array_key_exists('special_event_day', $data)) {
-                    $patch['special_event_day'] = $data['special_event_day'];
+                $existingInterested = $existing->interested_next_visit_date
+                    ? $existing->interested_next_visit_date->toDateString()
+                    : null;
+                if ($existingInterested !== $nextVisitDate) {
+                    $patch['interested_next_visit_date'] = $nextVisitDate;
                 }
-                if (array_key_exists('special_event_label', $data)) {
-                    $patch['special_event_label'] = $data['special_event_label'];
+                if ($special['month'] !== null) {
+                    $patch['special_event_month'] = $special['month'];
+                    $patch['special_event_day'] = $special['day'];
+                    $patch['special_event_label'] = $special['label'];
                 }
-                $dob = $this->resolveDateOfBirth($data);
+                $dob = $this->resolveDateOfBirth($data, $special);
                 if ($dob !== null && empty($existing->date_of_birth)) {
                     $patch['date_of_birth'] = $dob;
                 }
-                $existing->phone = $phone;
-                if ($patch !== []) {
-                    $this->clients->update($existing, $patch);
-                } else {
-                    $existing->save();
-                }
 
+                $existing->phone = $phone;
+                $this->clients->update($existing, $patch);
+
+                $fresh = $existing->fresh();
                 $this->timeline->record(
-                    $existing->fresh(),
+                    $fresh,
                     ClientTimelineEvent::EVENT_CLIENT_UPDATED,
-                    'Details refreshed via CRM join QR form',
+                    'Details refreshed via membership join form',
                     'WhatsApp capture',
                 );
-
-                $this->recordPrivacyConsent($existing->fresh());
+                $this->recordJoinConsents($fresh);
 
                 return [
                     'client_id' => $existing->id,
                     'created' => false,
                     'message' => $thankYou,
+                    'member_path' => $memberPath,
                 ];
             }
 
             $client = $this->clients->create([
-                'first_name' => ! empty($data['first_name']) ? trim((string) $data['first_name']) : null,
+                'display_name' => $preferredName,
+                'first_name' => $preferredName,
                 'last_name' => ! empty($data['last_name']) ? trim((string) $data['last_name']) : null,
-                'email' => ! empty($data['email']) ? strtolower(trim((string) $data['email'])) : null,
+                'email' => $email,
                 'phone' => $phone,
                 'primary_location_id' => $locationId,
-                'date_of_birth' => $this->resolveDateOfBirth($data),
-                'special_event_month' => $data['special_event_month'] ?? null,
-                'special_event_day' => $data['special_event_day'] ?? null,
-                'special_event_label' => $data['special_event_label'] ?? null,
+                'date_of_birth' => $this->resolveDateOfBirth($data, $special),
+                'special_event_month' => $special['month'],
+                'special_event_day' => $special['day'],
+                'special_event_label' => $special['label'],
+                'membership_joined_at' => $joinedAt,
+                'interested_next_visit_date' => $nextVisitDate,
                 'preferences' => [
-                    'capture_source' => 'qr_join_form',
+                    'capture_source' => 'membership_join_form',
                     'whatsapp_preferred' => true,
                 ],
             ]);
 
-            $this->recordPrivacyConsent($client);
+            $this->recordJoinConsents($client);
 
             return [
                 'client_id' => $client->id,
                 'created' => true,
                 'message' => $thankYou,
+                'member_path' => $memberPath,
             ];
         });
 
@@ -268,6 +304,75 @@ class PublicClientCaptureService
         }
 
         return $result;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function resolveInterestedNextVisitDate(array $data): string
+    {
+        $raw = (string) ($data['next_visit_date'] ?? '');
+        if ($raw === '') {
+            throw ValidationException::withMessages([
+                'next_visit_date' => ['Next visit date is required.'],
+            ]);
+        }
+
+        try {
+            $date = Carbon::parse($raw)->startOfDay();
+        } catch (\Throwable) {
+            throw ValidationException::withMessages([
+                'next_visit_date' => ['Next visit date is invalid.'],
+            ]);
+        }
+
+        if ($date->lt(Carbon::today())) {
+            throw ValidationException::withMessages([
+                'next_visit_date' => ['Next visit date cannot be in the past.'],
+            ]);
+        }
+
+        return $date->toDateString();
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array{month: int|null, day: int|null, label: string|null}
+     */
+    private function resolveSpecialDate(array $data): array
+    {
+        $label = trim((string) ($data['special_event_label'] ?? 'Special date'));
+        if ($label === '') {
+            $label = 'Special date';
+        }
+
+        if (! empty($data['special_date'])) {
+            try {
+                $parsed = Carbon::parse((string) $data['special_date']);
+
+                return [
+                    'month' => (int) $parsed->month,
+                    'day' => (int) $parsed->day,
+                    'label' => $label,
+                ];
+            } catch (\Throwable) {
+                throw ValidationException::withMessages([
+                    'special_date' => ['Special date is invalid.'],
+                ]);
+            }
+        }
+
+        $month = isset($data['special_event_month']) ? (int) $data['special_event_month'] : 0;
+        $day = isset($data['special_event_day']) ? (int) $data['special_event_day'] : 0;
+        if ($month >= 1 && $month <= 12 && $day >= 1 && $day <= 31) {
+            return [
+                'month' => $month,
+                'day' => $day,
+                'label' => trim((string) ($data['special_event_label'] ?? '')) ?: $label,
+            ];
+        }
+
+        return ['month' => null, 'day' => null, 'label' => null];
     }
 
     private function awardSignupLoyaltyPoints(Client $client): void
@@ -306,17 +411,28 @@ class PublicClientCaptureService
         $tenant = Tenant::query()->findOrFail($this->requireTenantId());
         $salonName = $tenant->trading_name ?: $tenant->name;
 
-        return 'Thank you so much for joining "'.$salonName.'". We are excited about your decision. Check your email for more details about our membership reward and how to install and use our membership app.';
+        return 'Thank you so much for joining "'.$salonName.'". We are excited about your decision. Open the membership app and log in with your email, WhatsApp number, and the OTP we send you.';
     }
 
-    private function recordPrivacyConsent(Client $client): void
+    private function recordJoinConsents(Client $client): void
     {
+        try {
+            $this->consents->record($client, [
+                'consent_type' => ClientConsentRecord::TYPE_TERMS_OF_SERVICE,
+                'granted' => true,
+                'source' => ClientConsentRecord::SOURCE_ONLINE_FORM,
+                'metadata' => ['via' => 'membership_join_form', 'terms_url' => rtrim((string) config('app.frontend_url'), '/').'/terms'],
+            ]);
+        } catch (\Throwable) {
+            // Consent must not block capture.
+        }
+
         try {
             $this->consents->record($client, [
                 'consent_type' => ClientConsentRecord::TYPE_PRIVACY_CONTACT,
                 'granted' => true,
                 'source' => ClientConsentRecord::SOURCE_ONLINE_FORM,
-                'metadata' => ['via' => 'qr_join_form'],
+                'metadata' => ['via' => 'membership_join_form'],
             ]);
         } catch (\Throwable) {
             // Consent must not block capture.
@@ -331,7 +447,7 @@ class PublicClientCaptureService
                 'consent_type' => ClientConsentRecord::TYPE_MARKETING_EMAIL,
                 'granted' => true,
                 'source' => ClientConsentRecord::SOURCE_ONLINE_FORM,
-                'metadata' => ['via' => 'qr_join_form'],
+                'metadata' => ['via' => 'membership_join_form'],
             ]);
         } catch (\Throwable) {
             // Consent must not block capture.
@@ -339,19 +455,18 @@ class PublicClientCaptureService
     }
 
     /**
-     * Prefer explicit date_of_birth; otherwise map birthday special-event month/day.
-     *
      * @param  array<string, mixed>  $data
+     * @param  array{month: int|null, day: int|null, label: string|null}  $special
      */
-    private function resolveDateOfBirth(array $data): ?string
+    private function resolveDateOfBirth(array $data, array $special): ?string
     {
         if (! empty($data['date_of_birth'])) {
             return (string) $data['date_of_birth'];
         }
 
-        $month = isset($data['special_event_month']) ? (int) $data['special_event_month'] : 0;
-        $day = isset($data['special_event_day']) ? (int) $data['special_event_day'] : 0;
-        $label = strtolower(trim((string) ($data['special_event_label'] ?? '')));
+        $month = (int) ($special['month'] ?? 0);
+        $day = (int) ($special['day'] ?? 0);
+        $label = strtolower(trim((string) ($special['label'] ?? '')));
 
         if ($month < 1 || $month > 12 || $day < 1 || $day > 31) {
             return null;
@@ -361,9 +476,8 @@ class PublicClientCaptureService
             return null;
         }
 
-        // Year is unused by birthday month/day matching; use a stable leap-safe year.
         try {
-            return \Illuminate\Support\Carbon::create(2000, $month, $day)->toDateString();
+            return Carbon::create(2000, $month, $day)->toDateString();
         } catch (\Throwable) {
             return null;
         }

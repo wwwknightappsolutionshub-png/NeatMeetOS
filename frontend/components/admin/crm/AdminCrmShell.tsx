@@ -20,7 +20,12 @@ export function AdminCrmShell({ title, children }: AdminCrmShellProps) {
         {
           href: '/admin/clients',
           label: 'Clients',
-          active: pathname === '/admin/clients' || (pathname.startsWith('/admin/clients/') && !pathname.startsWith('/admin/clients/import')),
+          active: pathname === '/admin/clients' || (pathname.startsWith('/admin/clients/') && !pathname.startsWith('/admin/clients/import') && !pathname.startsWith('/admin/clients/on-site')),
+        },
+        {
+          href: '/admin/clients/on-site',
+          label: "Who's in",
+          active: pathname.startsWith('/admin/clients/on-site'),
         },
         {
           href: '/admin/clients/import',

@@ -19,25 +19,24 @@ class Module2CrmJoinCaptureTest extends TestCase
 
         $this->withHeaders(['X-Tenant-Slug' => $ctx['tenant']->slug])
             ->postJson('/api/v1/join/clients', [
-                'first_name' => 'Pat',
-                'last_name' => 'Walker',
+                'preferred_name' => 'Pat',
             ])
             ->assertStatus(422);
 
         $create = $this->withHeaders(['X-Tenant-Slug' => $ctx['tenant']->slug])
-            ->postJson('/api/v1/join/clients', [
-                'first_name' => 'Pat',
-                'last_name' => 'Walker',
+            ->postJson('/api/v1/join/clients', $this->membershipJoinPayload([
+                'preferred_name' => 'Pat',
                 'whatsapp_number' => '+44 7700 900111',
                 'email' => 'pat@example.test',
                 'location_id' => $ctx['location']->id,
-            ]);
+            ]));
 
         $create->assertCreated()
             ->assertJsonPath('data.created', true);
 
         $this->assertDatabaseHas('clients', [
             'tenant_id' => $ctx['tenant']->id,
+            'display_name' => 'Pat',
             'first_name' => 'Pat',
             'email' => 'pat@example.test',
             'phone' => '+447700900111',
@@ -49,6 +48,11 @@ class Module2CrmJoinCaptureTest extends TestCase
             'consent_type' => ClientConsentRecord::TYPE_PRIVACY_CONTACT,
             'granted' => true,
             'source' => ClientConsentRecord::SOURCE_ONLINE_FORM,
+        ]);
+        $this->assertDatabaseHas('client_consent_records', [
+            'client_id' => $clientId,
+            'consent_type' => ClientConsentRecord::TYPE_TERMS_OF_SERVICE,
+            'granted' => true,
         ]);
     }
 
@@ -64,11 +68,11 @@ class Module2CrmJoinCaptureTest extends TestCase
         ]);
 
         $this->withHeaders(['X-Tenant-Slug' => $ctx['tenant']->slug])
-            ->postJson('/api/v1/join/clients', [
-                'first_name' => 'Old',
+            ->postJson('/api/v1/join/clients', $this->membershipJoinPayload([
+                'preferred_name' => 'Old',
                 'whatsapp_number' => '+44 7700 900222',
                 'email' => 'old@example.test',
-            ])
+            ]))
             ->assertOk()
             ->assertJsonPath('data.created', false);
 
@@ -81,6 +85,7 @@ class Module2CrmJoinCaptureTest extends TestCase
             'tenant_id' => $ctx['tenant']->id,
             'phone' => '+447700900222',
             'email' => 'old@example.test',
+            'display_name' => 'Old',
         ]);
     }
 
@@ -96,15 +101,17 @@ class Module2CrmJoinCaptureTest extends TestCase
                 'data' => [
                     'tenant',
                     'locations',
+                    'terms_url',
                     'offers' => ['memberships', 'packages', 'loyalty'],
                 ],
             ]);
 
         $this->withHeaders(['X-Tenant-Slug' => $ctx['otherTenant']->slug])
-            ->postJson('/api/v1/join/clients', [
-                'first_name' => 'Other',
+            ->postJson('/api/v1/join/clients', $this->membershipJoinPayload([
+                'preferred_name' => 'Other',
                 'whatsapp_number' => '+447700900333',
-            ])
+                'email' => 'other@example.test',
+            ]))
             ->assertCreated();
 
         $this->assertDatabaseMissing('clients', [

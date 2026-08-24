@@ -238,15 +238,14 @@ class MarketingEmailLayoutAndCadenceTest extends TestCase
         $this->assertGreaterThanOrEqual(1, $counts['email']);
         $this->assertGreaterThanOrEqual(1, $counts['in_app']);
 
-        $join = $this->postJson('/api/v1/join/clients', [
-            'first_name' => 'Dob',
-            'whatsapp_number' => '+447700900666',
-            'email' => 'dob.join@example.test',
-            'date_of_birth' => '1990-07-22',
-            'location_id' => $ctx['location']->id,
-        ], [
-            'X-Tenant-Slug' => $ctx['tenant']->slug,
-        ]);
+        $join = $this->withHeaders(['X-Tenant-Slug' => $ctx['tenant']->slug])
+            ->postJson('/api/v1/join/clients', $this->membershipJoinPayload([
+                'preferred_name' => 'Dob',
+                'whatsapp_number' => '+447700900666',
+                'email' => 'dob.join@example.test',
+                'date_of_birth' => '1990-07-22',
+                'location_id' => $ctx['location']->id,
+            ]));
 
         $join->assertSuccessful();
         $saved = Client::withoutGlobalScopes()->where('email', 'dob.join@example.test')->first();

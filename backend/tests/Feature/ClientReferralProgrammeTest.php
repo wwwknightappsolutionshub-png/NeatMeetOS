@@ -43,12 +43,12 @@ class ClientReferralProgrammeTest extends TestCase
         $invite = app(ClientReferralService::class)->ensureInviteForClient($referrer);
 
         $create = $this->withHeaders(['X-Tenant-Slug' => $ctx['tenant']->slug])
-            ->postJson('/api/v1/join/clients', [
-                'first_name' => 'Friend',
+            ->postJson('/api/v1/join/clients', $this->membershipJoinPayload([
+                'preferred_name' => 'Friend',
                 'whatsapp_number' => '+447700900902',
                 'email' => 'friend@example.test',
                 'referral_code' => $invite->code,
-            ])
+            ]))
             ->assertCreated()
             ->assertJsonPath('data.created', true);
 
@@ -91,12 +91,12 @@ class ClientReferralProgrammeTest extends TestCase
 
         // Re-joining same WhatsApp updates existing client (created=false) — no attribution.
         $this->withHeaders(['X-Tenant-Slug' => $ctx['tenant']->slug])
-            ->postJson('/api/v1/join/clients', [
-                'first_name' => 'Self',
+            ->postJson('/api/v1/join/clients', $this->membershipJoinPayload([
+                'preferred_name' => 'Self',
                 'whatsapp_number' => '+447700900910',
                 'email' => 'self@example.test',
                 'referral_code' => $invite->code,
-            ])
+            ]))
             ->assertOk()
             ->assertJsonPath('data.created', false);
 
@@ -113,11 +113,12 @@ class ClientReferralProgrammeTest extends TestCase
         $ctx = $this->seedTenantContext(['crm.view', 'crm.manage']);
 
         $this->withHeaders(['X-Tenant-Slug' => $ctx['tenant']->slug])
-            ->postJson('/api/v1/join/clients', [
-                'first_name' => 'NoCode',
+            ->postJson('/api/v1/join/clients', $this->membershipJoinPayload([
+                'preferred_name' => 'NoCode',
                 'whatsapp_number' => '+447700900920',
+                'email' => 'nocode@example.test',
                 'referral_code' => 'NOTEXIST',
-            ])
+            ]))
             ->assertCreated()
             ->assertJsonPath('data.created', true);
 
@@ -150,12 +151,12 @@ class ClientReferralProgrammeTest extends TestCase
         $invite = app(ClientReferralService::class)->ensureInviteForClient($referrer);
 
         $join = $this->withHeaders(['X-Tenant-Slug' => $ctx['tenant']->slug])
-            ->postJson('/api/v1/join/clients', [
-                'first_name' => 'Guest',
+            ->postJson('/api/v1/join/clients', $this->membershipJoinPayload([
+                'preferred_name' => 'Guest',
                 'whatsapp_number' => '+447700900931',
                 'email' => 'guest@example.test',
                 'referral_code' => $invite->code,
-            ])
+            ]))
             ->assertCreated();
 
         $guestId = $join->json('data.client_id');
@@ -180,13 +181,11 @@ class ClientReferralProgrammeTest extends TestCase
             'is_public' => true,
         ]);
 
-        $login = $this->withHeaders(['X-Tenant-Slug' => $ctx['tenant']->slug])
-            ->postJson('/api/v1/member/login', [
-                'email' => 'guest@example.test',
-                'phone' => '+447700900931',
-            ])
-            ->assertOk();
-        $token = $login->json('data.token');
+        $token = $this->memberLoginViaOtp(
+            $ctx['tenant']->slug,
+            'guest@example.test',
+            '+447700900931',
+        );
         $headers = [
             'X-Tenant-Slug' => $ctx['tenant']->slug,
             'Authorization' => 'Bearer '.$token,
@@ -236,15 +235,14 @@ class ClientReferralProgrammeTest extends TestCase
             'is_active' => true,
         ]);
 
-        $login = $this->withHeaders(['X-Tenant-Slug' => $ctx['tenant']->slug])
-            ->postJson('/api/v1/member/login', [
-                'email' => 'sender@example.test',
-                'phone' => '+447700900940',
-            ])
-            ->assertOk();
+        $token = $this->memberLoginViaOtp(
+            $ctx['tenant']->slug,
+            'sender@example.test',
+            '+447700900940',
+        );
         $headers = [
             'X-Tenant-Slug' => $ctx['tenant']->slug,
-            'Authorization' => 'Bearer '.$login->json('data.token'),
+            'Authorization' => 'Bearer '.$token,
         ];
 
         $emails = [];
@@ -283,12 +281,12 @@ class ClientReferralProgrammeTest extends TestCase
 
         // Other tenant join with this code must not attribute.
         $this->withHeaders(['X-Tenant-Slug' => $ctx['otherTenant']->slug])
-            ->postJson('/api/v1/join/clients', [
-                'first_name' => 'Other',
+            ->postJson('/api/v1/join/clients', $this->membershipJoinPayload([
+                'preferred_name' => 'Other',
                 'whatsapp_number' => '+447700900951',
                 'email' => 'other@example.test',
                 'referral_code' => $invite->code,
-            ])
+            ]))
             ->assertCreated();
 
         $this->assertDatabaseHas('clients', [

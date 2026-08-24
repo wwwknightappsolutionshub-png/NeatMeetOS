@@ -87,13 +87,11 @@ class MemberPortalPwaExpansionTest extends TestCase
             'quantity_remaining' => 6,
         ]);
 
-        $ownerLogin = $this->withHeaders(['X-Tenant-Slug' => $ctx['tenant']->slug])
-            ->postJson('/api/v1/member/login', [
-                'email' => 'owner-member@example.test',
-                'phone' => '+447700900801',
-            ])
-            ->assertOk();
-        $ownerToken = $ownerLogin->json('data.token');
+        $ownerToken = $this->memberLoginViaOtp(
+            $ctx['tenant']->slug,
+            'owner-member@example.test',
+            '+447700900801',
+        );
         $ownerHeaders = [
             'X-Tenant-Slug' => $ctx['tenant']->slug,
             'Authorization' => 'Bearer '.$ownerToken,
@@ -158,13 +156,11 @@ class MemberPortalPwaExpansionTest extends TestCase
         $owned->refresh();
         $this->assertSame(4.0, (float) $owned->quantity_remaining);
 
-        $friendLogin = $this->withHeaders(['X-Tenant-Slug' => $ctx['tenant']->slug])
-            ->postJson('/api/v1/member/login', [
-                'email' => 'friend-member@example.test',
-                'phone' => '+447700900802',
-            ])
-            ->assertOk();
-        $friendToken = $friendLogin->json('data.token');
+        $friendToken = $this->memberLoginViaOtp(
+            $ctx['tenant']->slug,
+            'friend-member@example.test',
+            '+447700900802',
+        );
 
         $this->withHeaders([
             'X-Tenant-Slug' => $ctx['tenant']->slug,

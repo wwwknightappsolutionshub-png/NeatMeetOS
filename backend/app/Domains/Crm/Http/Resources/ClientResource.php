@@ -37,6 +37,8 @@ class ClientResource extends JsonResource
             'preferences' => $this->preferences,
             'loyalty_display_status' => $this->loyalty_display_status,
             'last_visited_at' => $this->last_visited_at?->toIso8601String(),
+            'membership_joined_at' => $this->membership_joined_at?->toIso8601String(),
+            'interested_next_visit_date' => $this->interested_next_visit_date?->format('Y-m-d'),
             'is_active' => $this->is_active,
             'tag_ids' => $this->whenLoaded('tags', fn () => $this->tags->pluck('id')),
             'tags' => ClientTagResource::collection($this->whenLoaded('tags')),

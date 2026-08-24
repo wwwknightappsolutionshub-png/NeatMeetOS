@@ -142,13 +142,11 @@ class GalleryLookbookNextVisitTest extends TestCase
             'primary_location_id' => $ctx['location']->id,
         ]);
 
-        $login = $this->withHeaders(['X-Tenant-Slug' => $ctx['tenant']->slug])
-            ->postJson('/api/v1/member/login', [
-                'email' => 'nextvisit@example.test',
-                'phone' => '+447700900801',
-            ]);
-        $login->assertOk();
-        $token = $login->json('data.token');
+        $token = $this->memberLoginViaOtp(
+            $ctx['tenant']->slug,
+            'nextvisit@example.test',
+            '+447700900801',
+        );
 
         $checkIn = $this->withHeaders([
             'X-Tenant-Slug' => $ctx['tenant']->slug,
@@ -206,12 +204,11 @@ class GalleryLookbookNextVisitTest extends TestCase
             'primary_location_id' => $ctx['location']->id,
         ]);
 
-        $login = $this->withHeaders(['X-Tenant-Slug' => $ctx['tenant']->slug])
-            ->postJson('/api/v1/member/login', [
-                'email' => 'booknext@example.test',
-                'phone' => '+447700900802',
-            ]);
-        $token = $login->json('data.token');
+        $token = $this->memberLoginViaOtp(
+            $ctx['tenant']->slug,
+            'booknext@example.test',
+            '+447700900802',
+        );
         $headers = [
             'X-Tenant-Slug' => $ctx['tenant']->slug,
             'Authorization' => 'Bearer '.$token,

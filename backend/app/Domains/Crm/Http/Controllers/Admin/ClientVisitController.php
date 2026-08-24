@@ -7,6 +7,7 @@ use App\Domains\Crm\Services\ClientVisitService;
 use App\Domains\Identity\Http\Controllers\Controller;
 use App\Shared\Support\ApiResponse;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class ClientVisitController extends Controller
 {
@@ -14,6 +15,20 @@ class ClientVisitController extends Controller
         private readonly ClientVisitService $visitService,
         private readonly ClientService $clientService,
     ) {}
+
+    public function open(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'location_id' => ['nullable', 'uuid'],
+        ]);
+
+        $visits = $this->visitService->listOpenVisits($data['location_id'] ?? null);
+
+        return ApiResponse::success([
+            'items' => $visits->map(fn ($visit) => $this->visitService->serializeOpenVisit($visit))->all(),
+            'count' => $visits->count(),
+        ]);
+    }
 
     public function index(string $id): JsonResponse
     {
@@ -29,6 +44,7 @@ class ClientVisitController extends Controller
                 'name' => $visit->location->name,
             ] : null,
             'checked_in_at' => $visit->checked_in_at?->toIso8601String(),
+            'checked_out_at' => $visit->checked_out_at?->toIso8601String(),
             'source' => $visit->source,
             'loyalty_points_awarded' => $visit->loyalty_points_awarded,
             'notes' => $visit->notes,

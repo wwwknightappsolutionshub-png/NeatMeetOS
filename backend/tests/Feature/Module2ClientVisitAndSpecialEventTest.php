@@ -22,11 +22,11 @@ class Module2ClientVisitAndSpecialEventTest extends TestCase
     {
         $ctx = $this->seedTenantContext(['crm.view', 'crm.manage']);
         $salonName = $ctx['tenant']->trading_name ?: $ctx['tenant']->name;
-        $expectedMessage = 'Thank you so much for joining "'.$salonName.'". We are excited about your decision. Check your email for more details about our membership reward and how to install and use our membership app.';
+        $expectedMessage = 'Thank you so much for joining "'.$salonName.'". We are excited about your decision. Open the membership app and log in with your email, WhatsApp number, and the OTP we send you.';
 
         $create = $this->withHeaders(['X-Tenant-Slug' => $ctx['tenant']->slug])
-            ->postJson('/api/v1/join/clients', [
-                'first_name' => 'Ava',
+            ->postJson('/api/v1/join/clients', $this->membershipJoinPayload([
+                'preferred_name' => 'Ava',
                 'last_name' => 'Lane',
                 'whatsapp_number' => '+447700900701',
                 'email' => 'ava@example.test',
@@ -34,7 +34,7 @@ class Module2ClientVisitAndSpecialEventTest extends TestCase
                 'special_event_month' => 7,
                 'special_event_day' => 20,
                 'special_event_label' => 'Anniversary',
-            ]);
+            ]));
 
         $create->assertCreated()
             ->assertJsonPath('data.created', true)
@@ -56,13 +56,14 @@ class Module2ClientVisitAndSpecialEventTest extends TestCase
         ]);
 
         $update = $this->withHeaders(['X-Tenant-Slug' => $ctx['tenant']->slug])
-            ->postJson('/api/v1/join/clients', [
-                'first_name' => 'Ava',
+            ->postJson('/api/v1/join/clients', $this->membershipJoinPayload([
+                'preferred_name' => 'Ava',
                 'whatsapp_number' => '+44 7700 900701',
+                'email' => 'ava@example.test',
                 'special_event_month' => 12,
                 'special_event_day' => 25,
                 'special_event_label' => 'Birthday',
-            ]);
+            ]));
 
         $update->assertOk()
             ->assertJsonPath('data.created', false)
@@ -92,13 +93,7 @@ class Module2ClientVisitAndSpecialEventTest extends TestCase
             'primary_location_id' => $ctx['location']->id,
         ]);
 
-        $login = $this->withHeaders(['X-Tenant-Slug' => $ctx['tenant']->slug])
-            ->postJson('/api/v1/member/login', [
-                'email' => 'visit@example.test',
-                'phone' => '+447700900702',
-            ]);
-        $login->assertOk();
-        $token = $login->json('data.token');
+        $token = $this->memberLoginViaOtp($ctx['tenant']->slug, 'visit@example.test', '+447700900702');
 
         $headers = [
             'X-Tenant-Slug' => $ctx['tenant']->slug,

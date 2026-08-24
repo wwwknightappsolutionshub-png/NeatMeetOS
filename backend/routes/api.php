@@ -181,9 +181,10 @@ Route::prefix('v1')->group(function () {
         Route::post('/clients', [PublicClientCaptureController::class, 'store'])->middleware('turnstile');
     });
 
-    // Module 2 / 9 extension — Membership PWA client portal (email + WhatsApp login).
+    // Module 2 / 9 extension — Membership PWA client portal (email + WhatsApp OTP login).
     Route::middleware(['ip.ban', 'throttle:public-member', 'tenant.resolve', 'tenant.require'])->prefix('member')->group(function () {
         Route::get('/bootstrap', [MemberPortalController::class, 'bootstrap']);
+        Route::post('/login/request-otp', [MemberPortalController::class, 'requestOtp'])->middleware(['throttle:public-member-otp', 'turnstile']);
         Route::post('/login', [MemberPortalController::class, 'login'])->middleware('turnstile');
         Route::get('/me', [MemberPortalController::class, 'me']);
         Route::get('/dashboard', [MemberPortalController::class, 'dashboard']);
@@ -201,6 +202,7 @@ Route::prefix('v1')->group(function () {
         Route::get('/referral', [MemberPortalController::class, 'referral']);
         Route::post('/referral/email-invites', [MemberPortalController::class, 'sendReferralEmailInvites']);
         Route::post('/check-in', [MemberPortalController::class, 'checkIn']);
+        Route::post('/check-out', [MemberPortalController::class, 'checkOut']);
         Route::get('/visit-status', [MemberPortalController::class, 'visitStatus']);
         Route::get('/next-visit', [NextVisitMemberController::class, 'upcoming']);
         Route::post('/next-visit/schedule', [NextVisitMemberController::class, 'schedule']);
@@ -367,6 +369,7 @@ Route::prefix('v1')->group(function () {
             Route::get('/clients/{id}', [ClientController::class, 'show']);
             Route::get('/clients/{id}/export', [ClientController::class, 'export']);
             Route::get('/clients/{id}/visits', [ClientVisitController::class, 'index']);
+            Route::get('/visits/open', [ClientVisitController::class, 'open']);
             Route::get('/crm/tags', [ClientTagController::class, 'index']);
             Route::get('/clients/{clientId}/notes', [ClientNoteController::class, 'index']);
             Route::get('/clients/{clientId}/consents', [ClientConsentController::class, 'index']);

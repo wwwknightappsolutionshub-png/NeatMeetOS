@@ -19,6 +19,7 @@ class ClientVisit extends Model
         'client_id',
         'location_id',
         'checked_in_at',
+        'checked_out_at',
         'source',
         'loyalty_points_awarded',
         'notes',
@@ -30,6 +31,7 @@ class ClientVisit extends Model
     {
         return [
             'checked_in_at' => 'datetime',
+            'checked_out_at' => 'datetime',
             'loyalty_points_awarded' => 'integer',
             'next_visit_prompted_at' => 'datetime',
         ];

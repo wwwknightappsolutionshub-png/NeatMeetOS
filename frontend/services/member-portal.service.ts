@@ -27,6 +27,7 @@ export interface MemberPortalBootstrap {
   locations: MemberPortalLocation[];
   join_path: string;
   book_path: string;
+  terms_url?: string;
   vapid_public_key?: string | null;
   push_enabled?: boolean;
 }
@@ -44,15 +45,19 @@ export interface MemberVisitStatus {
   already_checked_in_today?: boolean;
   prompt_next_visit?: boolean;
   next_visit_appointment_id?: string | null;
-  visit?: {
-    id: string;
-    client_id?: string;
-    location_id?: string | null;
-    checked_in_at?: string | null;
-    source?: string | null;
-    loyalty_points_awarded?: number;
-    next_visit_appointment_id?: string | null;
-  };
+  open_visit?: MemberOpenVisit | null;
+  visit?: MemberOpenVisit;
+}
+
+export interface MemberOpenVisit {
+  id: string;
+  client_id?: string;
+  location_id?: string | null;
+  checked_in_at?: string | null;
+  checked_out_at?: string | null;
+  source?: string | null;
+  loyalty_points_awarded?: number;
+  next_visit_appointment_id?: string | null;
 }
 
 export interface MemberSession {
@@ -62,11 +67,13 @@ export interface MemberSession {
     id: string;
     first_name: string | null;
     last_name: string | null;
+    display_name?: string | null;
     email: string | null;
     phone: string | null;
   };
   benefits: MemberBenefits;
   checked_in_today?: boolean;
+  open_visit?: MemberOpenVisit | null;
   last_visited_at?: string | null;
   loyalty_points_balance?: number | null;
 }
@@ -75,6 +82,7 @@ export interface MemberDashboard {
   client: MemberSession['client'];
   benefits: MemberBenefits;
   checked_in_today: boolean;
+  open_visit?: MemberOpenVisit | null;
   last_visited_at: string | null;
   loyalty_points_balance: number;
   wallet_balance_cents: number;
@@ -127,6 +135,7 @@ export interface MemberOffers {
 export interface MemberVisitRow {
   id: string;
   checked_in_at: string | null;
+  checked_out_at?: string | null;
   source: string | null;
   loyalty_points_awarded: number;
   location: { id: string; name: string } | null;
@@ -220,16 +229,31 @@ export async function fetchMemberBootstrap(tenantSlug: string): Promise<MemberPo
   return api<MemberPortalBootstrap>('/member/bootstrap', publicOpts(tenantSlug));
 }
 
+export async function memberRequestOtp(
+  tenantSlug: string,
+  email: string,
+  phone: string,
+): Promise<{ sent: boolean; expires_in_seconds: number; masked_phone: string }> {
+  const turnstile_token = await getTurnstileToken();
+  return api('/member/login/request-otp', {
+    ...publicOpts(tenantSlug, {
+      method: 'POST',
+      body: JSON.stringify(withTurnstileToken({ email, phone }, turnstile_token)),
+    }),
+  });
+}
+
 export async function memberLogin(
   tenantSlug: string,
   email: string,
   phone: string,
+  otp: string,
 ): Promise<MemberSession> {
   const turnstile_token = await getTurnstileToken();
   const data = await api<MemberSession>('/member/login', {
     ...publicOpts(tenantSlug, {
       method: 'POST',
-      body: JSON.stringify(withTurnstileToken({ email, phone }, turnstile_token)),
+      body: JSON.stringify(withTurnstileToken({ email, phone, otp }, turnstile_token)),
     }),
   });
   saveMemberSession(tenantSlug, data);
@@ -243,6 +267,7 @@ export async function fetchMemberMe(
   client: MemberSession['client'];
   benefits: MemberBenefits;
   checked_in_today?: boolean;
+  open_visit?: MemberOpenVisit | null;
   last_visited_at?: string | null;
   loyalty_points_balance?: number | null;
 }> {
@@ -368,6 +393,13 @@ export async function memberCheckIn(
   locationId?: string,
 ): Promise<MemberVisitStatus> {
   return memberMutate(tenantSlug, token, '/member/check-in', 'POST', locationId ? { location_id: locationId } : {});
+}
+
+export async function memberCheckOut(
+  tenantSlug: string,
+  token: string,
+): Promise<MemberVisitStatus> {
+  return memberMutate(tenantSlug, token, '/member/check-out', 'POST', {});
 }
 
 export async function memberVisitStatus(

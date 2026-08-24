@@ -19,6 +19,8 @@ class ClientConsentRecord extends Model
 
     public const TYPE_PRIVACY_CONTACT = 'privacy_contact';
 
+    public const TYPE_TERMS_OF_SERVICE = 'terms_of_service';
+
     public const SOURCE_IN_PERSON = 'in_person';
 
     public const SOURCE_ONLINE_FORM = 'online_form';
@@ -33,6 +35,7 @@ class ClientConsentRecord extends Model
             self::TYPE_MARKETING_EMAIL,
             self::TYPE_MARKETING_SMS,
             self::TYPE_PRIVACY_CONTACT,
+            self::TYPE_TERMS_OF_SERVICE,
         ];
     }
 

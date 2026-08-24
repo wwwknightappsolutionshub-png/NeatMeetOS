@@ -262,6 +262,8 @@ WHATSAPP_GENIUS_BASE_URL=https://restapi.geniusdevel.com
 
 Use **Send test message** with an E.164 phone after saving. Booking WhatsApp delivery also requires the guest to opt in on `/book/{slug}` (`allow_whatsapp`).
 
+**Member PWA login OTP** also uses this Genius path (`member.portal_otp`). Enable WhatsApp before expecting `/member/{slug}` OTP login to work in production.
+
 Owner SOS push needs VAPID keys + the admin “Enable SOS push” prompt:
 
 ```bash

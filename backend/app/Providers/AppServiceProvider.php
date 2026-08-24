@@ -72,6 +72,12 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(60)->by($request->ip());
         });
 
+        RateLimiter::for('public-member-otp', function (Request $request) {
+            $email = strtolower(trim((string) $request->input('email', '')));
+
+            return Limit::perMinute(8)->by($email.'|'.$request->ip());
+        });
+
         RateLimiter::for('public-signup', function (Request $request) {
             return Limit::perMinute(6)->by($request->ip());
         });
