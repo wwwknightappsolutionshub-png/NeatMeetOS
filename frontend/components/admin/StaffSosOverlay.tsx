@@ -12,7 +12,9 @@ import {
 } from '@/services/staff-sos.service';
 
 const POLL_MS = 5_000;
-const VIBRATE_PATTERN = [600, 180, 600, 180, 600, 180, 900, 400];
+/** Aggressive emergency vibration (long bursts) until the tenant stops the alert. */
+const EMERGENCY_VIBRATE_PATTERN = [1000, 200, 1000, 200, 1000, 200, 1000, 400];
+const SIREN_CYCLE_MS = 2_000;
 
 function stopVibrate(): void {
   try {
@@ -22,7 +24,8 @@ function stopVibrate(): void {
   }
 }
 
-function playSosBeep(): void {
+/** Rising/falling siren tone for tenant SOS alerts. */
+function playSosSiren(): void {
   try {
     const Ctx =
       window.AudioContext ||
@@ -31,15 +34,22 @@ function playSosBeep(): void {
     const ctx = new Ctx();
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
-    osc.type = 'square';
-    osc.frequency.value = 880;
-    gain.gain.value = 0.08;
+    osc.type = 'sawtooth';
+    gain.gain.value = 0.14;
     osc.connect(gain);
     gain.connect(ctx.destination);
-    osc.start();
-    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.35);
-    osc.stop(ctx.currentTime + 0.36);
-    window.setTimeout(() => void ctx.close(), 500);
+    const now = ctx.currentTime;
+    osc.frequency.setValueAtTime(650, now);
+    osc.frequency.linearRampToValueAtTime(1450, now + 0.45);
+    osc.frequency.linearRampToValueAtTime(650, now + 0.9);
+    osc.frequency.linearRampToValueAtTime(1450, now + 1.35);
+    osc.frequency.linearRampToValueAtTime(650, now + 1.8);
+    gain.gain.setValueAtTime(0.14, now);
+    gain.gain.setValueAtTime(0.14, now + 1.65);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 1.9);
+    osc.start(now);
+    osc.stop(now + 1.95);
+    window.setTimeout(() => void ctx.close(), 2200);
   } catch {
     /* ignore */
   }
@@ -98,14 +108,14 @@ export function StaffSosOverlay() {
     const pulse = () => {
       if (cancelled) return;
       try {
-        navigator.vibrate?.(VIBRATE_PATTERN);
+        navigator.vibrate?.(EMERGENCY_VIBRATE_PATTERN);
       } catch {
         /* ignore */
       }
-      if (!muted) playSosBeep();
+      if (!muted) playSosSiren();
     };
     pulse();
-    const id = window.setInterval(pulse, 1_800);
+    const id = window.setInterval(pulse, SIREN_CYCLE_MS);
 
     void (async () => {
       try {
@@ -210,7 +220,7 @@ export function StaffSosOverlay() {
             className="text-xs font-medium text-[var(--admin-muted)] underline"
             onClick={() => setMuted((v) => !v)}
           >
-            {muted ? 'Unmute beep' : 'Mute beep'}
+            {muted ? 'Unmute siren' : 'Mute siren'}
           </button>
         </div>
         <h2 id="staff-sos-title" className="mt-2 text-xl font-semibold tracking-tight text-[var(--admin-ink)]">

@@ -240,6 +240,8 @@ class StaffSosAlertService
                 'allow_shift' => (bool) (($alert->payload_json['allow_shift'] ?? false)),
                 'appointment_id' => $alert->appointment_id,
                 'require_ack' => true,
+                'sound' => 'siren',
+                'vibrate' => 'emergency',
             ],
         ], 'staff_sos.push');
     }

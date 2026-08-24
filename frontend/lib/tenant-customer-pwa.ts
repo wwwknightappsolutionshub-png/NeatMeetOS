@@ -9,7 +9,7 @@ export type TenantCustomerPwaInstallResult =
   | 'already_standalone'
   | 'manual';
 
-export const INSTALL_GATE_REPROMPT_MS = 5_000;
+export const INSTALL_GATE_REPROMPT_MS = 300_000;
 
 export function isStandaloneDisplay(): boolean {
   if (typeof window === 'undefined') return false;

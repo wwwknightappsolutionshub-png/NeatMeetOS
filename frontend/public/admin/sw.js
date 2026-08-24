@@ -1,5 +1,7 @@
 /* NeatMeet admin workspace PWA — caches admin shell and delivers owner push. */
-const CACHE = 'neatmeet-admin-v1';
+const CACHE = 'neatmeet-admin-v2';
+/** Long-burst emergency vibration for tenant SOS alerts. */
+const EMERGENCY_VIBRATE = [1000, 200, 1000, 200, 1000, 200, 1000, 400];
 const SHELL = ['/admin-icons/icon-192.svg', '/admin-icons/icon-512.svg'];
 
 self.addEventListener('install', (event) => {
@@ -74,10 +76,12 @@ self.addEventListener('push', (event) => {
         body,
         icon: '/admin-icons/icon-192.svg',
         requireInteraction: isSos,
-        vibrate: isSos ? [500, 200, 500, 200, 500] : undefined,
+        vibrate: isSos ? EMERGENCY_VIBRATE : undefined,
+        // Hint for platforms that honor named notification sounds (ignored where unsupported).
+        sound: isSos ? 'siren' : undefined,
         tag: isSos ? `staff-sos-${payload.alert_id || 'active'}` : undefined,
         renotify: isSos,
-        data: { url, ...payload },
+        data: { url, ...payload, sound: isSos ? 'siren' : undefined },
       });
     })(),
   );
