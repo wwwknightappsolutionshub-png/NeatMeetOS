@@ -17,6 +17,7 @@ use App\Domains\Notifications\Enums\NotificationSourceType;
 use App\Domains\Notifications\Models\NotificationMessage;
 use App\Domains\Notifications\Services\PlatformWhatsAppSettingsService;
 use App\Domains\Payments\Models\PaymentTransaction;
+use App\Shared\Support\FrontendUrl;
 use App\Shared\Tenancy\TenantContext;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
@@ -497,11 +498,15 @@ class NotificationTriggerService
         $salonName = trim((string) ($branding['brand_display_name'] ?? ''))
             ?: ($tenant?->trading_name ?: $tenant?->name ?: 'Your salon');
         $primary = trim((string) ($branding['primary_color'] ?? '')) ?: '#2f5a45';
-        $slug = $tenant?->slug ?? '';
-        $frontend = rtrim((string) config('app.frontend_url'), '/');
-        $pwaUrl = $frontend.'/member/'.$slug;
-        $bookUrl = $frontend.'/book/'.$slug;
+        $slug = (string) ($tenant?->slug ?? '');
+        $pwaUrl = FrontendUrl::memberApp($slug);
+        $bookUrl = FrontendUrl::bookingPage($slug);
         $first = trim((string) ($client->first_name ?? 'there'));
+        $salonNameEsc = e($salonName);
+        $firstEsc = e($first);
+        $primaryEsc = e($primary);
+        $pwaUrlEsc = e($pwaUrl);
+        $bookUrlEsc = e($bookUrl);
 
         $membershipLines = '';
         foreach ($offers['memberships'] ?? [] as $plan) {
@@ -527,39 +532,39 @@ class NotificationTriggerService
         if (! empty($offers['loyalty']['enabled'])) {
             $loyaltyDesc = e((string) ($offers['loyalty']['description'] ?? 'Earn points and redeem rewards on every visit.'));
             $loyaltyHeadline = e((string) ($offers['loyalty']['headline'] ?? 'Loyalty rewards'));
-            $loyaltyBlock = "<h3 style=\"margin:24px 0 8px;color:{$primary};font-size:16px;\">{$loyaltyHeadline}</h3>"
+            $loyaltyBlock = "<h3 style=\"margin:24px 0 8px;color:{$primaryEsc};font-size:16px;\">{$loyaltyHeadline}</h3>"
                 ."<p style=\"margin:0;color:#444;line-height:1.5;\">{$loyaltyDesc}</p>";
         }
 
         $offersSection = $membershipLines !== ''
-            ? '<h3 style="margin:24px 0 8px;color:'.$primary.';font-size:16px;">Membership &amp; packages</h3>'
+            ? '<h3 style="margin:24px 0 8px;color:'.$primaryEsc.';font-size:16px;">Membership &amp; packages</h3>'
                 .'<ul style="padding-left:18px;margin:0;color:#222;">'.$membershipLines.'</ul>'
             : '<p style="margin:16px 0 0;color:#555;">Ask us about membership and package options on your next visit.</p>';
 
         $bodyHtml = <<<HTML
 <div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#18181b;">
-  <div style="background:{$primary};color:#fff;padding:20px 24px;border-radius:12px 12px 0 0;">
+  <div style="background:{$primaryEsc};color:#fff;padding:20px 24px;border-radius:12px 12px 0 0;">
     <p style="margin:0;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;opacity:0.85;">Welcome</p>
-    <h1 style="margin:8px 0 0;font-size:24px;">{$salonName}</h1>
+    <h1 style="margin:8px 0 0;font-size:24px;">{$salonNameEsc}</h1>
   </div>
   <div style="border:1px solid #e4e4e7;border-top:none;padding:24px;border-radius:0 0 12px 12px;">
-    <p style="margin:0 0 12px;font-size:16px;">Hi {$first},</p>
+    <p style="margin:0 0 12px;font-size:16px;">Hi {$firstEsc},</p>
     <p style="margin:0 0 12px;line-height:1.5;color:#444;">
-      Thanks for joining the {$salonName} client list. We’re glad you’re here.
+      Thanks for joining the {$salonNameEsc} client list. We’re glad you’re here.
     </p>
     {$offersSection}
     {$loyaltyBlock}
     <div style="margin:28px 0 12px;padding:16px;background:#f4f4f5;border-radius:10px;">
-      <p style="margin:0 0 8px;font-weight:700;color:{$primary};">Get the {$salonName} app</p>
+      <p style="margin:0 0 8px;font-weight:700;color:{$primaryEsc};">Get the {$salonNameEsc} app</p>
       <p style="margin:0 0 12px;color:#555;font-size:14px;line-height:1.45;">
-        Open your membership PWA to view benefits, unlock member pricing, and book faster.
+        Open your membership app to view benefits, unlock member pricing, and book faster.
       </p>
-      <a href="{$pwaUrl}" style="display:inline-block;background:{$primary};color:#fff;text-decoration:none;padding:10px 16px;border-radius:8px;font-weight:600;font-size:14px;">
+      <a href="{$pwaUrlEsc}" style="display:inline-block;background:{$primaryEsc};color:#fff;text-decoration:none;padding:10px 16px;border-radius:8px;font-weight:600;font-size:14px;">
         Download / open app
       </a>
     </div>
     <p style="margin:16px 0 0;font-size:14px;">
-      <a href="{$bookUrl}" style="color:{$primary};">Book an appointment</a>
+      <a href="{$bookUrlEsc}" style="color:{$primaryEsc};">Book an appointment</a>
     </p>
   </div>
 </div>

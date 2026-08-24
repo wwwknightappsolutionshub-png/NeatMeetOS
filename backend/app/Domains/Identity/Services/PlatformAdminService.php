@@ -210,9 +210,12 @@ class PlatformAdminService
     {
         $member = TeamMember::withoutGlobalScopes()
             ->where('tenant_id', $tenant->id)
-            ->where('employment_type', TeamMember::EMPLOYMENT_OWNER)
             ->where('is_active', true)
             ->whereNotNull('user_id')
+            ->orderByRaw(
+                'CASE WHEN employment_type = ? THEN 0 ELSE 1 END',
+                [TeamMember::EMPLOYMENT_OWNER],
+            )
             ->orderBy('created_at')
             ->first();
 

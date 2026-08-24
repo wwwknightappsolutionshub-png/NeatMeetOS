@@ -523,7 +523,24 @@ export function formatMoney(cents: number): string {
 export async function registerMemberServiceWorker(): Promise<ServiceWorkerRegistration | null> {
   if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return null;
   try {
-    return await navigator.serviceWorker.register('/member-sw.js', { scope: '/' });
+    // Older builds registered member-sw at scope `/`, which intercepted the whole
+    // site and surfaced offline 503s (including from email deep links). Clean those up.
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    await Promise.all(
+      registrations.map(async (registration) => {
+        const scriptUrl = registration.active?.scriptURL
+          ?? registration.waiting?.scriptURL
+          ?? registration.installing?.scriptURL
+          ?? '';
+        if (!scriptUrl.includes('member-sw.js')) return;
+        const scopePath = new URL(registration.scope).pathname;
+        if (scopePath === '/' || scopePath === '') {
+          await registration.unregister();
+        }
+      }),
+    );
+
+    return await navigator.serviceWorker.register('/member-sw.js', { scope: '/member/' });
   } catch {
     return null;
   }

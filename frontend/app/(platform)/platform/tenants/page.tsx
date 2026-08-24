@@ -1,11 +1,10 @@
 'use client';
 
-import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { ErrorAlert, LoadingState } from '@/components/admin/ui';
 import { TenantModulesPanel } from '@/components/platform/TenantModulesPanel';
 import { TenantBookingPolicyPanel } from '@/components/platform/TenantBookingPolicyPanel';
 import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
 import type { PlatformTenantRow } from '@/lib/types';
 import {
   fetchPlatformProfile,
@@ -60,24 +59,21 @@ function formatLastSeen(iso: string | null | undefined): string {
   }
 }
 
-function TrashIcon({ className }: { className?: string }) {
+function MoreIcon({ className }: { className?: string }) {
   return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      className={className}
-      aria-hidden
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M4.5 7.5h15M9.5 7.5V6a1.5 1.5 0 0 1 1.5-1.5h2A1.5 1.5 0 0 1 14.5 6v1.5m2 0V18a1.5 1.5 0 0 1-1.5 1.5h-6A1.5 1.5 0 0 1 7.5 18V7.5m2 3.5v6m3-6v6"
-      />
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden>
+      <circle cx="5" cy="12" r="1.6" />
+      <circle cx="12" cy="12" r="1.6" />
+      <circle cx="19" cy="12" r="1.6" />
     </svg>
   );
 }
+
+const fieldClass =
+  'w-full rounded-lg border border-white/20 bg-stone-950 px-3 py-2.5 text-sm text-white outline-none placeholder:text-stone-500 focus:border-amber-400';
+
+const menuBtnClass =
+  'block w-full px-3 py-2 text-left text-sm text-stone-100 hover:bg-white/10 disabled:opacity-50';
 
 export default function PlatformTenantsPage() {
   const [tenants, setTenants] = useState<PlatformTenantRow[]>([]);
@@ -88,9 +84,7 @@ export default function PlatformTenantsPage() {
   const [unlockingId, setUnlockingId] = useState<string | null>(null);
   const [pokingId, setPokingId] = useState<string | null>(null);
   const [pokeNotice, setPokeNotice] = useState<string | null>(null);
-  const [modulesTenant, setModulesTenant] = useState<PlatformTenantRow | null>(
-    null,
-  );
+  const [modulesTenant, setModulesTenant] = useState<PlatformTenantRow | null>(null);
   const [policyTenant, setPolicyTenant] = useState<PlatformTenantRow | null>(null);
   const [unlockPlanByTenant, setUnlockPlanByTenant] = useState<
     Record<string, 'basic' | 'pro' | 'diamond'>
@@ -104,6 +98,9 @@ export default function PlatformTenantsPage() {
   const [emailDraft, setEmailDraft] = useState('');
   const [savingEmail, setSavingEmail] = useState(false);
   const [emailNotice, setEmailNotice] = useState<string | null>(null);
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
 
   const canPurge =
     profile?.platform_role === 'owner' ||
@@ -141,14 +138,25 @@ export default function PlatformTenantsPage() {
       .catch(() => setProfile(null));
   }, []);
 
+  useEffect(() => {
+    if (!menuOpenId) return;
+    function onDocClick(event: MouseEvent) {
+      if (!menuRef.current?.contains(event.target as Node)) {
+        setMenuOpenId(null);
+      }
+    }
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, [menuOpenId]);
+
   async function handleUnlock(tenant: PlatformTenantRow) {
     setUnlockingId(tenant.id);
     setError(null);
+    setMenuOpenId(null);
     try {
       const plan =
         unlockPlanByTenant[tenant.id] ??
-        (tenant.desired_plan_slug === 'pro' ||
-        tenant.desired_plan_slug === 'diamond'
+        (tenant.desired_plan_slug === 'pro' || tenant.desired_plan_slug === 'diamond'
           ? tenant.desired_plan_slug
           : 'pro');
       await unlockTenantTiers(tenant.id, plan);
@@ -164,6 +172,7 @@ export default function PlatformTenantsPage() {
     setPokingId(tenant.id);
     setError(null);
     setPokeNotice(null);
+    setMenuOpenId(null);
     try {
       const result = await pokeTenant(tenant.id);
       setPokeNotice(
@@ -197,7 +206,7 @@ export default function PlatformTenantsPage() {
       try {
         await load();
       } catch {
-        // List already updated optimistically — reload failure must not look like purge failure.
+        // List already updated optimistically
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Permanent delete failed');
@@ -209,10 +218,10 @@ export default function PlatformTenantsPage() {
   async function handleChangeEmail(e: FormEvent) {
     e.preventDefault();
     if (!emailTenant) return;
-    const nextEmail = emailDraft.trim();
+    const nextEmail = emailDraft.trim().toLowerCase();
     if (!nextEmail) return;
     setSavingEmail(true);
-    setError(null);
+    setEmailError(null);
     setEmailNotice(null);
     try {
       const result = await updatePlatformTenantOwnerEmail(emailTenant.id, nextEmail);
@@ -232,26 +241,27 @@ export default function PlatformTenantsPage() {
       );
       setEmailTenant(null);
       setEmailDraft('');
+      await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not update email');
+      setEmailError(err instanceof Error ? err.message : 'Could not update email');
     } finally {
       setSavingEmail(false);
     }
   }
 
   return (
-    <div className="mx-auto grid max-w-6xl gap-5">
+    <div className="mx-auto grid max-w-5xl gap-5">
       <div>
         <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-400/90">
           Platform
         </p>
         <h1 className="mt-1 text-2xl font-semibold tracking-tight text-white">Tenants</h1>
         <p className="mt-1 text-sm text-stone-400">
-          All salons on the network. Unlock Pro/Diamond early or override modules per tenant.
+          Manage salons, unlock tiers, and update owner login emails.
         </p>
       </div>
 
-      <Card className="border-white/10 bg-white/5">
+      <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
         <form
           className="flex flex-col gap-3 sm:flex-row sm:items-end"
           onSubmit={(e) => {
@@ -264,7 +274,7 @@ export default function PlatformTenantsPage() {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded-lg border border-white/15 bg-stone-950/40 px-3 py-2 text-sm text-white outline-none focus:border-amber-500"
+              className={fieldClass}
               placeholder="Name, slug, email…"
             />
           </label>
@@ -273,7 +283,7 @@ export default function PlatformTenantsPage() {
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value)}
-              className="w-full rounded-lg border border-white/15 bg-stone-950/40 px-3 py-2 text-sm text-white outline-none focus:border-amber-500"
+              className={fieldClass}
             >
               <option value="">All</option>
               <option value="active">Active</option>
@@ -283,11 +293,11 @@ export default function PlatformTenantsPage() {
               <option value="inactive">Inactive</option>
             </select>
           </label>
-          <Button type="submit" className="!bg-[var(--platform-accent)]">
+          <Button type="submit" className="!bg-[var(--platform-accent)] !text-white">
             Filter
           </Button>
         </form>
-      </Card>
+      </section>
 
       {error ? <ErrorAlert message={error} /> : null}
       {pokeNotice ? (
@@ -308,43 +318,38 @@ export default function PlatformTenantsPage() {
       {loading ? <LoadingState label="Loading tenants…" /> : null}
 
       {!loading ? (
-        <Card className="overflow-hidden border-white/10 bg-white/5 p-0">
+        <div className="space-y-3">
           {tenants.length === 0 ? (
-            <p className="px-5 py-8 text-center text-sm text-stone-400">No tenants match.</p>
+            <p className="rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-8 text-center text-sm text-stone-400">
+              No tenants match.
+            </p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-left text-sm">
-                <thead className="border-b border-white/10 text-[11px] uppercase tracking-[0.12em] text-stone-400">
-                  <tr>
-                    <th className="px-4 py-3 font-semibold">Tenant</th>
-                    <th className="px-4 py-3 font-semibold">Presence</th>
-                    <th className="px-4 py-3 font-semibold">Status</th>
-                    <th className="px-4 py-3 font-semibold">Plan</th>
-                    <th className="px-4 py-3 font-semibold">Desired</th>
-                    <th className="px-4 py-3 font-semibold">Tiers</th>
-                    <th className="px-4 py-3 font-semibold">Trial ends</th>
-                    <th className="px-4 py-3 font-semibold">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {tenants.map((t) => (
-                    <tr key={t.id} className="border-b border-white/5 last:border-0">
-                      <td className="px-4 py-3">
-                        <p className="font-semibold text-white">{t.trading_name || t.name}</p>
-                        <p className="text-xs text-stone-400">
-                          {t.slug}
-                          {t.owner_email || t.contact_email
-                            ? ` · ${t.owner_email || t.contact_email}`
-                            : ''}
-                          {t.owner_whatsapp ? ` · ${t.owner_whatsapp}` : ''}
-                          {typeof t.pwa_subscribers === 'number'
-                            ? ` · ${t.pwa_subscribers} PWA`
-                            : ''}
-                        </p>
-                      </td>
-                      <td className="px-4 py-3">
+            tenants.map((t) => {
+              const unlockPlan =
+                unlockPlanByTenant[t.id] ??
+                (t.desired_plan_slug === 'pro' || t.desired_plan_slug === 'diamond'
+                  ? t.desired_plan_slug
+                  : 'pro');
+              const ownerEmail = t.owner_email || t.contact_email;
+
+              return (
+                <article
+                  key={t.id}
+                  className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h2 className="truncate text-base font-semibold text-white">
+                          {t.trading_name || t.name}
+                        </h2>
                         <span
-                          className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-semibold ${
+                          className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${statusClass(t.status)}`}
+                        >
+                          {t.status}
+                        </span>
+                        <span
+                          className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
                             t.online
                               ? 'bg-emerald-500/15 text-emerald-300'
                               : 'bg-white/10 text-stone-400'
@@ -357,134 +362,143 @@ export default function PlatformTenantsPage() {
                           />
                           {t.online ? 'Online' : 'Offline'}
                         </span>
-                        <p className="mt-1 text-[11px] text-stone-500">
-                          Last seen {formatLastSeen(t.admin_last_seen_at)}
-                        </p>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span
-                          className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${statusClass(t.status)}`}
+                      </div>
+                      <p className="mt-1 truncate text-xs text-stone-400">
+                        {t.slug}
+                        {ownerEmail ? ` · ${ownerEmail}` : ''}
+                        {t.owner_whatsapp ? ` · ${t.owner_whatsapp}` : ''}
+                      </p>
+                      <p className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-stone-500">
+                        <span>Plan {t.plan_name ?? '—'}</span>
+                        <span>Desired {t.desired_plan_slug ?? '—'}</span>
+                        <span>{t.tier_unlocked ? 'Tiers unlocked' : 'Tiers locked'}</span>
+                        <span>Trial {formatDate(t.trial_ends_at)}</span>
+                        <span>Seen {formatLastSeen(t.admin_last_seen_at)}</span>
+                        {typeof t.pwa_subscribers === 'number' ? (
+                          <span>{t.pwa_subscribers} PWA</span>
+                        ) : null}
+                      </p>
+                    </div>
+
+                    <div className="flex shrink-0 items-center gap-2">
+                      <a
+                        href={`/book/${t.slug}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="rounded-lg border border-amber-500/30 px-2.5 py-1.5 text-xs font-semibold text-amber-200 hover:bg-amber-500/10"
+                      >
+                        Book
+                      </a>
+                      <div
+                        className="relative"
+                        ref={menuOpenId === t.id ? menuRef : undefined}
+                      >
+                        <button
+                          type="button"
+                          aria-label={`Actions for ${t.trading_name || t.name}`}
+                          aria-expanded={menuOpenId === t.id}
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-white/15 text-stone-200 hover:bg-white/10"
+                          onClick={() =>
+                            setMenuOpenId((current) => (current === t.id ? null : t.id))
+                          }
                         >
-                          {t.status}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-stone-300">{t.plan_name ?? '—'}</td>
-                      <td className="px-4 py-3 text-stone-300">
-                        {t.desired_plan_slug ?? '—'}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span
-                          className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${
-                            t.tier_unlocked
-                              ? 'bg-emerald-500/15 text-emerald-300'
-                              : 'bg-white/10 text-stone-400'
-                          }`}
-                        >
-                          {t.tier_unlocked ? 'Unlocked' : 'Locked'}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-stone-300">
-                        {formatDate(t.trial_ends_at)}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:flex-wrap">
-                          <Button
-                            type="button"
-                            disabled={pokingId === t.id}
-                            className="!border !border-amber-500/40 !bg-amber-500/10 !px-2.5 !py-1.5 !text-xs !text-amber-200"
-                            onClick={() => void handlePoke(t)}
-                          >
-                            {pokingId === t.id ? 'Poking…' : 'Poke'}
-                          </Button>
-                          <select
-                            value={
-                              unlockPlanByTenant[t.id] ??
-                              (t.desired_plan_slug === 'pro' ||
-                              t.desired_plan_slug === 'diamond'
-                                ? t.desired_plan_slug
-                                : 'pro')
-                            }
-                            onChange={(e) =>
-                              setUnlockPlanByTenant((prev) => ({
-                                ...prev,
-                                [t.id]: e.target.value as 'basic' | 'pro' | 'diamond',
-                              }))
-                            }
-                            className="rounded-lg border border-white/15 bg-stone-950/40 px-2 py-1.5 text-xs text-white outline-none focus:border-amber-500"
-                          >
-                            <option value="basic">Basic</option>
-                            <option value="pro">Pro</option>
-                            <option value="diamond">Diamond</option>
-                          </select>
-                          <Button
-                            type="button"
-                            disabled={unlockingId === t.id}
-                            className="!bg-[var(--platform-accent)] !px-2.5 !py-1.5 !text-xs"
-                            onClick={() => void handleUnlock(t)}
-                          >
-                            {unlockingId === t.id
-                              ? 'Unlocking…'
-                              : 'Unlock Pro/Diamond'}
-                          </Button>
-                          <Button
-                            type="button"
-                            className="!border !border-white/15 !bg-transparent !px-2.5 !py-1.5 !text-xs !text-stone-100"
-                            onClick={() => setModulesTenant(t)}
-                          >
-                            Modules
-                          </Button>
-                          <Button
-                            type="button"
-                            className="!border !border-white/15 !bg-transparent !px-2.5 !py-1.5 !text-xs !text-stone-100"
-                            onClick={() => setPolicyTenant(t)}
-                          >
-                            Booking policy
-                          </Button>
-                          {canChangeEmail ? (
-                            <Button
-                              type="button"
-                              className="!border !border-sky-500/40 !bg-sky-500/10 !px-2.5 !py-1.5 !text-xs !text-sky-100"
-                              onClick={() => {
-                                setEmailTenant(t);
-                                setEmailDraft(t.owner_email || t.contact_email || '');
-                                setError(null);
-                              }}
-                            >
-                              Change email
-                            </Button>
-                          ) : null}
-                          {canPurge ? (
+                          <MoreIcon className="h-4 w-4" />
+                        </button>
+                        {menuOpenId === t.id ? (
+                          <div className="absolute right-0 z-20 mt-1 w-52 overflow-hidden rounded-xl border border-white/15 bg-[#1c1917] py-1 shadow-xl">
                             <button
                               type="button"
-                              title="Permanently delete tenant"
-                              aria-label={`Permanently delete ${t.trading_name || t.name}`}
-                              className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-red-500/40 bg-red-500/10 text-red-300 transition hover:bg-red-500/20"
+                              className={menuBtnClass}
+                              disabled={pokingId === t.id}
+                              onClick={() => void handlePoke(t)}
+                            >
+                              {pokingId === t.id ? 'Poking…' : 'Poke'}
+                            </button>
+                            <div className="border-t border-white/10 px-3 py-2">
+                              <label className="mb-1 block text-[11px] text-stone-400">
+                                Unlock plan
+                              </label>
+                              <select
+                                value={unlockPlan}
+                                onChange={(e) =>
+                                  setUnlockPlanByTenant((prev) => ({
+                                    ...prev,
+                                    [t.id]: e.target.value as 'basic' | 'pro' | 'diamond',
+                                  }))
+                                }
+                                className="mb-2 w-full rounded-md border border-white/15 bg-stone-950 px-2 py-1.5 text-xs text-white"
+                              >
+                                <option value="basic">Basic</option>
+                                <option value="pro">Pro</option>
+                                <option value="diamond">Diamond</option>
+                              </select>
+                              <button
+                                type="button"
+                                className="w-full rounded-md bg-[var(--platform-accent)] px-2 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+                                disabled={unlockingId === t.id}
+                                onClick={() => void handleUnlock(t)}
+                              >
+                                {unlockingId === t.id ? 'Unlocking…' : 'Unlock tiers'}
+                              </button>
+                            </div>
+                            <button
+                              type="button"
+                              className={menuBtnClass}
                               onClick={() => {
-                                setPurgeTenant(t);
-                                setPurgeSlugConfirm('');
-                                setError(null);
+                                setModulesTenant(t);
+                                setMenuOpenId(null);
                               }}
                             >
-                              <TrashIcon className="h-4 w-4" />
+                              Modules
                             </button>
-                          ) : null}
-                          <a
-                            href={`/book/${t.slug}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-xs text-amber-300 underline hover:text-amber-200"
-                          >
-                            Open book
-                          </a>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                            <button
+                              type="button"
+                              className={menuBtnClass}
+                              onClick={() => {
+                                setPolicyTenant(t);
+                                setMenuOpenId(null);
+                              }}
+                            >
+                              Booking policy
+                            </button>
+                            {canChangeEmail ? (
+                              <button
+                                type="button"
+                                className={menuBtnClass}
+                                onClick={() => {
+                                  setEmailTenant(t);
+                                  setEmailDraft(ownerEmail || '');
+                                  setEmailError(null);
+                                  setMenuOpenId(null);
+                                }}
+                              >
+                                Change email
+                              </button>
+                            ) : null}
+                            {canPurge ? (
+                              <button
+                                type="button"
+                                className="block w-full px-3 py-2 text-left text-sm text-red-300 hover:bg-red-500/10"
+                                onClick={() => {
+                                  setPurgeTenant(t);
+                                  setPurgeSlugConfirm('');
+                                  setError(null);
+                                  setMenuOpenId(null);
+                                }}
+                              >
+                                Delete forever
+                              </button>
+                            ) : null}
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+                </article>
+              );
+            })
           )}
-        </Card>
+        </div>
       ) : null}
 
       {modulesTenant ? (
@@ -504,8 +518,8 @@ export default function PlatformTenantsPage() {
       ) : null}
 
       {purgeTenant ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-950/70 p-4 backdrop-blur-sm">
-          <Card className="w-full max-w-md border-red-500/30 bg-[#1a1714] p-5">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-950/80 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-red-500/40 bg-[#1c1917] p-5 text-stone-100 shadow-2xl">
             <h2 className="text-lg font-semibold text-white">Permanently delete tenant</h2>
             <p className="mt-2 text-sm text-stone-300">
               This permanently deletes{' '}
@@ -514,54 +528,53 @@ export default function PlatformTenantsPage() {
               </span>{' '}
               (
               <span className="font-mono text-xs text-amber-200">{purgeTenant.slug}</span>
-              ) and all related salon data from the database. This cannot be undone.
+              ) and all related salon data. This cannot be undone.
             </p>
             <form onSubmit={(e) => void handlePurge(e)} className="mt-4 space-y-3">
               <label className="block text-sm">
-                <span className="mb-1 block text-stone-400">
+                <span className="mb-1 block text-stone-300">
                   Type slug “{purgeTenant.slug}” to confirm
                 </span>
                 <input
                   value={purgeSlugConfirm}
                   onChange={(e) => setPurgeSlugConfirm(e.target.value)}
-                  className="w-full rounded-lg border border-white/15 bg-stone-950/40 px-3 py-2 text-sm text-white outline-none focus:border-red-400"
+                  className={fieldClass}
                   placeholder={purgeTenant.slug}
                   autoComplete="off"
                   autoFocus
                 />
               </label>
               <div className="flex flex-wrap gap-2 pt-1">
-                <Button
+                <button
                   type="submit"
                   disabled={
                     purging ||
-                    purgeSlugConfirm.trim().toLowerCase() !==
-                      purgeTenant.slug.toLowerCase()
+                    purgeSlugConfirm.trim().toLowerCase() !== purgeTenant.slug.toLowerCase()
                   }
-                  className="!bg-red-600 !px-3 !py-2 !text-sm hover:!bg-red-500"
+                  className="rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-500 disabled:opacity-50"
                 >
                   {purging ? 'Deleting…' : 'Delete forever'}
-                </Button>
-                <Button
+                </button>
+                <button
                   type="button"
                   disabled={purging}
-                  className="!border !border-white/15 !bg-transparent !px-3 !py-2 !text-sm !text-stone-100"
+                  className="rounded-lg border border-white/25 bg-transparent px-3 py-2 text-sm font-semibold text-stone-100 hover:bg-white/10 disabled:opacity-50"
                   onClick={() => {
                     setPurgeTenant(null);
                     setPurgeSlugConfirm('');
                   }}
                 >
                   Cancel
-                </Button>
+                </button>
               </div>
             </form>
-          </Card>
+          </div>
         </div>
       ) : null}
 
       {emailTenant ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-950/70 p-4 backdrop-blur-sm">
-          <Card className="w-full max-w-md border-sky-500/30 bg-[#1a1714] p-5">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-950/80 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-sky-500/40 bg-[#1c1917] p-5 text-stone-100 shadow-2xl">
             <h2 className="text-lg font-semibold text-white">Change tenant email</h2>
             <p className="mt-2 text-sm text-stone-300">
               Updates the owner login email for{' '}
@@ -570,42 +583,48 @@ export default function PlatformTenantsPage() {
               </span>{' '}
               and the salon contact email.
             </p>
+            {emailError ? (
+              <div className="mt-3 rounded-lg border border-red-400/40 bg-red-500/15 px-3 py-2 text-sm text-red-100">
+                {emailError}
+              </div>
+            ) : null}
             <form onSubmit={(e) => void handleChangeEmail(e)} className="mt-4 space-y-3">
               <label className="block text-sm">
-                <span className="mb-1 block text-stone-400">Owner email</span>
+                <span className="mb-1 block text-stone-300">Owner email</span>
                 <input
                   type="email"
                   required
                   value={emailDraft}
                   onChange={(e) => setEmailDraft(e.target.value)}
-                  className="w-full rounded-lg border border-white/15 bg-stone-950/40 px-3 py-2 text-sm text-white outline-none focus:border-sky-400"
+                  className={fieldClass}
                   placeholder="owner@salon.com"
                   autoComplete="off"
                   autoFocus
                 />
               </label>
               <div className="flex flex-wrap gap-2 pt-1">
-                <Button
+                <button
                   type="submit"
                   disabled={savingEmail || !emailDraft.trim()}
-                  className="!bg-[var(--platform-accent)] !px-3 !py-2 !text-sm"
+                  className="rounded-lg bg-[var(--platform-accent)] px-3 py-2 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-50"
                 >
                   {savingEmail ? 'Saving…' : 'Save email'}
-                </Button>
-                <Button
+                </button>
+                <button
                   type="button"
                   disabled={savingEmail}
-                  className="!border !border-white/15 !bg-transparent !px-3 !py-2 !text-sm !text-stone-100"
+                  className="rounded-lg border border-white/25 bg-transparent px-3 py-2 text-sm font-semibold text-stone-100 hover:bg-white/10 disabled:opacity-50"
                   onClick={() => {
                     setEmailTenant(null);
                     setEmailDraft('');
+                    setEmailError(null);
                   }}
                 >
                   Cancel
-                </Button>
+                </button>
               </div>
             </form>
-          </Card>
+          </div>
         </div>
       ) : null}
     </div>

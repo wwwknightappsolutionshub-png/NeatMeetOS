@@ -1,5 +1,5 @@
-/* NeatMeet member PWA service worker — caches app shell for offline open. */
-const CACHE = 'neatmeet-member-v1';
+/* NeatMeet member PWA service worker — member routes only (not the whole site). */
+const CACHE = 'neatmeet-member-v2';
 const SHELL = ['/member-icons/icon-192.svg', '/member-icons/icon-512.svg'];
 
 self.addEventListener('install', (event) => {
@@ -21,13 +21,14 @@ self.addEventListener('fetch', (event) => {
   if (req.method !== 'GET') return;
 
   const url = new URL(req.url);
-  if (url.pathname.startsWith('/api/')) return;
+  // Stay out of API, admin, booking, and marketing surfaces.
+  if (!url.pathname.startsWith('/member')) return;
 
   event.respondWith(
     fetch(req)
       .then((res) => {
         const copy = res.clone();
-        if (res.ok && (url.pathname.startsWith('/member') || url.pathname.startsWith('/_next'))) {
+        if (res.ok) {
           caches.open(CACHE).then((cache) => cache.put(req, copy)).catch(() => {});
         }
         return res;
@@ -35,10 +36,13 @@ self.addEventListener('fetch', (event) => {
       .catch(async () => {
         const cached = await caches.match(req);
         if (cached) return cached;
-        return new Response('You are offline. Reconnect to use the membership app.', {
-          status: 503,
-          headers: { 'Content-Type': 'text/plain' },
-        });
+        return new Response(
+          '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Offline</title></head><body style="font-family:system-ui,sans-serif;padding:24px;color:#18181b;"><h1 style="font-size:1.25rem;">You are offline</h1><p>Reconnect to open the membership app, then try again.</p></body></html>',
+          {
+            status: 503,
+            headers: { 'Content-Type': 'text/html; charset=utf-8' },
+          },
+        );
       }),
   );
 });

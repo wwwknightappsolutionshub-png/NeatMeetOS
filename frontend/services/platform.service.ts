@@ -74,7 +74,7 @@ export async function updatePlatformTenantOwnerEmail(
   owner_user_id: string;
 }> {
   return api(`/platform/tenants/${tenantId}/owner-email`, {
-    method: 'PUT',
+    method: 'POST',
     auth: true,
     tenant: false,
     body: JSON.stringify({ email }),

@@ -49,6 +49,12 @@ class PlatformTenantOwnerEmailTest extends TestCase
             'id' => $ctx['tenant']->id,
             'contact_email' => 'new.owner@example.test',
         ]);
+
+        $this->postJson('/api/v1/platform/tenants/'.$ctx['tenant']->id.'/owner-email', [
+            'email' => 'post.owner@example.test',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.owner_email', 'post.owner@example.test');
     }
 
     public function test_cannot_reuse_another_account_email(): void

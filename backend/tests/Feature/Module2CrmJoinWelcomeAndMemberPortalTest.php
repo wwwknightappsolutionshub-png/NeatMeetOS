@@ -46,6 +46,14 @@ class Module2CrmJoinWelcomeAndMemberPortalTest extends TestCase
         $this->assertNotNull($message);
         $this->assertStringContainsString('Welcome', (string) $message->subject);
         $this->assertStringContainsString('/member/'.$ctx['tenant']->slug, (string) $message->body_html);
+        $this->assertMatchesRegularExpression(
+            '#href="https?://[^"]+/member/'.preg_quote($ctx['tenant']->slug, '#').'"#',
+            (string) $message->body_html,
+        );
+        $this->assertSame(
+            rtrim((string) config('app.frontend_url'), '/').'/member/'.$ctx['tenant']->slug,
+            data_get($message->metadata, 'pwa_url'),
+        );
     }
 
     public function test_member_portal_login_and_membership_tier_booking_gate(): void

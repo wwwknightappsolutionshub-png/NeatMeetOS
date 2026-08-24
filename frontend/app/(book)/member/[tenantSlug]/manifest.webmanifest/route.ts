@@ -13,7 +13,7 @@ export async function GET(request: Request, { params }: Params) {
     short_name: 'Member',
     description: 'Check in, loyalty points, memberships and bookings',
     start_url: startUrl,
-    scope: '/',
+    scope: '/member/',
     display: 'standalone',
     related_applications: [
       {
