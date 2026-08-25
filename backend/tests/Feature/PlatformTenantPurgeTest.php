@@ -56,6 +56,48 @@ class PlatformTenantPurgeTest extends TestCase
         $this->assertNull(Tenant::query()->find($tenantId));
     }
 
+    public function test_owner_can_permanently_purge_tenant_with_billing_rows(): void
+    {
+        $this->actingAsPlatformOwner();
+        $ctx = $this->seedTenantContext(['identity.view']);
+        $tenantId = $ctx['tenant']->id;
+
+        $subscription = \App\Domains\Identity\Models\TenantSubscription::withoutGlobalScopes()
+            ->where('tenant_id', $tenantId)
+            ->firstOrFail();
+
+        $invoice = \App\Domains\Identity\Models\PlatformInvoice::query()->create([
+            'tenant_id' => $tenantId,
+            'tenant_subscription_id' => $subscription->id,
+            'subscription_plan_id' => $subscription->subscription_plan_id,
+            'invoice_number' => 'TEST-PURGE-001',
+            'status' => 'open',
+            'currency' => 'GBP',
+            'amount_cents' => 4900,
+            'amount_paid_cents' => 0,
+            'billing_interval' => 'monthly',
+        ]);
+
+        \App\Domains\Identity\Models\PlatformInvoiceAttempt::query()->create([
+            'platform_invoice_id' => $invoice->id,
+            'tenant_id' => $tenantId,
+            'status' => 'failed',
+            'attempted_at' => now(),
+        ]);
+
+        $this->postJson('/api/v1/platform/tenants/'.$tenantId.'/purge', [
+            'confirmation_slug' => $ctx['tenant']->slug,
+            'confirm' => true,
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.purged', true);
+
+        $this->assertDatabaseMissing('tenants', ['id' => $tenantId]);
+        $this->assertDatabaseMissing('tenant_subscriptions', ['tenant_id' => $tenantId]);
+        $this->assertDatabaseMissing('platform_invoices', ['tenant_id' => $tenantId]);
+        $this->assertDatabaseMissing('platform_invoice_attempts', ['tenant_id' => $tenantId]);
+    }
+
     public function test_manager_cannot_purge_tenant(): void
     {
         $manager = User::query()->create([

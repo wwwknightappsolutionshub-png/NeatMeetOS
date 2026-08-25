@@ -63,6 +63,7 @@ class TenantPurgeService
         try {
             DB::transaction(function () use ($tenantId, $userIds) {
                 $this->breakCircularForeignKeys($tenantId);
+                $this->wipeBillingDependencies($tenantId);
                 $this->wipeTenantScopedRows($tenantId);
                 $this->wipeAlternateTenantReferences($tenantId);
                 $this->deleteOrphanedTenantUsers($userIds);
@@ -158,11 +159,35 @@ class TenantPurgeService
             if (! Schema::hasTable($table) || ! Schema::hasColumn($table, $column)) {
                 continue;
             }
-            try {
+            $this->runInSavepoint('alt_'.substr(md5($table.$column), 0, 12), function () use ($table, $column, $tenantId) {
                 DB::table($table)->where($column, $tenantId)->delete();
-            } catch (Throwable) {
-                // Best-effort; CASCADE on tenants delete may still clean these.
+            });
+        }
+    }
+
+    /**
+     * Platform billing FKs: invoice attempts → invoices → tenant_subscriptions.
+     */
+    private function wipeBillingDependencies(string $tenantId): void
+    {
+        foreach ([
+            'platform_invoice_attempts',
+            'platform_invoices',
+            'tenant_subscriptions',
+        ] as $table) {
+            if (! Schema::hasTable($table) || ! Schema::hasColumn($table, 'tenant_id')) {
+                continue;
             }
+            $this->deleteTenantScopedTable($table, $tenantId);
+        }
+
+        // Invoices may keep a subscription FK; nullify before any leftover subscription wipe.
+        if (Schema::hasTable('platform_invoices') && Schema::hasColumn('platform_invoices', 'tenant_subscription_id')) {
+            $this->runInSavepoint('null_invoice_sub', function () use ($tenantId) {
+                DB::table('platform_invoices')
+                    ->where('tenant_id', $tenantId)
+                    ->update(['tenant_subscription_id' => null]);
+            });
         }
     }
 
@@ -195,14 +220,18 @@ class TenantPurgeService
 
             $remaining = $tables;
             $maxPasses = 40;
+            /** @var array<string, string> $lastErrors */
+            $lastErrors = [];
 
             while ($remaining !== [] && $maxPasses-- > 0) {
                 $failed = [];
                 foreach ($remaining as $table) {
-                    try {
-                        DB::table($table)->where('tenant_id', $tenantId)->delete();
-                    } catch (Throwable) {
+                    $error = $this->deleteTenantScopedTable($table, $tenantId);
+                    if ($error !== null) {
                         $failed[] = $table;
+                        $lastErrors[$table] = $error;
+                    } else {
+                        unset($lastErrors[$table]);
                     }
                 }
 
@@ -211,14 +240,14 @@ class TenantPurgeService
                 }
 
                 if (count($failed) === count($remaining)) {
+                    // Final reverse pass with the first real error message (not 25P02 noise).
                     $remaining = array_reverse($failed);
                     foreach ($remaining as $table) {
-                        try {
-                            DB::table($table)->where('tenant_id', $tenantId)->delete();
-                        } catch (Throwable $e) {
+                        $error = $this->deleteTenantScopedTable($table, $tenantId);
+                        if ($error !== null) {
                             throw ValidationException::withMessages([
                                 'tenant' => [
-                                    'Could not delete all tenant data (blocked on table '.$table.'): '.$e->getMessage(),
+                                    'Could not delete all tenant data (blocked on table '.$table.'): '.$error,
                                 ],
                             ]);
                         }
@@ -231,8 +260,12 @@ class TenantPurgeService
             }
 
             if ($remaining !== []) {
+                $detail = implode(', ', array_map(
+                    static fn (string $table): string => $table.(isset($lastErrors[$table]) ? ' ('.$lastErrors[$table].')' : ''),
+                    $remaining,
+                ));
                 throw ValidationException::withMessages([
-                    'tenant' => ['Could not delete all tenant-scoped rows. Remaining tables: '.implode(', ', $remaining)],
+                    'tenant' => ['Could not delete all tenant-scoped rows. Remaining tables: '.$detail],
                 ]);
             }
         } finally {
@@ -247,6 +280,61 @@ class TenantPurgeService
                     // best-effort restore
                 }
             }
+        }
+    }
+
+    /**
+     * Delete tenant-scoped rows. On PostgreSQL, wrap in a SAVEPOINT so a FK
+     * failure does not abort the outer transaction (SQLSTATE 25P02).
+     *
+     * @return string|null Error message when delete failed; null on success
+     */
+    private function deleteTenantScopedTable(string $table, string $tenantId): ?string
+    {
+        return $this->runInSavepoint('purge_'.substr(md5($table), 0, 16), function () use ($table, $tenantId) {
+            DB::table($table)->where('tenant_id', $tenantId)->delete();
+        });
+    }
+
+    /**
+     * @param  callable(): void  $callback
+     * @return string|null Error message when failed; null on success
+     */
+    private function runInSavepoint(string $name, callable $callback): ?string
+    {
+        $safe = preg_replace('/[^a-zA-Z0-9_]/', '_', $name) ?: 'purge_sp';
+        $driver = DB::connection()->getDriverName();
+        $supportsSavepoints = in_array($driver, ['pgsql', 'mysql', 'mariadb', 'sqlite'], true);
+
+        if ($supportsSavepoints) {
+            try {
+                DB::statement('SAVEPOINT '.$safe);
+            } catch (Throwable) {
+                $supportsSavepoints = false;
+            }
+        }
+
+        try {
+            $callback();
+            if ($supportsSavepoints) {
+                try {
+                    DB::statement('RELEASE SAVEPOINT '.$safe);
+                } catch (Throwable) {
+                    // ignore
+                }
+            }
+
+            return null;
+        } catch (Throwable $e) {
+            if ($supportsSavepoints) {
+                try {
+                    DB::statement('ROLLBACK TO SAVEPOINT '.$safe);
+                } catch (Throwable) {
+                    // ignore
+                }
+            }
+
+            return $e->getMessage();
         }
     }
 
@@ -274,7 +362,9 @@ class TenantPurgeService
         usort($tables, function (string $a, string $b): int {
             $weight = static function (string $table): int {
                 return match (true) {
+                    str_contains($table, 'invoice_attempt') => 5,
                     str_contains($table, 'attempt') => 10,
+                    str_contains($table, 'invoice') => 15,
                     str_contains($table, 'item') => 20,
                     str_contains($table, 'message') => 30,
                     str_contains($table, 'appointment') => 40,
