@@ -13,6 +13,7 @@ use App\Domains\Memberships\Models\ClientMembership;
 use App\Domains\Memberships\Models\MembershipLoyaltySetting;
 use App\Domains\Memberships\Services\LoyaltyLedgerService;
 use App\Domains\Marketing\Services\MarketingWelcomeAutomationService;
+use App\Domains\Notifications\Services\NotificationMailTransport;
 use App\Domains\Notifications\Services\PlatformWhatsAppSettingsService;
 use App\Shared\Support\PhoneNormalizer;
 use App\Shared\Tenancy\TenantContext;
@@ -23,6 +24,7 @@ use Illuminate\Validation\ValidationException;
 
 /**
  * Membership PWA login: email + WhatsApp phone + OTP; long-lived portal tokens.
+ * OTP is preferred via WhatsApp, with email as an automatic / explicit fallback.
  */
 class MemberPortalAuthService
 {
@@ -32,6 +34,12 @@ class MemberPortalAuthService
 
     public const OTP_MAX_ATTEMPTS = 5;
 
+    public const OTP_CHANNEL_WHATSAPP = 'whatsapp';
+
+    public const OTP_CHANNEL_EMAIL = 'email';
+
+    public const OTP_CHANNEL_AUTO = 'auto';
+
     public function __construct(
         private readonly TenantContext $tenantContext,
         private readonly LoyaltyLedgerService $loyaltyLedger,
@@ -39,6 +47,7 @@ class MemberPortalAuthService
         private readonly MemberPushDispatchService $push,
         private readonly MarketingWelcomeAutomationService $welcomeAutomation,
         private readonly PlatformWhatsAppSettingsService $whatsapp,
+        private readonly NotificationMailTransport $mail,
     ) {}
 
     /**
@@ -82,10 +91,22 @@ class MemberPortalAuthService
     }
 
     /**
-     * @return array{sent: bool, expires_in_seconds: int, masked_phone: string, otp?: string}
+     * @return array{
+     *     sent: bool,
+     *     channel: string,
+     *     expires_in_seconds: int,
+     *     masked_phone: string,
+     *     masked_email: string,
+     *     otp?: string
+     * }
      */
-    public function requestOtp(string $email, string $phone): array
+    public function requestOtp(string $email, string $phone, string $channel = self::OTP_CHANNEL_AUTO): array
     {
+        $channel = strtolower(trim($channel));
+        if (! in_array($channel, [self::OTP_CHANNEL_AUTO, self::OTP_CHANNEL_WHATSAPP, self::OTP_CHANNEL_EMAIL], true)) {
+            $channel = self::OTP_CHANNEL_AUTO;
+        }
+
         $client = $this->findActiveClientOrFail($email, $phone);
         $normalizedEmail = strtolower(trim($email));
         $normalizedPhone = PhoneNormalizer::normalize($phone);
@@ -108,39 +129,50 @@ class MemberPortalAuthService
 
         $salon = Tenant::query()->findOrFail($this->requireTenantId());
         $salonName = $salon->trading_name ?: $salon->name;
-        $message = "*{$salonName} membership login*\n\nYour one-time code is *{$plain}*. It expires in ".self::OTP_TTL_MINUTES." minutes.\n\nIf you did not request this, ignore this message.";
 
-        $sent = false;
-        try {
-            $result = $this->whatsapp->sendOperational($normalizedPhone, $message, [
-                'tenant_id' => $this->requireTenantId(),
-                'purpose' => 'member.portal_otp',
-                'client_id' => $client->id,
-            ]);
-            $sent = (bool) ($result['ok'] ?? false);
-            if (! $sent) {
-                Log::info('Member portal OTP WhatsApp not sent', [
-                    'client_id' => $client->id,
-                    'error' => $result['error'] ?? null,
-                ]);
-            }
-        } catch (\Throwable $e) {
-            Log::warning('Member portal OTP WhatsApp failed', [
-                'client_id' => $client->id,
-                'error' => $e->getMessage(),
-            ]);
+        $whatsappSent = false;
+        $emailSent = false;
+
+        if ($channel === self::OTP_CHANNEL_WHATSAPP || $channel === self::OTP_CHANNEL_AUTO) {
+            $whatsappSent = $this->sendOtpViaWhatsApp(
+                $client->id,
+                $normalizedPhone,
+                $salonName,
+                $plain,
+            );
         }
 
-        if (! $sent && ! app()->runningUnitTests()) {
-            throw ValidationException::withMessages([
-                'phone' => ['Could not send a WhatsApp OTP right now. Please try again shortly.'],
-            ]);
+        if (
+            $channel === self::OTP_CHANNEL_EMAIL
+            || ($channel === self::OTP_CHANNEL_AUTO && ! $whatsappSent)
+        ) {
+            $emailSent = $this->sendOtpViaEmail($client->id, $normalizedEmail, $salonName, $plain);
+        }
+
+        $deliveredVia = $whatsappSent
+            ? self::OTP_CHANNEL_WHATSAPP
+            : ($emailSent ? self::OTP_CHANNEL_EMAIL : null);
+
+        if ($deliveredVia === null) {
+            if (app()->runningUnitTests()) {
+                $deliveredVia = $channel === self::OTP_CHANNEL_EMAIL
+                    ? self::OTP_CHANNEL_EMAIL
+                    : self::OTP_CHANNEL_WHATSAPP;
+            } else {
+                throw ValidationException::withMessages([
+                    'phone' => [
+                        'Could not send a login code by WhatsApp or email right now. Please try again shortly, or tap “Email me the code instead”.',
+                    ],
+                ]);
+            }
         }
 
         $payload = [
-            'sent' => $sent || app()->runningUnitTests(),
+            'sent' => true,
+            'channel' => $deliveredVia,
             'expires_in_seconds' => self::OTP_TTL_MINUTES * 60,
             'masked_phone' => $this->maskPhone($normalizedPhone),
+            'masked_email' => $this->maskEmail($normalizedEmail),
         ];
 
         if (app()->runningUnitTests()) {
@@ -148,6 +180,59 @@ class MemberPortalAuthService
         }
 
         return $payload;
+    }
+
+    private function sendOtpViaWhatsApp(string $clientId, string $phone, string $salonName, string $plain): bool
+    {
+        $message = "*{$salonName} membership login*\n\nYour one-time code is *{$plain}*. It expires in ".self::OTP_TTL_MINUTES." minutes.\n\nIf you did not request this, ignore this message.";
+
+        try {
+            $result = $this->whatsapp->sendOperational($phone, $message, [
+                'tenant_id' => $this->requireTenantId(),
+                'purpose' => 'member.portal_otp',
+                'client_id' => $clientId,
+            ]);
+            $ok = (bool) ($result['ok'] ?? false);
+            if (! $ok) {
+                Log::info('Member portal OTP WhatsApp not sent', [
+                    'client_id' => $clientId,
+                    'error' => $result['error'] ?? null,
+                ]);
+            }
+
+            return $ok;
+        } catch (\Throwable $e) {
+            Log::warning('Member portal OTP WhatsApp failed', [
+                'client_id' => $clientId,
+                'error' => $e->getMessage(),
+            ]);
+
+            return false;
+        }
+    }
+
+    private function sendOtpViaEmail(string $clientId, string $email, string $salonName, string $plain): bool
+    {
+        $subject = "{$salonName} membership login code";
+        $bodyText = "Your one-time login code is {$plain}.\n\nIt expires in ".self::OTP_TTL_MINUTES." minutes.\n\nIf you did not request this, ignore this email.";
+        $bodyHtml = '<p style="margin:0 0 12px;line-height:1.5;">Your one-time login code is <strong style="font-size:20px;letter-spacing:0.08em;">'
+            .e($plain)
+            .'</strong>.</p>'
+            .'<p style="margin:0;color:#555;line-height:1.5;">It expires in '
+            .self::OTP_TTL_MINUTES
+            .' minutes. If you did not request this, ignore this email.</p>';
+
+        $result = $this->mail->send($email, $subject, $bodyText, $bodyHtml);
+        if (! ($result['ok'] ?? false)) {
+            Log::info('Member portal OTP email not sent', [
+                'client_id' => $clientId,
+                'error' => $result['error'] ?? null,
+            ]);
+
+            return false;
+        }
+
+        return true;
     }
 
     /**
@@ -162,7 +247,7 @@ class MemberPortalAuthService
 
         if (! preg_match('/^\d{6}$/', $otp)) {
             throw ValidationException::withMessages([
-                'otp' => ['Enter the 6-digit code sent to WhatsApp.'],
+                'otp' => ['Enter the 6-digit code we sent you.'],
             ]);
         }
 
@@ -177,7 +262,7 @@ class MemberPortalAuthService
 
         if ($row === null) {
             throw ValidationException::withMessages([
-                'otp' => ['Code expired or not found. Request a new WhatsApp OTP.'],
+                'otp' => ['Code expired or not found. Request a new login code.'],
             ]);
         }
 
@@ -185,7 +270,7 @@ class MemberPortalAuthService
             $row->consumed_at = now();
             $row->save();
             throw ValidationException::withMessages([
-                'otp' => ['Too many attempts. Request a new WhatsApp OTP.'],
+                'otp' => ['Too many attempts. Request a new login code.'],
             ]);
         }
 
@@ -193,7 +278,7 @@ class MemberPortalAuthService
             $row->attempts = (int) $row->attempts + 1;
             $row->save();
             throw ValidationException::withMessages([
-                'otp' => ['Incorrect code. Check WhatsApp and try again.'],
+                'otp' => ['Incorrect code. Check your WhatsApp or email and try again.'],
             ]);
         }
 
@@ -419,6 +504,22 @@ class MemberPortalAuthService
         }
 
         return substr($phone, 0, 3).str_repeat('*', max(0, $len - 5)).substr($phone, -2);
+    }
+
+    private function maskEmail(string $email): string
+    {
+        $email = strtolower(trim($email));
+        $at = strpos($email, '@');
+        if ($at === false) {
+            return '***';
+        }
+        $local = substr($email, 0, $at);
+        $domain = substr($email, $at + 1);
+        $localMask = strlen($local) <= 2
+            ? str_repeat('*', strlen($local))
+            : substr($local, 0, 1).str_repeat('*', max(1, strlen($local) - 2)).substr($local, -1);
+
+        return $localMask.'@'.$domain;
     }
 
     private function requireTenantId(): string

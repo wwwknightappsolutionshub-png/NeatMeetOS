@@ -39,11 +39,21 @@ class MemberPortalController extends Controller
         $data = $request->validate([
             'email' => ['required', 'email', 'max:255'],
             'phone' => ['required', 'string', 'max:40'],
+            'channel' => ['nullable', 'string', Rule::in(['auto', 'whatsapp', 'email'])],
         ]);
 
-        $result = $this->portal->requestOtp($data['email'], $data['phone']);
+        $result = $this->portal->requestOtp(
+            $data['email'],
+            $data['phone'],
+            $data['channel'] ?? 'auto',
+        );
 
-        return ApiResponse::success($result, 'OTP sent to WhatsApp');
+        $channel = (string) ($result['channel'] ?? 'whatsapp');
+        $message = $channel === 'email'
+            ? 'OTP sent to email'
+            : 'OTP sent to WhatsApp';
+
+        return ApiResponse::success($result, $message);
     }
 
     public function login(Request $request): JsonResponse

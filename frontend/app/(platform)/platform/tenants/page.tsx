@@ -94,6 +94,7 @@ export default function PlatformTenantsPage() {
   const [purgeSlugConfirm, setPurgeSlugConfirm] = useState('');
   const [purging, setPurging] = useState(false);
   const [purgeNotice, setPurgeNotice] = useState<string | null>(null);
+  const [purgeError, setPurgeError] = useState<string | null>(null);
   const [emailTenant, setEmailTenant] = useState<PlatformTenantRow | null>(null);
   const [emailDraft, setEmailDraft] = useState('');
   const [savingEmail, setSavingEmail] = useState(false);
@@ -188,8 +189,15 @@ export default function PlatformTenantsPage() {
   async function handlePurge(e: FormEvent) {
     e.preventDefault();
     if (!purgeTenant) return;
+    const expected = purgeTenant.slug.trim().toLowerCase();
+    const typed = purgeSlugConfirm.trim().toLowerCase();
+    if (typed !== expected) {
+      setPurgeError(`Type the exact slug “${purgeTenant.slug}” to confirm.`);
+      return;
+    }
     const targetId = purgeTenant.id;
     setPurging(true);
+    setPurgeError(null);
     setError(null);
     setPurgeNotice(null);
     try {
@@ -200,6 +208,7 @@ export default function PlatformTenantsPage() {
       setTenants((prev) => prev.filter((t) => t.id !== targetId));
       setPurgeTenant(null);
       setPurgeSlugConfirm('');
+      setPurgeError(null);
       setPurgeNotice(
         `Permanently deleted ${result.name} (${result.slug}) and all related data.`,
       );
@@ -209,7 +218,7 @@ export default function PlatformTenantsPage() {
         // List already updated optimistically
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Permanent delete failed');
+      setPurgeError(err instanceof Error ? err.message : 'Permanent delete failed');
     } finally {
       setPurging(false);
     }
@@ -482,6 +491,7 @@ export default function PlatformTenantsPage() {
                                 onClick={() => {
                                   setPurgeTenant(t);
                                   setPurgeSlugConfirm('');
+                                  setPurgeError(null);
                                   setError(null);
                                   setMenuOpenId(null);
                                 }}
@@ -530,6 +540,11 @@ export default function PlatformTenantsPage() {
               <span className="font-mono text-xs text-amber-200">{purgeTenant.slug}</span>
               ) and all related salon data. This cannot be undone.
             </p>
+            {purgeError ? (
+              <div className="mt-3 rounded-lg border border-red-400/40 bg-red-500/15 px-3 py-2 text-sm text-red-100">
+                {purgeError}
+              </div>
+            ) : null}
             <form onSubmit={(e) => void handlePurge(e)} className="mt-4 space-y-3">
               <label className="block text-sm">
                 <span className="mb-1 block text-stone-300">
@@ -537,7 +552,10 @@ export default function PlatformTenantsPage() {
                 </span>
                 <input
                   value={purgeSlugConfirm}
-                  onChange={(e) => setPurgeSlugConfirm(e.target.value)}
+                  onChange={(e) => {
+                    setPurgeSlugConfirm(e.target.value);
+                    if (purgeError) setPurgeError(null);
+                  }}
                   className={fieldClass}
                   placeholder={purgeTenant.slug}
                   autoComplete="off"
@@ -562,6 +580,7 @@ export default function PlatformTenantsPage() {
                   onClick={() => {
                     setPurgeTenant(null);
                     setPurgeSlugConfirm('');
+                    setPurgeError(null);
                   }}
                 >
                   Cancel

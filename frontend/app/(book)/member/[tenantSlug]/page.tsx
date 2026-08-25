@@ -136,6 +136,8 @@ function MemberPortalInner() {
   const [otp, setOtp] = useState('');
   const [otpSent, setOtpSent] = useState(false);
   const [maskedPhone, setMaskedPhone] = useState<string | null>(null);
+  const [maskedEmail, setMaskedEmail] = useState<string | null>(null);
+  const [otpChannel, setOtpChannel] = useState<'whatsapp' | 'email' | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [checkingIn, setCheckingIn] = useState(false);
@@ -401,16 +403,32 @@ function MemberPortalInner() {
     setGuestFlow('join');
   }
 
-  async function handleRequestOtp(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleRequestOtp(
+    e: React.FormEvent | null,
+    channel: 'auto' | 'whatsapp' | 'email' = 'auto',
+  ) {
+    e?.preventDefault();
     setSubmitting(true);
     setError(null);
+    setNotice(null);
     setNotRegistered(false);
     try {
-      const result = await memberRequestOtp(tenantSlug, email.trim(), phone.trim());
+      const result = await memberRequestOtp(
+        tenantSlug,
+        email.trim(),
+        phone.trim(),
+        channel,
+      );
+      const delivered = result.channel === 'email' ? 'email' : 'whatsapp';
+      setOtpChannel(delivered);
       setOtpSent(true);
       setMaskedPhone(result.masked_phone);
-      setNotice(`We sent a code to WhatsApp ${result.masked_phone}.`);
+      setMaskedEmail(result.masked_email ?? null);
+      setNotice(
+        delivered === 'email'
+          ? `We emailed a code to ${result.masked_email ?? 'your inbox'}.`
+          : `We sent a code to WhatsApp ${result.masked_phone}.`,
+      );
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Could not send OTP';
       if (/sign up|not found|No membership|join our membership/i.test(message)) {
@@ -419,6 +437,7 @@ function MemberPortalInner() {
           setGuestFlow('join');
         }
       }
+      setNotice(null);
       setError(message);
     } finally {
       setSubmitting(false);
@@ -1516,7 +1535,9 @@ function MemberPortalInner() {
                     setEmail(joinedEmail);
                     setPhone(joinedPhone);
                     setGuestFlow('login');
-                    setNotice('Welcome — now verify with a WhatsApp OTP to open your membership.');
+                    setNotice(
+                      'Welcome — request a one-time code by WhatsApp (or email if WhatsApp is unavailable).',
+                    );
                     setNotRegistered(false);
                     setError(null);
                   }}
@@ -1525,11 +1546,12 @@ function MemberPortalInner() {
 
               {guestFlow === 'login' ? (
                 <form
-                  onSubmit={(e) => void (otpSent ? handleLogin(e) : handleRequestOtp(e))}
+                  onSubmit={(e) => void (otpSent ? handleLogin(e) : handleRequestOtp(e, 'auto'))}
                   className="grid gap-4"
                 >
                   <p className="text-sm text-[var(--book-muted)]">
-                    Log in with your email and WhatsApp number. We send a one-time code to WhatsApp.
+                    Log in with your email and WhatsApp number. We send a one-time code to WhatsApp
+                    first, and fall back to email if WhatsApp is unavailable.
                   </p>
                   {tierHint ? (
                     <p className="text-sm font-medium text-[var(--book-moss)]">
@@ -1566,7 +1588,12 @@ function MemberPortalInner() {
                   {otpSent ? (
                     <label className="block text-sm">
                       <span className="mb-1.5 block font-semibold text-[var(--book-muted)]">
-                        WhatsApp OTP {maskedPhone ? `(sent to ${maskedPhone})` : ''}
+                        {otpChannel === 'email' ? 'Email code' : 'Login code'}
+                        {otpChannel === 'email' && maskedEmail
+                          ? ` (sent to ${maskedEmail})`
+                          : maskedPhone
+                            ? ` (sent to ${maskedPhone})`
+                            : ''}
                       </span>
                       <input
                         className={fieldClass()}
@@ -1586,7 +1613,7 @@ function MemberPortalInner() {
                       {error}
                     </p>
                   ) : null}
-                  {notice && !session ? (
+                  {notice && !error && !session ? (
                     <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
                       {notice}
                     </p>
@@ -1614,9 +1641,29 @@ function MemberPortalInner() {
                         ? 'Signing in…'
                         : 'Sending code…'
                       : otpSent
-                        ? 'Verify OTP & log in'
-                        : 'Send WhatsApp OTP'}
+                        ? 'Verify code & log in'
+                        : 'Send login code'}
                   </button>
+                  {!otpSent ? (
+                    <button
+                      type="button"
+                      className="text-sm font-semibold text-[var(--book-moss)]"
+                      disabled={submitting || !email.trim() || !phone.trim()}
+                      onClick={() => void handleRequestOtp(null, 'email')}
+                    >
+                      Email me the code instead
+                    </button>
+                  ) : null}
+                  {otpSent && otpChannel !== 'email' ? (
+                    <button
+                      type="button"
+                      className="text-sm font-semibold text-[var(--book-moss)]"
+                      disabled={submitting}
+                      onClick={() => void handleRequestOtp(null, 'email')}
+                    >
+                      Didn’t get WhatsApp? Email me the code
+                    </button>
+                  ) : null}
                   {otpSent ? (
                     <button
                       type="button"
@@ -1624,7 +1671,10 @@ function MemberPortalInner() {
                       onClick={() => {
                         setOtpSent(false);
                         setOtp('');
+                        setOtpChannel(null);
+                        setMaskedEmail(null);
                         setNotice(null);
+                        setError(null);
                       }}
                     >
                       Use a different email / number

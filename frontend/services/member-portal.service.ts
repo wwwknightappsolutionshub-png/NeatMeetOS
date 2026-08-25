@@ -233,12 +233,19 @@ export async function memberRequestOtp(
   tenantSlug: string,
   email: string,
   phone: string,
-): Promise<{ sent: boolean; expires_in_seconds: number; masked_phone: string }> {
+  channel: 'auto' | 'whatsapp' | 'email' = 'auto',
+): Promise<{
+  sent: boolean;
+  channel: 'whatsapp' | 'email';
+  expires_in_seconds: number;
+  masked_phone: string;
+  masked_email?: string;
+}> {
   const turnstile_token = await getTurnstileToken();
   return api('/member/login/request-otp', {
     ...publicOpts(tenantSlug, {
       method: 'POST',
-      body: JSON.stringify(withTurnstileToken({ email, phone }, turnstile_token)),
+      body: JSON.stringify(withTurnstileToken({ email, phone, channel }, turnstile_token)),
     }),
   });
 }

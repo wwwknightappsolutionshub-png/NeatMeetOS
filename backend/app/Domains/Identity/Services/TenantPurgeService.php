@@ -62,16 +62,15 @@ class TenantPurgeService
 
         try {
             DB::transaction(function () use ($tenantId, $userIds) {
+                $this->breakCircularForeignKeys($tenantId);
                 $this->wipeTenantScopedRows($tenantId);
+                $this->wipeAlternateTenantReferences($tenantId);
                 $this->deleteOrphanedTenantUsers($userIds);
 
-                $deleted = Tenant::query()->where('id', $tenantId)->delete();
-                if ($deleted < 1) {
-                    // Fallback: raw delete (still cascades where FKs allow).
-                    DB::table('tenants')->where('id', $tenantId)->delete();
-                }
+                // Hard delete — never soft-delete; row must leave the table.
+                DB::table('tenants')->where('id', $tenantId)->delete();
 
-                if (Tenant::query()->where('id', $tenantId)->exists()) {
+                if (DB::table('tenants')->where('id', $tenantId)->exists()) {
                     throw ValidationException::withMessages([
                         'tenant' => ['Tenant row could not be removed. Check database foreign keys.'],
                     ]);
@@ -114,6 +113,59 @@ class TenantPurgeService
         ];
     }
 
+    /**
+     * Nullify known cross-table cycles so multi-pass deletes succeed when
+     * session_replication_role / FOREIGN_KEY_CHECKS cannot be enabled.
+     */
+    private function breakCircularForeignKeys(string $tenantId): void
+    {
+        $nullableColumns = [
+            'appointments' => ['origin_visit_id', 'rebooked_from_appointment_id'],
+            'client_visits' => ['next_visit_appointment_id'],
+            'payment_transactions' => ['appointment_id'],
+            'payment_allocations' => ['appointment_id'],
+            'waitlist_entries' => ['fulfilled_appointment_id'],
+        ];
+
+        foreach ($nullableColumns as $table => $columns) {
+            if (! Schema::hasTable($table) || ! Schema::hasColumn($table, 'tenant_id')) {
+                continue;
+            }
+            $updates = [];
+            foreach ($columns as $column) {
+                if (Schema::hasColumn($table, $column)) {
+                    $updates[$column] = null;
+                }
+            }
+            if ($updates !== []) {
+                DB::table($table)->where('tenant_id', $tenantId)->update($updates);
+            }
+        }
+    }
+
+    /**
+     * Clear referral rows that reference the tenant without a matching tenant_id column wipe.
+     */
+    private function wipeAlternateTenantReferences(string $tenantId): void
+    {
+        $pairs = [
+            ['platform_referral_invites', 'referrer_tenant_id'],
+            ['platform_referral_conversions', 'referrer_tenant_id'],
+            ['platform_referral_conversions', 'referred_tenant_id'],
+        ];
+
+        foreach ($pairs as [$table, $column]) {
+            if (! Schema::hasTable($table) || ! Schema::hasColumn($table, $column)) {
+                continue;
+            }
+            try {
+                DB::table($table)->where($column, $tenantId)->delete();
+            } catch (Throwable) {
+                // Best-effort; CASCADE on tenants delete may still clean these.
+            }
+        }
+    }
+
     private function wipeTenantScopedRows(string $tenantId): void
     {
         $tables = $this->tablesWithTenantId();
@@ -123,7 +175,7 @@ class TenantPurgeService
         try {
             if ($driver === 'pgsql') {
                 try {
-                    DB::statement('SET session_replication_role = replica');
+                    DB::statement('SET LOCAL session_replication_role = replica');
                     $fkDisabled = true;
                 } catch (Throwable) {
                     $fkDisabled = false;
@@ -187,7 +239,7 @@ class TenantPurgeService
             if ($fkDisabled) {
                 try {
                     if ($driver === 'pgsql') {
-                        DB::statement('SET session_replication_role = DEFAULT');
+                        DB::statement('SET LOCAL session_replication_role = DEFAULT');
                     } elseif (in_array($driver, ['mysql', 'mariadb'], true)) {
                         DB::statement('SET FOREIGN_KEY_CHECKS=1');
                     }
