@@ -11,9 +11,12 @@ import {
 import { registerMemberServiceWorker } from '@/services/member-portal.service';
 import {
   bookingPagePath,
+  isMemberAppEntry,
   isStandaloneDisplay,
+  openTenantBookingPage,
   promptTenantCustomerPwaInstall,
   tenantCustomerPwaInstallHint,
+  tenantCustomerPwaPath,
   type BeforeInstallPromptEvent,
 } from '@/lib/tenant-customer-pwa';
 
@@ -44,6 +47,7 @@ function PublicMembershipsPageInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const tenantSlug = params.tenantSlug;
+  const fromMemberApp = isMemberAppEntry(searchParams.get('from'));
   const [data, setData] = useState<PublicMembershipLanding | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -96,6 +100,10 @@ function PublicMembershipsPageInner() {
     );
   }
 
+  function returnToMemberHome() {
+    openTenantBookingPage(tenantCustomerPwaPath(tenantSlug));
+  }
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center text-sm text-[var(--book-muted)]">
@@ -108,9 +116,15 @@ function PublicMembershipsPageInner() {
     return (
       <div className="mx-auto max-w-lg px-4 py-16 text-center">
         <p className="text-sm text-red-700">{error ?? 'Not found'}</p>
-        <Link href={`/book/${tenantSlug}`} className={`${secondaryBtnClass()} mt-4`}>
-          Back to booking
-        </Link>
+        {fromMemberApp ? (
+          <button type="button" onClick={returnToMemberHome} className={`${secondaryBtnClass()} mt-4`}>
+            Back to membership home
+          </button>
+        ) : (
+          <Link href={bookingPagePath(tenantSlug)} className={`${secondaryBtnClass()} mt-4`}>
+            Back to booking
+          </Link>
+        )}
       </div>
     );
   }
@@ -124,40 +138,58 @@ function PublicMembershipsPageInner() {
     <div className="min-h-screen bg-[var(--book-wash)] text-[var(--book-ink)]" style={style}>
       <header className="border-b border-[var(--book-line)] bg-[var(--book-surface)]">
         <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-6">
-          <div>
+          <div className="min-w-0">
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--book-moss)]">
-              Memberships
+              {fromMemberApp ? 'Member pricing' : 'Memberships'}
             </p>
-            <h1 className="book-display text-2xl font-bold tracking-tight sm:text-3xl">{salonName}</h1>
+            <h1 className="book-display text-2xl font-bold tracking-tight sm:text-3xl">
+              {fromMemberApp ? 'Book with member pricing' : salonName}
+            </h1>
+            {fromMemberApp ? (
+              <p className="mt-1 text-sm text-[var(--book-muted)]">{salonName}</p>
+            ) : null}
           </div>
-          <nav className="flex flex-wrap items-center gap-3 text-sm">
+          {!fromMemberApp ? (
+            <nav className="flex flex-wrap items-center gap-3 text-sm">
+              <button
+                type="button"
+                onClick={() => goToBookingPage(data.paths.book)}
+                className="text-[var(--book-muted)] underline-offset-2 hover:underline"
+              >
+                Book
+              </button>
+              <Link href={joinHref} className="text-[var(--book-muted)] underline-offset-2 hover:underline">
+                Join
+              </Link>
+              <button
+                type="button"
+                onClick={handleMembershipApp}
+                className="text-[var(--book-muted)] underline-offset-2 hover:underline"
+              >
+                Membership app
+              </button>
+            </nav>
+          ) : (
             <button
               type="button"
-              onClick={() => goToBookingPage(data.paths.book)}
-              className="text-[var(--book-muted)] underline-offset-2 hover:underline"
+              onClick={returnToMemberHome}
+              className="shrink-0 text-sm font-semibold text-[var(--book-moss)] underline-offset-2 hover:underline"
             >
-              Book
+              Back
             </button>
-            <Link href={joinHref} className="text-[var(--book-muted)] underline-offset-2 hover:underline">
-              Join
-            </Link>
-            <button
-              type="button"
-              onClick={handleMembershipApp}
-              className="text-[var(--book-muted)] underline-offset-2 hover:underline"
-            >
-              Membership app
-            </button>
-          </nav>
+          )}
         </div>
       </header>
 
       <main className="mx-auto max-w-3xl space-y-10 px-4 py-8 sm:px-6 sm:py-12">
         <section className="space-y-3">
-          <h2 className="book-display text-xl font-bold sm:text-2xl">Choose what fits how you visit</h2>
+          <h2 className="book-display text-xl font-bold sm:text-2xl">
+            {fromMemberApp ? 'Your member rates and benefits' : 'Choose what fits how you visit'}
+          </h2>
           <p className="max-w-2xl text-sm leading-relaxed text-[var(--book-muted)]">
-            Three different benefits — pick one, combine them, or start with loyalty alone. Plans and
-            packages are paid products; loyalty points are free rewards you earn.
+            {fromMemberApp
+              ? 'Review membership plans, visit packages, and loyalty rewards available to you. Buy or renew from the Shop tab in your membership app.'
+              : 'Three different benefits — pick one, combine them, or start with loyalty alone. Plans and packages are paid products; loyalty points are free rewards you earn.'}
           </p>
         </section>
 
@@ -179,39 +211,13 @@ function PublicMembershipsPageInner() {
           ))}
         </section>
 
-        <section className="overflow-hidden rounded-2xl border border-[var(--book-line)] bg-[var(--book-surface)] shadow-[var(--book-shadow)]">
-          <div className="border-b border-[var(--book-line)] px-4 py-3">
-            <h3 className="text-sm font-semibold">Quick comparison</h3>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[32rem] text-left text-sm">
-              <thead>
-                <tr className="border-b border-[var(--book-line)] text-[var(--book-muted)]">
-                  <th className="px-4 py-2 font-medium"> </th>
-                  <th className="px-4 py-2 font-medium">Plan</th>
-                  <th className="px-4 py-2 font-medium">Package</th>
-                  <th className="px-4 py-2 font-medium">Loyalty</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.comparison.map((row) => (
-                  <tr key={row.aspect} className="border-b border-[var(--book-line)] last:border-0">
-                    <td className="px-4 py-2.5 font-medium text-[var(--book-ink)]">{row.aspect}</td>
-                    <td className="px-4 py-2.5 text-[var(--book-muted)]">{row.plan}</td>
-                    <td className="px-4 py-2.5 text-[var(--book-muted)]">{row.package}</td>
-                    <td className="px-4 py-2.5 text-[var(--book-muted)]">{row.loyalty}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-
         <section className="space-y-4">
           <div>
             <h3 className="text-sm font-semibold">Membership plans</h3>
             <p className="mt-1 text-xs text-[var(--book-muted)]">
-              Ongoing membership — buy or renew in the member app after you join.
+              {fromMemberApp
+                ? 'Ongoing membership with recurring perks and member rates.'
+                : 'Ongoing membership — buy or renew in the member app after you join.'}
             </p>
           </div>
           {data.offers.plans.length === 0 ? (
@@ -262,7 +268,9 @@ function PublicMembershipsPageInner() {
           <div>
             <h3 className="text-sm font-semibold">Visit packages</h3>
             <p className="mt-1 text-xs text-[var(--book-muted)]">
-              Prepaid sessions — purchase in the member app or ask reception to assign one.
+              {fromMemberApp
+                ? 'Prepaid visit bundles you can use until sessions run out.'
+                : 'Prepaid sessions — purchase in the member app or ask reception to assign one.'}
             </p>
           </div>
           {data.offers.packages.length === 0 ? (
@@ -316,21 +324,23 @@ function PublicMembershipsPageInner() {
           </p>
         </section>
 
-        <section className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-          <Link href={joinHref} className={primaryBtnClass()}>
-            Join as a client
-          </Link>
-          <button type="button" onClick={handleMembershipApp} className={secondaryBtnClass()}>
-            Open membership app to buy
-          </button>
-          <button
-            type="button"
-            onClick={() => goToBookingPage(data.paths.book)}
-            className={secondaryBtnClass()}
-          >
-            Book an appointment
-          </button>
-        </section>
+        {!fromMemberApp ? (
+          <section className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+            <Link href={joinHref} className={primaryBtnClass()}>
+              Join as a client
+            </Link>
+            <button type="button" onClick={handleMembershipApp} className={secondaryBtnClass()}>
+              Open membership app to buy
+            </button>
+            <button
+              type="button"
+              onClick={() => goToBookingPage(data.paths.book)}
+              className={secondaryBtnClass()}
+            >
+              Book an appointment
+            </button>
+          </section>
+        ) : null}
       </main>
     </div>
   );

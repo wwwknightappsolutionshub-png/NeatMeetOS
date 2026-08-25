@@ -93,6 +93,14 @@ export function bookingPagePath(tenantSlug: string): string {
   return `/book/${tenantSlug}`;
 }
 
+export function membershipsPagePath(tenantSlug: string): string {
+  return `/book/${tenantSlug}/memberships`;
+}
+
+export function isMemberAppEntry(from: string | null | undefined): boolean {
+  return from === 'member';
+}
+
 /** Marks booking links opened from the member PWA so the book page stays on /book. */
 export function withMemberBookingAttribution(href: string): string {
   if (/[?&]from=member(?:&|$)/.test(href)) return href;

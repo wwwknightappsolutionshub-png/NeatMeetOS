@@ -22,6 +22,7 @@ import type { LookbookItem } from '@/lib/lookbook-types';
 import {
   bookingPagePath,
   exitMemberApp,
+  membershipsPagePath,
   openTenantBookingPage,
   hasMarkedMemberJoined,
   isStandaloneDisplay,
@@ -202,6 +203,7 @@ function MemberPortalInner() {
   const salonName =
     bootstrap?.tenant.branding?.brand_display_name || bootstrap?.tenant.name || tenantSlug;
   const bookHref = bootstrap?.book_path || bookingPagePath(tenantSlug);
+  const memberPricingHref = membershipsPagePath(tenantSlug);
   const standalone = isStandaloneDisplay();
 
   function visitStatusMeta(): { label: string; live: boolean; tone: string } {
@@ -1107,7 +1109,7 @@ function MemberPortalInner() {
                   ) : null}
 
                   <div className="pt-1">
-                    <MemberBookingLink href={bookHref} className={primaryBtnClass()}>
+                    <MemberBookingLink href={memberPricingHref} className={primaryBtnClass()}>
                       Book with member pricing
                     </MemberBookingLink>
                   </div>
@@ -1204,12 +1206,12 @@ function MemberPortalInner() {
                         <span className="font-medium text-[var(--book-ink)]">Loyalty</span> — free points (Points tab)
                       </li>
                     </ul>
-                    <a
-                      href={`/book/${tenantSlug}/memberships`}
+                    <MemberBookingLink
+                      href={memberPricingHref}
                       className="mt-2 inline-block font-semibold text-[var(--book-moss)] underline-offset-2 hover:underline"
                     >
                       Full comparison
-                    </a>
+                    </MemberBookingLink>
                   </div>
                   <div>
                     <p className="text-sm font-semibold text-[var(--book-ink)]">Your memberships</p>
@@ -1259,12 +1261,12 @@ function MemberPortalInner() {
                       <span className="font-semibold text-[var(--book-ink)]">Packages</span> are visit bundles.
                       Loyalty points are free — they are not sold here.
                     </p>
-                    <a
-                      href={`/book/${tenantSlug}/memberships`}
+                    <MemberBookingLink
+                      href={memberPricingHref}
                       className="mt-2 inline-block font-semibold text-[var(--book-moss)] underline-offset-2 hover:underline"
                     >
                       Compare options
-                    </a>
+                    </MemberBookingLink>
                   </div>
                   <p className="text-xs text-[var(--book-muted)]">
                     Purchases settle via payment-link simulation (same pattern as Payments until live card capture ships).
