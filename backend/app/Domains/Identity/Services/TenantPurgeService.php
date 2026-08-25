@@ -15,6 +15,10 @@ use Throwable;
 
 /**
  * Permanently remove a salon tenant and tenant-scoped data from the database.
+ *
+ * Child-row wipes intentionally run outside a single outer transaction: on
+ * PostgreSQL, one failed DELETE inside BEGIN aborts the whole block (25P02)
+ * and makes later deletes look like they failed on unrelated tables.
  */
 class TenantPurgeService
 {
@@ -61,22 +65,20 @@ class TenantPurgeService
             ->all();
 
         try {
-            DB::transaction(function () use ($tenantId, $userIds) {
-                $this->breakCircularForeignKeys($tenantId);
-                $this->wipeBillingDependencies($tenantId);
-                $this->wipeTenantScopedRows($tenantId);
-                $this->wipeAlternateTenantReferences($tenantId);
-                $this->deleteOrphanedTenantUsers($userIds);
+            $this->breakCircularForeignKeys($tenantId);
+            $this->wipeBillingDependencies($tenantId);
+            $this->wipeTenantScopedRows($tenantId);
+            $this->wipeAlternateTenantReferences($tenantId);
+            $this->deleteOrphanedTenantUsers($userIds);
 
-                // Hard delete — never soft-delete; row must leave the table.
-                DB::table('tenants')->where('id', $tenantId)->delete();
+            // Hard delete — cascades remaining ON DELETE CASCADE children.
+            DB::table('tenants')->where('id', $tenantId)->delete();
 
-                if (DB::table('tenants')->where('id', $tenantId)->exists()) {
-                    throw ValidationException::withMessages([
-                        'tenant' => ['Tenant row could not be removed. Check database foreign keys.'],
-                    ]);
-                }
-            });
+            if (DB::table('tenants')->where('id', $tenantId)->exists()) {
+                throw ValidationException::withMessages([
+                    'tenant' => ['Tenant row could not be removed. Check database foreign keys.'],
+                ]);
+            }
         } catch (ValidationException $e) {
             throw $e;
         } catch (Throwable $e) {
@@ -138,9 +140,12 @@ class TenantPurgeService
                     $updates[$column] = null;
                 }
             }
-            if ($updates !== []) {
-                DB::table($table)->where('tenant_id', $tenantId)->update($updates);
+            if ($updates === []) {
+                continue;
             }
+            $this->tryQuery(function () use ($table, $tenantId, $updates) {
+                DB::table($table)->where('tenant_id', $tenantId)->update($updates);
+            });
         }
     }
 
@@ -159,17 +164,25 @@ class TenantPurgeService
             if (! Schema::hasTable($table) || ! Schema::hasColumn($table, $column)) {
                 continue;
             }
-            $this->runInSavepoint('alt_'.substr(md5($table.$column), 0, 12), function () use ($table, $column, $tenantId) {
+            $this->tryQuery(function () use ($table, $column, $tenantId) {
                 DB::table($table)->where($column, $tenantId)->delete();
             });
         }
     }
 
     /**
-     * Platform billing FKs: invoice attempts → invoices → tenant_subscriptions.
+     * Platform billing: nullify subscription FKs, then attempts → invoices → subscriptions.
      */
     private function wipeBillingDependencies(string $tenantId): void
     {
+        if (Schema::hasTable('platform_invoices') && Schema::hasColumn('platform_invoices', 'tenant_subscription_id')) {
+            $this->tryQuery(function () use ($tenantId) {
+                DB::table('platform_invoices')
+                    ->where('tenant_id', $tenantId)
+                    ->update(['tenant_subscription_id' => null]);
+            });
+        }
+
         foreach ([
             'platform_invoice_attempts',
             'platform_invoices',
@@ -178,16 +191,14 @@ class TenantPurgeService
             if (! Schema::hasTable($table) || ! Schema::hasColumn($table, 'tenant_id')) {
                 continue;
             }
-            $this->deleteTenantScopedTable($table, $tenantId);
-        }
-
-        // Invoices may keep a subscription FK; nullify before any leftover subscription wipe.
-        if (Schema::hasTable('platform_invoices') && Schema::hasColumn('platform_invoices', 'tenant_subscription_id')) {
-            $this->runInSavepoint('null_invoice_sub', function () use ($tenantId) {
-                DB::table('platform_invoices')
-                    ->where('tenant_id', $tenantId)
-                    ->update(['tenant_subscription_id' => null]);
-            });
+            $error = $this->deleteTenantScopedTable($table, $tenantId);
+            if ($error !== null) {
+                Log::warning('platform.tenant.purge_billing_wipe_failed', [
+                    'tenant_id' => $tenantId,
+                    'table' => $table,
+                    'error' => $error,
+                ]);
+            }
         }
     }
 
@@ -199,8 +210,9 @@ class TenantPurgeService
 
         try {
             if ($driver === 'pgsql') {
+                // Session-level (not LOCAL): we are not inside an outer transaction.
                 try {
-                    DB::statement('SET LOCAL session_replication_role = replica');
+                    DB::statement('SET session_replication_role = replica');
                     $fkDisabled = true;
                 } catch (Throwable) {
                     $fkDisabled = false;
@@ -212,7 +224,14 @@ class TenantPurgeService
 
             if ($fkDisabled) {
                 foreach ($tables as $table) {
-                    DB::table($table)->where('tenant_id', $tenantId)->delete();
+                    $error = $this->deleteTenantScopedTable($table, $tenantId);
+                    if ($error !== null) {
+                        Log::warning('platform.tenant.purge_table_failed', [
+                            'tenant_id' => $tenantId,
+                            'table' => $table,
+                            'error' => $error,
+                        ]);
+                    }
                 }
 
                 return;
@@ -240,7 +259,6 @@ class TenantPurgeService
                 }
 
                 if (count($failed) === count($remaining)) {
-                    // Final reverse pass with the first real error message (not 25P02 noise).
                     $remaining = array_reverse($failed);
                     foreach ($remaining as $table) {
                         $error = $this->deleteTenantScopedTable($table, $tenantId);
@@ -272,7 +290,7 @@ class TenantPurgeService
             if ($fkDisabled) {
                 try {
                     if ($driver === 'pgsql') {
-                        DB::statement('SET LOCAL session_replication_role = DEFAULT');
+                        DB::statement('SET session_replication_role = DEFAULT');
                     } elseif (in_array($driver, ['mysql', 'mariadb'], true)) {
                         DB::statement('SET FOREIGN_KEY_CHECKS=1');
                     }
@@ -284,14 +302,11 @@ class TenantPurgeService
     }
 
     /**
-     * Delete tenant-scoped rows. On PostgreSQL, wrap in a SAVEPOINT so a FK
-     * failure does not abort the outer transaction (SQLSTATE 25P02).
-     *
      * @return string|null Error message when delete failed; null on success
      */
     private function deleteTenantScopedTable(string $table, string $tenantId): ?string
     {
-        return $this->runInSavepoint('purge_'.substr(md5($table), 0, 16), function () use ($table, $tenantId) {
+        return $this->tryQuery(function () use ($table, $tenantId) {
             DB::table($table)->where('tenant_id', $tenantId)->delete();
         });
     }
@@ -300,40 +315,13 @@ class TenantPurgeService
      * @param  callable(): void  $callback
      * @return string|null Error message when failed; null on success
      */
-    private function runInSavepoint(string $name, callable $callback): ?string
+    private function tryQuery(callable $callback): ?string
     {
-        $safe = preg_replace('/[^a-zA-Z0-9_]/', '_', $name) ?: 'purge_sp';
-        $driver = DB::connection()->getDriverName();
-        $supportsSavepoints = in_array($driver, ['pgsql', 'mysql', 'mariadb', 'sqlite'], true);
-
-        if ($supportsSavepoints) {
-            try {
-                DB::statement('SAVEPOINT '.$safe);
-            } catch (Throwable) {
-                $supportsSavepoints = false;
-            }
-        }
-
         try {
             $callback();
-            if ($supportsSavepoints) {
-                try {
-                    DB::statement('RELEASE SAVEPOINT '.$safe);
-                } catch (Throwable) {
-                    // ignore
-                }
-            }
 
             return null;
         } catch (Throwable $e) {
-            if ($supportsSavepoints) {
-                try {
-                    DB::statement('ROLLBACK TO SAVEPOINT '.$safe);
-                } catch (Throwable) {
-                    // ignore
-                }
-            }
-
             return $e->getMessage();
         }
     }
@@ -407,17 +395,28 @@ class TenantPurgeService
             }
 
             if (Schema::hasTable('personal_access_tokens')) {
-                DB::table('personal_access_tokens')
-                    ->where('tokenable_type', User::class)
-                    ->where('tokenable_id', $id)
-                    ->delete();
+                $this->tryQuery(function () use ($id) {
+                    DB::table('personal_access_tokens')
+                        ->where('tokenable_type', User::class)
+                        ->where('tokenable_id', $id)
+                        ->delete();
+                });
             }
 
             if (Schema::hasTable('auth_action_tokens')) {
-                DB::table('auth_action_tokens')->where('user_id', $id)->delete();
+                $this->tryQuery(function () use ($id) {
+                    DB::table('auth_action_tokens')->where('user_id', $id)->delete();
+                });
             }
 
-            $user->delete();
+            try {
+                $user->delete();
+            } catch (Throwable $e) {
+                Log::warning('platform.tenant.purge_user_failed', [
+                    'user_id' => $id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
         }
     }
 
@@ -428,6 +427,7 @@ class TenantPurgeService
             "branding/{$tenantId}",
             "gallery/{$tenantId}",
             "lookbook/{$tenantId}",
+            "client-looks/{$tenantId}",
         ] as $directory) {
             try {
                 Storage::disk('public')->deleteDirectory($directory);
