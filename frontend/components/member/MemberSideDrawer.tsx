@@ -7,7 +7,6 @@ const drawerItems: Array<{ id: Tab; label: string }> = [
   { id: 'membership', label: 'Plans' },
   { id: 'shop', label: 'Shop' },
   { id: 'gifts', label: 'Gifts' },
-  { id: 'refer', label: 'Refer' },
 ];
 
 export function MemberSideDrawer({

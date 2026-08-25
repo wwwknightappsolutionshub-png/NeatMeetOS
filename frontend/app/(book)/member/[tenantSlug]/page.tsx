@@ -5,12 +5,14 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type CSSPr
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { SocialFooterIcons } from '@/components/public/SocialFooterIcons';
 import { MembershipJoinForm } from '@/components/member/MembershipJoinForm';
+import { MemberBookingLink } from '@/components/member/MemberBookingLink';
 import { MemberFooterNav } from '@/components/member/MemberFooterNav';
 import { MemberHeaderMenuButton } from '@/components/member/MemberHeaderMenuButton';
 import { MemberLookbookStrip } from '@/components/member/MemberLookbookStrip';
 import { MemberLooksGallery } from '@/components/member/MemberLooksGallery';
 import { MemberServicesRail } from '@/components/member/MemberServicesRail';
 import { MemberLogoutPrompt } from '@/components/member/MemberLogoutPrompt';
+import { MemberReferShareSheet } from '@/components/member/MemberReferShareSheet';
 import { MemberMessagesPanel } from '@/components/member/MemberMessagesPanel';
 import { MemberSideDrawer } from '@/components/member/MemberSideDrawer';
 import type { Tab } from '@/components/member/member-nav-types';
@@ -18,12 +20,14 @@ import type { Appointment, BookableService, OnlineBookingCatalog } from '@/lib/b
 import { isOtpDeliveryNotice } from '@/lib/booking-media';
 import type { LookbookItem } from '@/lib/lookbook-types';
 import {
-  attemptCloseMemberApp,
   bookingPagePath,
+  exitMemberApp,
+  openTenantBookingPage,
   hasMarkedMemberJoined,
   isStandaloneDisplay,
   readJoinLocationId,
   readJoinReferralCode,
+  resolveTenantPageUrl,
 } from '@/lib/tenant-customer-pwa';
 import { fetchOnlineCatalog } from '@/services/online-booking.service';
 import { fetchPublicLookbookItems } from '@/services/lookbook.service';
@@ -188,6 +192,7 @@ function MemberPortalInner() {
   const [looks, setLooks] = useState<MemberLook[]>([]);
   const [looksBusy, setLooksBusy] = useState(false);
   const [logoutPromptOpen, setLogoutPromptOpen] = useState(false);
+  const [referShareOpen, setReferShareOpen] = useState(false);
 
   const insideRef = useRef(false);
   const checkedInTodayRef = useRef(false);
@@ -792,18 +797,14 @@ function MemberPortalInner() {
     }
   }
 
-  async function clearMemberAuthSession(): Promise<void> {
-    if (!session?.token) return;
-    try {
-      await memberLogout(tenantSlug, session.token);
-    } catch {
-      // still clear local session
-    }
-    clearMemberSession(tenantSlug);
-    setSession(null);
-    setDashboard(null);
-    setMenuOpen(false);
+  function dismissMemberSessionForExit(): void {
+    const token = session?.token;
     setLogoutPromptOpen(false);
+    setMenuOpen(false);
+    clearMemberSession(tenantSlug);
+    if (token) {
+      void memberLogout(tenantSlug, token).catch(() => {});
+    }
   }
 
   function openLogoutPrompt() {
@@ -811,14 +812,15 @@ function MemberPortalInner() {
     setLogoutPromptOpen(true);
   }
 
-  async function handleSignOutCompletely() {
-    await clearMemberAuthSession();
-    attemptCloseMemberApp();
+  function handleSignOutCompletely() {
+    dismissMemberSessionForExit();
+    exitMemberApp();
   }
 
-  async function handleVisitBookingPage() {
-    await clearMemberAuthSession();
-    router.replace(bookHref);
+  function handleVisitBookingPage() {
+    const destination = resolveTenantPageUrl(bookHref || bookingPagePath(tenantSlug));
+    dismissMemberSessionForExit();
+    openTenantBookingPage(destination);
   }
 
   function scrollToLookbook() {
@@ -830,7 +832,7 @@ function MemberPortalInner() {
 
   return (
     <div className="book-portal min-h-screen" style={{ ['--book-moss' as string]: accent } as CSSProperties}>
-      <main className="mx-auto flex min-h-screen max-w-lg flex-col px-4 py-6 pb-[calc(6.25rem+env(safe-area-inset-bottom,0px))] sm:px-6 sm:py-8 sm:pb-[calc(6.75rem+env(safe-area-inset-bottom,0px))]">
+      <main className="mx-auto flex min-h-screen max-w-lg flex-col px-4 py-6 pb-[calc(6.75rem+env(safe-area-inset-bottom,0px))] sm:px-6 sm:py-8 sm:pb-[calc(7.25rem+env(safe-area-inset-bottom,0px))]">
         {loading ? (
           <div className="rounded-2xl border border-[var(--book-line)] bg-white/90 p-6 shadow-[var(--book-shadow)]">
             <p className="text-sm text-[var(--book-muted)]">Loading your membership…</p>
@@ -1105,9 +1107,9 @@ function MemberPortalInner() {
                   ) : null}
 
                   <div className="pt-1">
-                    <Link href={bookHref} className={primaryBtnClass()}>
+                    <MemberBookingLink href={bookHref} className={primaryBtnClass()}>
                       Book with member pricing
-                    </Link>
+                    </MemberBookingLink>
                   </div>
                 </div>
               ) : null}
@@ -1421,24 +1423,23 @@ function MemberPortalInner() {
                           <button
                             type="button"
                             className={primaryBtnClass(false)}
+                            onClick={() => setReferShareOpen(true)}
+                          >
+                            Share invite
+                          </button>
+                          <button
+                            type="button"
+                            className="inline-flex w-full items-center justify-center rounded-md border border-[var(--book-line)] bg-white px-5 py-2.5 text-sm font-semibold text-[var(--book-ink)]"
                             onClick={() => void handleCopyReferralLink()}
                           >
                             Copy join link
                           </button>
-                          <a
-                            href={referral.whatsapp_url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex w-full items-center justify-center rounded-md border border-[var(--book-line)] bg-white px-5 py-2.5 text-sm font-semibold text-[var(--book-ink)]"
-                          >
-                            Share on WhatsApp
-                          </a>
                         </div>
                         {copyNotice ? (
                           <p className="text-xs text-emerald-700">{copyNotice}</p>
                         ) : null}
                         <p className="text-xs text-[var(--book-muted)]">
-                          Opens WhatsApp with your message — we never access your contacts.
+                          Share via WhatsApp, text, email, Facebook, or your phone&apos;s share menu.
                         </p>
                       </div>
 
@@ -1818,6 +1819,13 @@ function MemberPortalInner() {
               setMenuOpen(false);
               setTab(next);
             }}
+            onReferPress={() => {
+              setMenuOpen(false);
+              setTab('refer');
+              if (referral?.enabled) {
+                setReferShareOpen(true);
+              }
+            }}
           />
           <MemberSideDrawer
             open={menuOpen}
@@ -1834,8 +1842,14 @@ function MemberPortalInner() {
           <MemberLogoutPrompt
             open={logoutPromptOpen}
             onClose={() => setLogoutPromptOpen(false)}
-            onSignOutCompletely={() => void handleSignOutCompletely()}
-            onVisitBookingPage={() => void handleVisitBookingPage()}
+            onSignOutCompletely={handleSignOutCompletely}
+            onVisitBookingPage={handleVisitBookingPage}
+          />
+          <MemberReferShareSheet
+            open={referShareOpen}
+            referral={referral}
+            salonName={salonName}
+            onClose={() => setReferShareOpen(false)}
           />
         </>
       ) : null}

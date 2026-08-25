@@ -93,6 +93,26 @@ export function bookingPagePath(tenantSlug: string): string {
   return `/book/${tenantSlug}`;
 }
 
+/** Marks booking links opened from the member PWA so the book page stays on /book. */
+export function withMemberBookingAttribution(href: string): string {
+  if (/[?&]from=member(?:&|$)/.test(href)) return href;
+  const separator = href.includes('?') ? '&' : '?';
+  return `${href}${separator}from=member`;
+}
+
+export function resolveTenantPageUrl(href: string): string {
+  if (typeof window === 'undefined') return href;
+  if (/^https?:\/\//i.test(href)) return href;
+  const path = href.startsWith('/') ? href : `/${href}`;
+  return `${window.location.origin}${path}`;
+}
+
+/** Hard navigation — required when leaving the member PWA shell for /book routes. */
+export function openTenantBookingPage(href: string): void {
+  if (typeof window === 'undefined') return;
+  window.location.replace(resolveTenantPageUrl(href));
+}
+
 function referralStorageKey(tenantSlug: string): string {
   return `neatmeet_ref_${tenantSlug}`;
 }
@@ -179,17 +199,41 @@ export async function promptTenantCustomerPwaInstall(
   return 'manual';
 }
 
-/** Best-effort close for installed member PWAs; browsers may ignore window.close(). */
-export function attemptCloseMemberApp(onCloseFailed?: () => void): void {
+/**
+ * Best-effort exit for installed member PWAs. window.close() is ignored for
+ * home-screen apps, so we blank the shell as a fallback.
+ */
+export function exitMemberApp(): void {
   if (typeof window === 'undefined') return;
+
+  const blankShell = () => {
+    try {
+      window.location.replace('about:blank');
+    } catch {
+      window.location.href = 'about:blank';
+    }
+  };
+
   try {
+    const selfWindow = window.open('', '_self');
+    selfWindow?.close();
     window.close();
   } catch {
     // ignore
   }
+
   window.setTimeout(() => {
-    if (typeof document !== 'undefined' && !document.hidden) {
-      onCloseFailed?.();
+    if (typeof document !== 'undefined' && document.hidden) {
+      return;
     }
-  }, 300);
+    blankShell();
+  }, 150);
+}
+
+/** @deprecated Prefer exitMemberApp */
+export function attemptCloseMemberApp(onCloseFailed?: () => void): void {
+  exitMemberApp();
+  if (onCloseFailed) {
+    window.setTimeout(onCloseFailed, 400);
+  }
 }

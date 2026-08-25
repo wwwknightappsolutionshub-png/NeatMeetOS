@@ -67,7 +67,7 @@ export function BookingInstallPrompt({
       const skip = await shouldSkipBookingInstallGate(tenantSlug);
       if (cancelled) return;
       if (skip || isStandaloneDisplay()) {
-        router.replace(tenantCustomerPwaPath(tenantSlug));
+        // Member already joined or app installed — skip the install gate and allow booking.
         return;
       }
       setSkipReady(true);

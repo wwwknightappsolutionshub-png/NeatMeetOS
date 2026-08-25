@@ -512,6 +512,19 @@ function OnlineBookingPageInner() {
   }, [tenantSlug, searchParams]);
 
   useEffect(() => {
+    if (searchParams.get('from') !== 'member') return;
+    const member = loadMemberSession(tenantSlug);
+    if (!member?.token) return;
+    if (member.benefits.has_membership) {
+      setPricingTier('membership');
+      return;
+    }
+    if (member.benefits.loyalty_eligible) {
+      setPricingTier('loyalty');
+    }
+  }, [tenantSlug, searchParams]);
+
+  useEffect(() => {
     setAiLandingSkipped(hasSkippedAiHairstyleLanding(tenantSlug));
   }, [tenantSlug]);
 
