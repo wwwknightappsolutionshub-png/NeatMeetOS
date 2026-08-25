@@ -178,3 +178,18 @@ export async function promptTenantCustomerPwaInstall(
 
   return 'manual';
 }
+
+/** Best-effort close for installed member PWAs; browsers may ignore window.close(). */
+export function attemptCloseMemberApp(onCloseFailed?: () => void): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.close();
+  } catch {
+    // ignore
+  }
+  window.setTimeout(() => {
+    if (typeof document !== 'undefined' && !document.hidden) {
+      onCloseFailed?.();
+    }
+  }, 300);
+}

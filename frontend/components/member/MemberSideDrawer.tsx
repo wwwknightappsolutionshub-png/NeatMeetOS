@@ -38,10 +38,11 @@ export function MemberSideDrawer({
         onClick={onClose}
       />
       <aside
-        className="relative flex h-full w-[min(20rem,86vw)] flex-col border-l border-[var(--book-line)] bg-white shadow-2xl"
+        className="relative flex h-full w-[min(20rem,86vw)] flex-col border-l border-[var(--book-line)] bg-white shadow-2xl transition-transform duration-200 ease-out"
+        id="member-side-drawer"
         role="dialog"
         aria-modal="true"
-        aria-label="More membership options"
+        aria-label="Membership menu"
       >
         <div className="border-b border-[var(--book-line)] px-5 py-4">
           <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--book-moss)]">

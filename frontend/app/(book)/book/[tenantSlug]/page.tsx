@@ -2,7 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import Image from 'next/image';
-import { Suspense, useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { NeatMeetLogo } from '@/components/brand/NeatMeetLogo';
 import type {
@@ -414,17 +414,7 @@ function addDaysDateInput(base: string, days: number): string {
   return toLocalDateInput(d);
 }
 
-function categoryLabel(category: string | null): string {
-  if (!category) return 'Service';
-  return category.charAt(0).toUpperCase() + category.slice(1);
-}
-
-function serviceImageSrc(category: string | null): string {
-  if (category?.toLowerCase() === 'colour' || category?.toLowerCase() === 'color') {
-    return '/book/service-colour.jpg';
-  }
-  return '/book/service-hair.jpg';
-}
+import { categoryLabel, resolveServiceImageSrc } from '@/lib/booking-media';
 
 function primaryBtnClass(disabled?: boolean): string {
   return [
@@ -466,6 +456,7 @@ function OnlineBookingPageInner() {
   const router = useRouter();
   const tenantSlug = params.tenantSlug;
   const locationFromQuery = searchParams.get('location');
+  const serviceFromQuery = searchParams.get('service');
 
   const [step, setStep] = useState<Step>('service');
   const [catalog, setCatalog] = useState<OnlineBookingCatalog | null>(null);
@@ -506,6 +497,11 @@ function OnlineBookingPageInner() {
     'open' | 'opening_soon' | 'closing' | 'closed'
   >('open');
   const [heroGreeting, setHeroGreeting] = useState('You are welcome here');
+  const serviceDeepLinkApplied = useRef(false);
+
+  useEffect(() => {
+    serviceDeepLinkApplied.current = false;
+  }, [tenantSlug, serviceFromQuery]);
 
   useEffect(() => {
     setHeroGreeting(pickHeroGreeting());
@@ -544,6 +540,19 @@ function OnlineBookingPageInner() {
   useEffect(() => {
     void loadCatalog();
   }, [loadCatalog]);
+
+  useEffect(() => {
+    if (!catalog || !serviceFromQuery || serviceDeepLinkApplied.current) return;
+    const match = catalog.services.find(
+      (service) =>
+        service.id === serviceFromQuery && service.is_active && service.is_bookable_online,
+    );
+    if (!match) return;
+    serviceDeepLinkApplied.current = true;
+    setServiceId(match.id);
+    setPricingTier('regular');
+    setStep('when');
+  }, [catalog, serviceFromQuery]);
 
   const showAiLandingGate =
     !loading &&
@@ -1026,7 +1035,7 @@ function OnlineBookingPageInner() {
                         >
                           <div className="relative h-36 w-full overflow-hidden bg-[var(--book-panel)] lg:h-32">
                             <Image
-                              src={serviceImageSrc(service.category)}
+                              src={resolveServiceImageSrc(service)}
                               alt=""
                               fill
                               sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
@@ -1072,7 +1081,7 @@ function OnlineBookingPageInner() {
                 <div className="overflow-hidden rounded-2xl border border-[var(--book-line)] bg-white shadow-[var(--book-shadow)] sm:grid sm:grid-cols-[220px_1fr]">
                   <div className="relative hidden h-full min-h-[160px] sm:block">
                     <Image
-                      src={serviceImageSrc(selectedService.category)}
+                      src={resolveServiceImageSrc(selectedService)}
                       alt=""
                       fill
                       sizes="220px"

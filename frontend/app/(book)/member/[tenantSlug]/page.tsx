@@ -6,15 +6,19 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { SocialFooterIcons } from '@/components/public/SocialFooterIcons';
 import { MembershipJoinForm } from '@/components/member/MembershipJoinForm';
 import { MemberFooterNav } from '@/components/member/MemberFooterNav';
+import { MemberHeaderMenuButton } from '@/components/member/MemberHeaderMenuButton';
 import { MemberLookbookStrip } from '@/components/member/MemberLookbookStrip';
 import { MemberLooksGallery } from '@/components/member/MemberLooksGallery';
 import { MemberServicesRail } from '@/components/member/MemberServicesRail';
+import { MemberLogoutPrompt } from '@/components/member/MemberLogoutPrompt';
+import { MemberMessagesPanel } from '@/components/member/MemberMessagesPanel';
 import { MemberSideDrawer } from '@/components/member/MemberSideDrawer';
 import type { Tab } from '@/components/member/member-nav-types';
 import type { Appointment, BookableService, OnlineBookingCatalog } from '@/lib/booking-types';
+import { isOtpDeliveryNotice } from '@/lib/booking-media';
 import type { LookbookItem } from '@/lib/lookbook-types';
-import { resolveMediaUrl } from '@/lib/media-url';
 import {
+  attemptCloseMemberApp,
   bookingPagePath,
   hasMarkedMemberJoined,
   isStandaloneDisplay,
@@ -183,6 +187,7 @@ function MemberPortalInner() {
   const [lookbookItems, setLookbookItems] = useState<LookbookItem[]>([]);
   const [looks, setLooks] = useState<MemberLook[]>([]);
   const [looksBusy, setLooksBusy] = useState(false);
+  const [logoutPromptOpen, setLogoutPromptOpen] = useState(false);
 
   const insideRef = useRef(false);
   const checkedInTodayRef = useRef(false);
@@ -191,7 +196,6 @@ function MemberPortalInner() {
   const accent = bootstrap?.tenant.branding?.primary_color || '#2f5a45';
   const salonName =
     bootstrap?.tenant.branding?.brand_display_name || bootstrap?.tenant.name || tenantSlug;
-  const brandLogo = resolveMediaUrl(bootstrap?.tenant.branding?.logo_url);
   const bookHref = bootstrap?.book_path || bookingPagePath(tenantSlug);
   const standalone = isStandaloneDisplay();
 
@@ -468,6 +472,8 @@ function MemberPortalInner() {
     try {
       const result = await memberLogin(tenantSlug, email.trim(), phone.trim(), otp.trim());
       setSession(result);
+      setNotice(null);
+      setOtpSent(false);
       await refreshDashboard(result.token);
       if (nextPath.startsWith('/')) {
         router.push(nextPath);
@@ -748,7 +754,12 @@ function MemberPortalInner() {
         if (cancelled) return;
         const services = (catalog?.services || [])
           .filter((s) => s.is_active && s.is_bookable_online)
-          .sort((a, b) => a.display_order - b.display_order || a.name.localeCompare(b.name))
+          .sort((a, b) => {
+            const aHasImage = a.image_url ? 0 : 1;
+            const bHasImage = b.image_url ? 0 : 1;
+            if (aHasImage !== bHasImage) return aHasImage - bHasImage;
+            return a.display_order - b.display_order || a.name.localeCompare(b.name);
+          })
           .slice(0, 24);
         setHomeServices(services);
         setLookbookItems(lookbook.filter((i) => i.is_published !== false));
@@ -781,7 +792,7 @@ function MemberPortalInner() {
     }
   }
 
-  async function handleLogout() {
+  async function clearMemberAuthSession(): Promise<void> {
     if (!session?.token) return;
     try {
       await memberLogout(tenantSlug, session.token);
@@ -792,6 +803,21 @@ function MemberPortalInner() {
     setSession(null);
     setDashboard(null);
     setMenuOpen(false);
+    setLogoutPromptOpen(false);
+  }
+
+  function openLogoutPrompt() {
+    setMenuOpen(false);
+    setLogoutPromptOpen(true);
+  }
+
+  async function handleSignOutCompletely() {
+    await clearMemberAuthSession();
+    attemptCloseMemberApp();
+  }
+
+  async function handleVisitBookingPage() {
+    await clearMemberAuthSession();
     router.replace(bookHref);
   }
 
@@ -804,7 +830,7 @@ function MemberPortalInner() {
 
   return (
     <div className="book-portal min-h-screen" style={{ ['--book-moss' as string]: accent } as CSSProperties}>
-      <main className="mx-auto flex min-h-screen max-w-lg flex-col px-4 py-6 pb-28 sm:px-6 sm:py-8 sm:pb-32">
+      <main className="mx-auto flex min-h-screen max-w-lg flex-col px-4 py-6 pb-[calc(6.25rem+env(safe-area-inset-bottom,0px))] sm:px-6 sm:py-8 sm:pb-[calc(6.75rem+env(safe-area-inset-bottom,0px))]">
         {loading ? (
           <div className="rounded-2xl border border-[var(--book-line)] bg-white/90 p-6 shadow-[var(--book-shadow)]">
             <p className="text-sm text-[var(--book-muted)]">Loading your membership…</p>
@@ -830,29 +856,10 @@ function MemberPortalInner() {
                     </h1>
                     <p className="mt-1 text-sm text-[var(--book-muted)]">Your membership hub</p>
                   </div>
-                  <button
-                    type="button"
-                    className="shrink-0"
-                    aria-label="Open menu"
-                    onClick={() => setMenuOpen(true)}
-                  >
-                    {brandLogo ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={brandLogo}
-                        alt=""
-                        className="h-14 w-14 rounded-2xl border border-[var(--book-line)] bg-white object-contain p-1.5 shadow-sm"
-                      />
-                    ) : (
-                      <div
-                        className="flex h-14 w-14 items-center justify-center rounded-2xl text-lg font-bold text-white shadow-sm"
-                        style={{ backgroundColor: accent }}
-                        aria-hidden
-                      >
-                        {(dashboard.client.first_name || salonName).slice(0, 1).toUpperCase()}
-                      </div>
-                    )}
-                  </button>
+                  <MemberHeaderMenuButton
+                    open={menuOpen}
+                    onClick={() => setMenuOpen((open) => !open)}
+                  />
                 </div>
 
                 <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -879,8 +886,8 @@ function MemberPortalInner() {
                     className="member-metric-tile rounded-2xl border border-[var(--book-line)] bg-white/90 px-3 py-3 text-left"
                     onClick={() => setTab('points')}
                   >
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--book-muted)]">
-                      Points
+                    <p className="text-[10px] font-semibold leading-tight tracking-[0.08em] text-[var(--book-muted)] sm:text-[11px]">
+                      Available Points
                     </p>
                     <p className="mt-1 book-display text-2xl font-bold tabular-nums text-[var(--book-ink)]">
                       {dashboard.loyalty_points_balance}
@@ -891,8 +898,8 @@ function MemberPortalInner() {
                     className="member-metric-tile rounded-2xl border border-[var(--book-line)] bg-white/90 px-3 py-3 text-left"
                     onClick={() => setTab('membership')}
                   >
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--book-muted)]">
-                      Wallet
+                    <p className="text-[10px] font-semibold leading-tight tracking-[0.08em] text-[var(--book-muted)] sm:text-[11px]">
+                      Your Available Balance
                     </p>
                     <p className="mt-1 book-display text-2xl font-bold tabular-nums text-[var(--book-ink)]">
                       {formatMoney(dashboard.wallet_balance_cents)}
@@ -904,15 +911,19 @@ function MemberPortalInner() {
 
             {tab === 'home' ? <MemberServicesRail services={homeServices} bookHref={bookHref} /> : null}
 
-            <div className="rounded-3xl border border-[var(--book-line)] bg-white p-4 shadow-[var(--book-shadow)] sm:p-5 book-animate-in book-animate-delay-1">
+            <div className="min-w-0 overflow-hidden rounded-3xl border border-[var(--book-line)] bg-white p-4 shadow-[var(--book-shadow)] sm:p-5 book-animate-in book-animate-delay-1">
               {error ? (
                 <p className="mb-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
                   {error}
                 </p>
               ) : null}
-              {notice ? (
+              {notice && !isOtpDeliveryNotice(notice) ? (
                 <p className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
                   {notice}
+                </p>
+              ) : tab === 'home' ? (
+                <p className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+                  Welcome back, {dashboard.client.first_name || 'there'}!
                 </p>
               ) : null}
 
@@ -1004,6 +1015,9 @@ function MemberPortalInner() {
                   <MemberLooksGallery
                     looks={looks}
                     busy={looksBusy}
+                    salonName={salonName}
+                    socialFacebookUrl={bootstrap?.tenant.branding?.social_facebook_url}
+                    socialInstagramUrl={bootstrap?.tenant.branding?.social_instagram_url}
                     onUpload={async (file) => {
                       if (!session?.token) return;
                       setLooksBusy(true);
@@ -1090,120 +1104,41 @@ function MemberPortalInner() {
                     </div>
                   ) : null}
 
-                  <Link href={bookHref} className={primaryBtnClass()}>
-                    Book with member pricing
-                  </Link>
+                  <div className="pt-1">
+                    <Link href={bookHref} className={primaryBtnClass()}>
+                      Book with member pricing
+                    </Link>
+                  </div>
                 </div>
               ) : null}
 
               {tab === 'messages' ? (
-                <div className="space-y-6">
-                  <section className="space-y-2">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--book-moss)]">
-                      Salon updates
-                    </p>
-                    {notices.length === 0 ? (
-                      <p className="text-sm text-[var(--book-muted)]">
-                        Offers and reminders from the salon will appear here.
-                      </p>
-                    ) : (
-                      notices.map((n) => (
-                        <button
-                          key={n.id}
-                          type="button"
-                          className={`w-full rounded-2xl border px-3.5 py-3 text-left text-sm transition ${
-                            n.read_at
-                              ? 'border-[var(--book-line)] bg-white'
-                              : 'border-[var(--book-moss)] bg-[var(--book-wash)]'
-                          }`}
-                          onClick={async () => {
-                            if (!session?.token || n.read_at) return;
-                            try {
-                              await memberMarkNoticeRead(tenantSlug, session.token, n.id);
-                              setNotices((prev) =>
-                                prev.map((row) =>
-                                  row.id === n.id
-                                    ? { ...row, read_at: new Date().toISOString() }
-                                    : row,
-                                ),
-                              );
-                              setUnreadNotices((c) => Math.max(0, c - 1));
-                            } catch (err) {
-                              setError(err instanceof Error ? err.message : 'Could not mark read');
-                            }
-                          }}
-                        >
-                          <p className="font-medium text-[var(--book-ink)]">{n.title}</p>
-                          <p className="mt-1 whitespace-pre-wrap text-[var(--book-muted)]">{n.body}</p>
-                          {n.created_at ? (
-                            <p className="mt-1 text-xs text-[var(--book-muted)]">
-                              {new Date(n.created_at).toLocaleString()}
-                              {!n.read_at ? ' · Unread' : ''}
-                            </p>
-                          ) : null}
-                        </button>
-                      ))
-                    )}
-                  </section>
-
-                  <section className="space-y-3">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--book-moss)]">
-                      Chat with salon
-                    </p>
-                    <div className="max-h-72 space-y-2 overflow-y-auto rounded-2xl border border-[var(--book-line)] bg-[var(--book-wash)]/50 p-3">
-                      {threadMessages.length === 0 ? (
-                        <p className="text-sm text-[var(--book-muted)]">
-                          Say hello — the salon can reply here.
-                        </p>
-                      ) : (
-                        threadMessages.map((m) => {
-                          const mine = m.direction === 'inbound';
-                          return (
-                            <div
-                              key={m.id}
-                              className={`flex ${mine ? 'justify-end' : 'justify-start'}`}
-                            >
-                              <div
-                                className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm ${
-                                  mine
-                                    ? 'bg-[var(--book-moss)] text-white'
-                                    : 'border border-[var(--book-line)] bg-white text-[var(--book-ink)]'
-                                }`}
-                              >
-                                <p className="whitespace-pre-wrap">{m.body}</p>
-                                {m.created_at ? (
-                                  <p
-                                    className={`mt-1 text-[10px] ${
-                                      mine ? 'text-white/70' : 'text-[var(--book-muted)]'
-                                    }`}
-                                  >
-                                    {new Date(m.created_at).toLocaleString()}
-                                  </p>
-                                ) : null}
-                              </div>
-                            </div>
-                          );
-                        })
-                      )}
-                    </div>
-                    <form onSubmit={(e) => void handleSendChat(e)} className="flex gap-2">
-                      <input
-                        className={fieldClass()}
-                        value={chatDraft}
-                        onChange={(e) => setChatDraft(e.target.value)}
-                        placeholder="Write a message…"
-                        maxLength={2000}
-                      />
-                      <button
-                        type="submit"
-                        disabled={chatSending || !chatDraft.trim()}
-                        className="shrink-0 rounded-xl bg-[var(--book-moss)] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
-                      >
-                        {chatSending ? '…' : 'Send'}
-                      </button>
-                    </form>
-                  </section>
-                </div>
+                <MemberMessagesPanel
+                  notices={notices}
+                  threadMessages={threadMessages}
+                  chatDraft={chatDraft}
+                  chatSending={chatSending}
+                  unreadNotices={unreadNotices}
+                  unreadThread={unreadThread}
+                  onMarkNoticeRead={async (notice) => {
+                    if (!session?.token || notice.read_at) return;
+                    try {
+                      await memberMarkNoticeRead(tenantSlug, session.token, notice.id);
+                      setNotices((prev) =>
+                        prev.map((row) =>
+                          row.id === notice.id
+                            ? { ...row, read_at: new Date().toISOString() }
+                            : row,
+                        ),
+                      );
+                      setUnreadNotices((count) => Math.max(0, count - 1));
+                    } catch (err) {
+                      setError(err instanceof Error ? err.message : 'Could not mark read');
+                    }
+                  }}
+                  onChatDraftChange={setChatDraft}
+                  onSendChat={(e) => void handleSendChat(e)}
+                />
               ) : null}
 
               {tab === 'visits' ? (
@@ -1542,28 +1477,8 @@ function MemberPortalInner() {
                 </div>
               ) : null}
             </div>
-
-            <MemberFooterNav
-              activeTab={tab}
-              unreadMessages={unreadNotices + unreadThread}
-              moreOpen={menuOpen}
-              onSelectTab={(next) => {
-                setMenuOpen(false);
-                setTab(next);
-              }}
-              onOpenMore={() => setMenuOpen(true)}
-            />
-            <MemberSideDrawer
-              open={menuOpen}
-              salonName={salonName}
-              activeTab={tab}
-              onClose={() => setMenuOpen(false)}
-              onSelectTab={setTab}
-              onScrollLookbook={scrollToLookbook}
-              onLogout={() => void handleLogout()}
-            />
           </div>
-          ) : null}
+        ) : null}
 
           {!loading && !session ? (
             <div className="book-animate-in rounded-3xl border border-[var(--book-line)] bg-white p-5 shadow-[var(--book-shadow)] sm:p-7">
@@ -1887,12 +1802,43 @@ function MemberPortalInner() {
         ) : null}
 
         <SocialFooterIcons
-          className="mt-10"
+          className="mt-10 mb-2"
           facebookUrl={bootstrap?.tenant.branding?.social_facebook_url}
           instagramUrl={bootstrap?.tenant.branding?.social_instagram_url}
           tiktokUrl={bootstrap?.tenant.branding?.social_tiktok_url}
         />
       </main>
+
+      {!loading && session && dashboard ? (
+        <>
+          <MemberFooterNav
+            activeTab={tab}
+            unreadMessages={unreadNotices + unreadThread}
+            onSelectTab={(next) => {
+              setMenuOpen(false);
+              setTab(next);
+            }}
+          />
+          <MemberSideDrawer
+            open={menuOpen}
+            salonName={salonName}
+            activeTab={tab}
+            onClose={() => setMenuOpen(false)}
+            onSelectTab={(next) => {
+              setMenuOpen(false);
+              setTab(next);
+            }}
+            onScrollLookbook={scrollToLookbook}
+            onLogout={openLogoutPrompt}
+          />
+          <MemberLogoutPrompt
+            open={logoutPromptOpen}
+            onClose={() => setLogoutPromptOpen(false)}
+            onSignOutCompletely={() => void handleSignOutCompletely()}
+            onVisitBookingPage={() => void handleVisitBookingPage()}
+          />
+        </>
+      ) : null}
     </div>
   );
 }

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import type { BookableService } from '@/lib/booking-types';
-import { resolveMediaUrl } from '@/lib/media-url';
+import { bookServiceHref, resolveServiceImageSrc } from '@/lib/booking-media';
 
 export function MemberServicesRail({
   services,
@@ -29,25 +29,25 @@ export function MemberServicesRail({
           See all
         </Link>
       </div>
-      <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-1 snap-x snap-mandatory">
+      <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-1 snap-x snap-mandatory [scrollbar-width:thin]">
         {services.map((service) => {
-          const src = resolveMediaUrl(service.image_url);
-          const initial = (service.name || '?').slice(0, 1).toUpperCase();
+          const src = resolveServiceImageSrc(service);
           return (
             <Link
               key={service.id}
-              href={bookHref}
-              className="snap-start w-[5.5rem] shrink-0 text-center"
+              href={bookServiceHref(bookHref, service.id)}
+              className="group snap-start w-[7.25rem] shrink-0 sm:w-[7.75rem]"
             >
-              <div className="mx-auto flex h-20 w-20 items-center justify-center overflow-hidden rounded-2xl border border-[var(--book-line)] bg-[var(--book-wash)] shadow-sm">
-                {src ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={src} alt="" className="h-full w-full object-cover" />
-                ) : (
-                  <span className="text-lg font-bold text-[var(--book-moss)]">{initial}</span>
-                )}
+              <div className="relative mx-auto h-32 w-full overflow-hidden rounded-2xl border border-[var(--book-line)] bg-[var(--book-wash)] shadow-sm transition group-hover:border-[var(--book-moss)] sm:h-36">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={src}
+                  alt=""
+                  className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                />
+                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
               </div>
-              <p className="mt-1.5 line-clamp-2 text-[11px] font-semibold leading-tight text-[var(--book-ink)]">
+              <p className="mt-2 line-clamp-2 text-center text-[11px] font-semibold leading-tight text-[var(--book-ink)]">
                 {service.name}
               </p>
             </Link>

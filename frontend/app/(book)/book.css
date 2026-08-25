@@ -141,6 +141,10 @@
   display: none;
 }
 
+.book-portal {
+  scroll-padding-bottom: calc(6.25rem + env(safe-area-inset-bottom, 0px));
+}
+
 @media (prefers-reduced-motion: reduce) {
   .book-animate-in,
   .book-hero-media,
