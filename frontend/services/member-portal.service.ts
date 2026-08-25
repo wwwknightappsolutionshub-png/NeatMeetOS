@@ -1,4 +1,4 @@
-import { api } from '@/lib/api-client';
+import { api, API_BASE, ApiRequestError } from '@/lib/api-client';
 import { getTurnstileToken, withTurnstileToken } from '@/lib/turnstile';
 
 export type PricingTier = 'regular' | 'membership' | 'loyalty';
@@ -519,6 +519,67 @@ export async function sendReferralEmails(
   results: Array<{ email: string; status: string; error: string | null }>;
 }> {
   return memberMutate(tenantSlug, token, '/member/referral/email-invites', 'POST', { emails });
+}
+
+export interface MemberLook {
+  id: string;
+  image_url: string;
+  caption: string | null;
+  sort_order: number;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export async function fetchMemberLooks(
+  tenantSlug: string,
+  token: string,
+): Promise<MemberLook[]> {
+  const data = await memberGet<MemberLook[] | { data: MemberLook[] }>(
+    tenantSlug,
+    token,
+    '/member/looks',
+  );
+  return Array.isArray(data) ? data : data.data ?? [];
+}
+
+export async function uploadMemberLook(
+  tenantSlug: string,
+  token: string,
+  file: File,
+  caption?: string,
+): Promise<MemberLook> {
+  const form = new FormData();
+  form.append('image', file);
+  if (caption) form.append('caption', caption);
+
+  const res = await fetch(`${API_BASE}/member/looks`, {
+    method: 'POST',
+    headers: memberAuthHeaders(tenantSlug, token),
+    body: form,
+    credentials: 'omit',
+  });
+  const raw = await res.text();
+  let payload: { data?: MemberLook; message?: string } | null = null;
+  try {
+    payload = raw ? (JSON.parse(raw) as { data?: MemberLook; message?: string }) : null;
+  } catch {
+    throw new ApiRequestError(`Invalid JSON response (${res.status}).`, { status: res.status });
+  }
+  if (!res.ok) {
+    throw new ApiRequestError(payload?.message || 'Could not upload look', { status: res.status });
+  }
+  if (!payload?.data) {
+    throw new ApiRequestError('Could not upload look', { status: res.status });
+  }
+  return payload.data;
+}
+
+export async function deleteMemberLook(
+  tenantSlug: string,
+  token: string,
+  id: string,
+): Promise<void> {
+  await memberMutate(tenantSlug, token, `/member/looks/${id}`, 'DELETE');
 }
 
 export function formatMoney(cents: number): string {

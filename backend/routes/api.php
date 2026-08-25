@@ -31,6 +31,7 @@ use App\Domains\Lookbook\Http\Controllers\PublicLookbookController;
 use App\Domains\Crm\Http\Controllers\PublicJoin\PublicClientCaptureController;
 use App\Domains\Crm\Http\Controllers\PublicMember\MemberPortalController;
 use App\Domains\Crm\Http\Controllers\PublicMember\MemberMessagesController;
+use App\Domains\Crm\Http\Controllers\PublicMember\MemberLooksController;
 use App\Domains\Crm\Http\Controllers\PublicMember\NextVisitMemberController;
 use App\Domains\Crm\Http\Controllers\Admin\ClientConsentController;
 use App\Domains\Crm\Http\Controllers\Admin\ClientController;
@@ -213,6 +214,9 @@ Route::prefix('v1')->group(function () {
         Route::get('/next-visit', [NextVisitMemberController::class, 'upcoming']);
         Route::post('/next-visit/schedule', [NextVisitMemberController::class, 'schedule']);
         Route::get('/next-visit/threads', [MemberMessagesController::class, 'threads']);
+        Route::get('/looks', [MemberLooksController::class, 'index']);
+        Route::post('/looks', [MemberLooksController::class, 'store']);
+        Route::delete('/looks/{id}', [MemberLooksController::class, 'destroy']);
         Route::post('/logout', [MemberPortalController::class, 'logout']);
     });
 

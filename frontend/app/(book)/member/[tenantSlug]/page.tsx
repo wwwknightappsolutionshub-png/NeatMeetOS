@@ -5,7 +5,14 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type CSSPr
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { SocialFooterIcons } from '@/components/public/SocialFooterIcons';
 import { MembershipJoinForm } from '@/components/member/MembershipJoinForm';
-import type { Appointment, OnlineBookingCatalog } from '@/lib/booking-types';
+import { MemberFooterNav } from '@/components/member/MemberFooterNav';
+import { MemberLookbookStrip } from '@/components/member/MemberLookbookStrip';
+import { MemberLooksGallery } from '@/components/member/MemberLooksGallery';
+import { MemberServicesRail } from '@/components/member/MemberServicesRail';
+import { MemberSideDrawer } from '@/components/member/MemberSideDrawer';
+import type { Tab } from '@/components/member/member-nav-types';
+import type { Appointment, BookableService, OnlineBookingCatalog } from '@/lib/booking-types';
+import type { LookbookItem } from '@/lib/lookbook-types';
 import { resolveMediaUrl } from '@/lib/media-url';
 import {
   bookingPagePath,
@@ -15,15 +22,18 @@ import {
   readJoinReferralCode,
 } from '@/lib/tenant-customer-pwa';
 import { fetchOnlineCatalog } from '@/services/online-booking.service';
+import { fetchPublicLookbookItems } from '@/services/lookbook.service';
 import {
   fetchMemberNextVisit,
   scheduleMemberNextVisit,
 } from '@/services/next-visit.service';
 import {
   clearMemberSession,
+  deleteMemberLook,
   fetchMemberBootstrap,
   fetchMemberDashboard,
   fetchMemberGifts,
+  fetchMemberLooks,
   fetchMemberLoyalty,
   fetchMemberVisits,
   formatMoney,
@@ -45,8 +55,10 @@ import {
   registerMemberServiceWorker,
   saveMemberSession,
   sendReferralEmails,
+  uploadMemberLook,
   type MemberDashboard,
   type MemberGift,
+  type MemberLook,
   type MemberLoyaltyEntry,
   type MemberNotice,
   type MemberPortalBootstrap,
@@ -57,7 +69,6 @@ import {
   type MemberVisitRow,
 } from '@/services/member-portal.service';
 
-type Tab = 'home' | 'visits' | 'points' | 'membership' | 'shop' | 'gifts' | 'messages' | 'refer';
 type GuestFlow = 'notify' | 'join' | 'login';
 
 function fieldClass(): string {
@@ -167,6 +178,11 @@ function MemberPortalInner() {
   const [scheduleServiceId, setScheduleServiceId] = useState('');
   const [scheduleNotes, setScheduleNotes] = useState('');
   const [scheduling, setScheduling] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [homeServices, setHomeServices] = useState<BookableService[]>([]);
+  const [lookbookItems, setLookbookItems] = useState<LookbookItem[]>([]);
+  const [looks, setLooks] = useState<MemberLook[]>([]);
+  const [looksBusy, setLooksBusy] = useState(false);
 
   const insideRef = useRef(false);
   const checkedInTodayRef = useRef(false);
@@ -714,6 +730,41 @@ function MemberPortalInner() {
     };
   }, [session?.token, tab, tenantSlug]);
 
+  useEffect(() => {
+    if (!session?.token) {
+      setHomeServices([]);
+      setLookbookItems([]);
+      setLooks([]);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const [catalog, lookbook, memberLooks] = await Promise.all([
+          fetchOnlineCatalog(tenantSlug).catch(() => null),
+          fetchPublicLookbookItems(tenantSlug).catch(() => [] as LookbookItem[]),
+          fetchMemberLooks(tenantSlug, session.token).catch(() => [] as MemberLook[]),
+        ]);
+        if (cancelled) return;
+        const services = (catalog?.services || [])
+          .filter((s) => s.is_active && s.is_bookable_online)
+          .sort((a, b) => a.display_order - b.display_order || a.name.localeCompare(b.name))
+          .slice(0, 24);
+        setHomeServices(services);
+        setLookbookItems(lookbook.filter((i) => i.is_published !== false));
+        setLooks(memberLooks);
+      } catch {
+        if (!cancelled) {
+          setHomeServices([]);
+          setLookbookItems([]);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [session?.token, tenantSlug]);
+
   async function handleSendChat(e: React.FormEvent) {
     e.preventDefault();
     if (!session?.token || !chatDraft.trim()) return;
@@ -730,26 +781,30 @@ function MemberPortalInner() {
     }
   }
 
-  const tabs: Array<{ id: Tab; label: string }> = [
-    { id: 'home', label: 'Home' },
-    {
-      id: 'messages',
-      label:
-        unreadNotices + unreadThread > 0
-          ? `Messages (${unreadNotices + unreadThread})`
-          : 'Messages',
-    },
-    { id: 'visits', label: 'Visits' },
-    { id: 'points', label: 'Points' },
-    { id: 'membership', label: 'Plans' },
-    { id: 'shop', label: 'Shop' },
-    { id: 'gifts', label: 'Gifts' },
-    { id: 'refer', label: 'Refer' },
-  ];
+  async function handleLogout() {
+    if (!session?.token) return;
+    try {
+      await memberLogout(tenantSlug, session.token);
+    } catch {
+      // still clear local session
+    }
+    clearMemberSession(tenantSlug);
+    setSession(null);
+    setDashboard(null);
+    setMenuOpen(false);
+    router.replace(bookHref);
+  }
+
+  function scrollToLookbook() {
+    setTab('home');
+    window.setTimeout(() => {
+      document.getElementById('member-lookbook')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 80);
+  }
 
   return (
     <div className="book-portal min-h-screen" style={{ ['--book-moss' as string]: accent } as CSSProperties}>
-      <main className="mx-auto flex min-h-screen max-w-lg flex-col px-4 py-6 sm:px-6 sm:py-8">
+      <main className="mx-auto flex min-h-screen max-w-lg flex-col px-4 py-6 pb-28 sm:px-6 sm:py-8 sm:pb-32">
         {loading ? (
           <div className="rounded-2xl border border-[var(--book-line)] bg-white/90 p-6 shadow-[var(--book-shadow)]">
             <p className="text-sm text-[var(--book-muted)]">Loading your membership…</p>
@@ -775,22 +830,29 @@ function MemberPortalInner() {
                     </h1>
                     <p className="mt-1 text-sm text-[var(--book-muted)]">Your membership hub</p>
                   </div>
-                  {brandLogo ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={brandLogo}
-                      alt=""
-                      className="h-14 w-14 shrink-0 rounded-2xl border border-[var(--book-line)] bg-white object-contain p-1.5 shadow-sm"
-                    />
-                  ) : (
-                    <div
-                      className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-lg font-bold text-white shadow-sm"
-                      style={{ backgroundColor: accent }}
-                      aria-hidden
-                    >
-                      {(dashboard.client.first_name || salonName).slice(0, 1).toUpperCase()}
-                    </div>
-                  )}
+                  <button
+                    type="button"
+                    className="shrink-0"
+                    aria-label="Open menu"
+                    onClick={() => setMenuOpen(true)}
+                  >
+                    {brandLogo ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={brandLogo}
+                        alt=""
+                        className="h-14 w-14 rounded-2xl border border-[var(--book-line)] bg-white object-contain p-1.5 shadow-sm"
+                      />
+                    ) : (
+                      <div
+                        className="flex h-14 w-14 items-center justify-center rounded-2xl text-lg font-bold text-white shadow-sm"
+                        style={{ backgroundColor: accent }}
+                        aria-hidden
+                      >
+                        {(dashboard.client.first_name || salonName).slice(0, 1).toUpperCase()}
+                      </div>
+                    )}
+                  </button>
                 </div>
 
                 <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -840,26 +902,7 @@ function MemberPortalInner() {
               </div>
             </header>
 
-            <nav
-              className="member-tab-rail flex gap-1.5 overflow-x-auto rounded-2xl border border-[var(--book-line)] bg-white/90 p-1.5 shadow-sm"
-              aria-label="Membership sections"
-            >
-              {tabs.map((t) => (
-                <button
-                  key={t.id}
-                  type="button"
-                  onClick={() => setTab(t.id)}
-                  className={[
-                    'shrink-0 rounded-xl px-3.5 py-2 text-xs font-semibold transition',
-                    tab === t.id
-                      ? 'bg-[var(--book-moss)] text-white shadow-sm'
-                      : 'text-[var(--book-muted)] hover:bg-[var(--book-wash)] hover:text-[var(--book-ink)]',
-                  ].join(' ')}
-                >
-                  {t.label}
-                </button>
-              ))}
-            </nav>
+            {tab === 'home' ? <MemberServicesRail services={homeServices} bookHref={bookHref} /> : null}
 
             <div className="rounded-3xl border border-[var(--book-line)] bg-white p-4 shadow-[var(--book-shadow)] sm:p-5 book-animate-in book-animate-delay-1">
               {error ? (
@@ -957,6 +1000,33 @@ function MemberPortalInner() {
                       )}
                     </div>
                   </section>
+
+                  <MemberLooksGallery
+                    looks={looks}
+                    busy={looksBusy}
+                    onUpload={async (file) => {
+                      if (!session?.token) return;
+                      setLooksBusy(true);
+                      try {
+                        const created = await uploadMemberLook(tenantSlug, session.token, file);
+                        setLooks((prev) => [...prev, created].slice(0, 4));
+                      } finally {
+                        setLooksBusy(false);
+                      }
+                    }}
+                    onDelete={async (id) => {
+                      if (!session?.token) return;
+                      setLooksBusy(true);
+                      try {
+                        await deleteMemberLook(tenantSlug, session.token, id);
+                        setLooks((prev) => prev.filter((row) => row.id !== id));
+                      } finally {
+                        setLooksBusy(false);
+                      }
+                    }}
+                  />
+
+                  <MemberLookbookStrip items={lookbookItems} />
 
                   {nextVisits.length > 0 ? (
                     <div className="space-y-2">
@@ -1471,21 +1541,27 @@ function MemberPortalInner() {
                   )}
                 </div>
               ) : null}
-
-              <button
-                type="button"
-                className="mt-2 w-full rounded-xl py-2.5 text-sm font-semibold text-[var(--book-muted)] transition hover:bg-[var(--book-wash)] hover:text-[var(--book-ink)]"
-                onClick={() =>
-                  void memberLogout(tenantSlug, session.token).then(() => {
-                    setSession(null);
-                    setDashboard(null);
-                    router.replace(bookHref);
-                  })
-                }
-              >
-                Log out
-              </button>
             </div>
+
+            <MemberFooterNav
+              activeTab={tab}
+              unreadMessages={unreadNotices + unreadThread}
+              moreOpen={menuOpen}
+              onSelectTab={(next) => {
+                setMenuOpen(false);
+                setTab(next);
+              }}
+              onOpenMore={() => setMenuOpen(true)}
+            />
+            <MemberSideDrawer
+              open={menuOpen}
+              salonName={salonName}
+              activeTab={tab}
+              onClose={() => setMenuOpen(false)}
+              onSelectTab={setTab}
+              onScrollLookbook={scrollToLookbook}
+              onLogout={() => void handleLogout()}
+            />
           </div>
           ) : null}
 
