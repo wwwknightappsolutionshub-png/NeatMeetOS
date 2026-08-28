@@ -1,9 +1,17 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { ErrorAlert, LoadingState } from '@/components/admin/ui';
-import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
+import {
+  PlatformButton,
+  PlatformCard,
+  PlatformErrorAlert,
+  PlatformField,
+  PlatformLoadingState,
+  PlatformPage,
+  PlatformPageIntro,
+  PlatformSuccessAlert,
+  platformInputClass,
+} from '@/components/platform/ui';
 import type { PlatformModulesIndex, PlatformPlanModules } from '@/lib/types';
 import {
   fetchPlatformModules,
@@ -97,57 +105,37 @@ export default function PlatformModulesPage() {
   }
 
   return (
-    <div className="mx-auto grid max-w-6xl gap-5">
-      <div>
-        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-400/90">
-          Platform
-        </p>
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-white">
-          Modules &amp; plans
-        </h1>
-        <p className="mt-1 text-sm text-stone-400">
-          Control which product modules each subscription tier includes. Per-tenant
-          overrides are available on the Tenants page.
-        </p>
-      </div>
+    <PlatformPage>
+      <PlatformPageIntro
+        title="Modules & plans"
+        description="Control which product modules each subscription tier includes. Per-tenant overrides live on the Tenants page."
+      />
 
-      {error ? <ErrorAlert message={error} /> : null}
-      {message ? (
-        <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-200">
-          {message}
-        </p>
-      ) : null}
-      {loading && !data ? <LoadingState label="Loading modules…" /> : null}
+      {error ? <PlatformErrorAlert message={error} /> : null}
+      {message ? <PlatformSuccessAlert message={message} /> : null}
+      {loading && !data ? <PlatformLoadingState label="Loading module catalogue…" /> : null}
 
       {data
         ? data.plans.map((plan) => {
             const draft = drafts[plan.id] ?? plan;
             return (
-              <Card
-                key={plan.id}
-                className="border-white/10 bg-white/5 text-stone-100"
-                title={`${plan.name} (${plan.slug})`}
-              >
-                <p className="mb-4 text-sm text-stone-400">{plan.description}</p>
+              <PlatformCard key={plan.id} title={`${plan.name} · ${plan.slug}`}>
+                <p className="mb-4 text-sm text-[var(--platform-muted)]">{plan.description}</p>
                 <div className="grid gap-2 sm:grid-cols-2">
                   {data.catalogue.map((mod) => (
                     <label
                       key={mod.key}
-                      className="flex cursor-pointer items-start gap-3 rounded-lg border border-white/10 bg-stone-950/30 px-3 py-2.5"
+                      className="flex cursor-pointer items-start gap-3 rounded-md border border-[var(--platform-line-subtle)] bg-[var(--platform-surface-elevated)] px-3 py-2.5 transition hover:border-[var(--platform-line)]"
                     >
                       <input
                         type="checkbox"
-                        className="mt-1"
+                        className="mt-1 accent-[var(--platform-accent)]"
                         checked={Boolean(draft.features[mod.key])}
-                        onChange={(e) =>
-                          setFeature(plan.id, mod.key, e.target.checked)
-                        }
+                        onChange={(e) => setFeature(plan.id, mod.key, e.target.checked)}
                       />
                       <span>
-                        <span className="block text-sm font-semibold text-white">
-                          {mod.label}
-                        </span>
-                        <span className="block text-xs text-stone-400">
+                        <span className="block text-sm font-semibold text-white">{mod.label}</span>
+                        <span className="block text-xs text-[var(--platform-muted)]">
                           {mod.description}
                         </span>
                       </span>
@@ -163,35 +151,30 @@ export default function PlatformModulesPage() {
                       ['max_workspaces', 'Max workspaces'],
                     ] as const
                   ).map(([key, label]) => (
-                    <label key={key} className="block text-sm">
-                      <span className="mb-1 block text-stone-400">{label}</span>
+                    <PlatformField key={key} label={label}>
                       <input
                         type="number"
                         min={1}
                         value={Number(draft.limits[key] ?? 1)}
-                        onChange={(e) =>
-                          setLimit(plan.id, key, Number(e.target.value) || 1)
-                        }
-                        className="w-full rounded-lg border border-white/15 bg-stone-950/40 px-3 py-2 text-sm text-white outline-none focus:border-amber-500"
+                        onChange={(e) => setLimit(plan.id, key, Number(e.target.value) || 1)}
+                        className={platformInputClass}
                       />
-                    </label>
+                    </PlatformField>
                   ))}
                 </div>
 
                 <div className="mt-4">
-                  <Button
-                    type="button"
-                    className="!bg-[var(--platform-accent)]"
+                  <PlatformButton
                     disabled={savingSlug === plan.slug}
                     onClick={() => void savePlan(plan.id)}
                   >
                     {savingSlug === plan.slug ? 'Saving…' : `Save ${plan.name}`}
-                  </Button>
+                  </PlatformButton>
                 </div>
-              </Card>
+              </PlatformCard>
             );
           })
         : null}
-    </div>
+    </PlatformPage>
   );
 }

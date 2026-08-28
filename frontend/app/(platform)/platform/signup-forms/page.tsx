@@ -1,9 +1,18 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { ErrorAlert, LoadingState } from '@/components/admin/ui';
-import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
+import {
+  PlatformButton,
+  PlatformCard,
+  PlatformErrorAlert,
+  PlatformField,
+  PlatformLoadingState,
+  PlatformPage,
+  PlatformPageIntro,
+  PlatformSuccessAlert,
+  platformInputClass,
+  platformTextareaClass,
+} from '@/components/platform/ui';
 import type { PlatformSignupForm, SignupFormStep } from '@/lib/types';
 import {
   createPlatformSignupForm,
@@ -172,38 +181,23 @@ export default function PlatformSignupFormsPage() {
   const showEditor = creating || editing;
 
   return (
-    <div className="mx-auto grid max-w-6xl gap-5">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-400/90">
-            Platform
-          </p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-white">
-            Signup forms
-          </h1>
-          <p className="mt-1 text-sm text-stone-400">
-            Configure the multi-step wizard shown on the public signup tab.
-          </p>
-        </div>
-        <Button
-          type="button"
-          className="!bg-[var(--platform-accent)]"
-          onClick={openCreate}
-        >
-          Create form
-        </Button>
-      </div>
+    <PlatformPage>
+      <PlatformPageIntro
+        title="Signup forms"
+        description="Configure the multi-step wizard shown on the public signup tab."
+        actions={
+          <PlatformButton type="button" onClick={openCreate}>
+            Create form
+          </PlatformButton>
+        }
+      />
 
-      {error ? <ErrorAlert message={error} /> : null}
-      {notice ? (
-        <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-200">
-          {notice}
-        </div>
-      ) : null}
-      {loading ? <LoadingState label="Loading forms…" /> : null}
+      {error ? <PlatformErrorAlert message={error} /> : null}
+      {notice ? <PlatformSuccessAlert message={notice} /> : null}
+      {loading ? <PlatformLoadingState label="Loading forms…" /> : null}
 
       {!loading ? (
-        <Card className="overflow-hidden border-white/10 bg-white/5 p-0">
+        <PlatformCard className="overflow-hidden border-white/10 bg-white/5 p-0">
           {forms.length === 0 ? (
             <p className="px-5 py-8 text-center text-sm text-stone-400">
               No signup forms yet.
@@ -246,23 +240,23 @@ export default function PlatformSignupFormsPage() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex flex-wrap gap-2">
-                          <Button
+                          <PlatformButton
                             type="button"
                             variant="secondary"
                             className="!border-white/15 !bg-white/5 !px-2.5 !py-1.5 !text-xs !text-stone-100"
                             onClick={() => openEdit(form)}
                           >
                             Edit
-                          </Button>
-                          <Button
+                          </PlatformButton>
+                          <PlatformButton
                             type="button"
                             disabled={busyId === form.id}
                             className="!bg-[var(--platform-accent)] !px-2.5 !py-1.5 !text-xs"
                             onClick={() => void toggleActive(form)}
                           >
                             {form.is_active ? 'Deactivate' : 'Activate'}
-                          </Button>
-                          <Button
+                          </PlatformButton>
+                          <PlatformButton
                             type="button"
                             disabled={busyId === form.id}
                             variant="secondary"
@@ -270,7 +264,7 @@ export default function PlatformSignupFormsPage() {
                             onClick={() => void handleDelete(form)}
                           >
                             Delete
-                          </Button>
+                          </PlatformButton>
                         </div>
                       </td>
                     </tr>
@@ -279,11 +273,11 @@ export default function PlatformSignupFormsPage() {
               </table>
             </div>
           )}
-        </Card>
+        </PlatformCard>
       ) : null}
 
       {showEditor ? (
-        <Card className="border-white/10 bg-white/5" title={creating ? 'Create signup form' : 'Edit signup form'}>
+        <PlatformCard className="border-white/10 bg-white/5" title={creating ? 'Create signup form' : 'Edit signup form'}>
           <div className="grid gap-4">
             <label className="block text-sm">
               <span className="mb-1 block text-stone-400">Name</span>
@@ -338,26 +332,26 @@ export default function PlatformSignupFormsPage() {
               )}
             </label>
             <div className="flex gap-2">
-              <Button
+              <PlatformButton
                 type="button"
                 disabled={saving || !name.trim()}
                 className="!bg-[var(--platform-accent)]"
                 onClick={() => void handleSave()}
               >
                 {saving ? 'Saving…' : creating ? 'Create' : 'Save changes'}
-              </Button>
-              <Button
+              </PlatformButton>
+              <PlatformButton
                 type="button"
                 variant="secondary"
                 className="!border-white/15 !bg-white/5 !text-stone-100"
                 onClick={closeEditor}
               >
                 Cancel
-              </Button>
+              </PlatformButton>
             </div>
           </div>
-        </Card>
+        </PlatformCard>
       ) : null}
-    </div>
+    </PlatformPage>
   );
 }

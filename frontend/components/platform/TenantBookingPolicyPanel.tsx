@@ -1,7 +1,16 @@
 'use client';
 
 import { FormEvent, useEffect, useState } from 'react';
-import { Button } from '@/components/ui/Button';
+import {
+  PlatformButton,
+  PlatformErrorAlert,
+  PlatformField,
+  PlatformLoadingState,
+  PlatformModalBackdrop,
+  PlatformModalPanel,
+  PlatformSuccessAlert,
+  platformInputClass,
+} from '@/components/platform/ui';
 import type { BookingPolicySummary } from '@/lib/booking-types';
 import {
   fetchTenantBookingPolicy,
@@ -75,45 +84,34 @@ export function TenantBookingPolicyPanel({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl border border-white/10 bg-[#121417] p-5 shadow-xl">
-        <div className="mb-4 flex items-start justify-between gap-3">
-          <div>
-            <p className="text-xs uppercase tracking-[0.18em] text-stone-400">Booking policy</p>
-            <h2 className="text-lg font-semibold text-white">{tenantName}</h2>
-          </div>
-          <button type="button" className="text-sm text-stone-400 underline" onClick={onClose}>
-            Close
-          </button>
-        </div>
-
-        {loading ? <p className="text-sm text-stone-400">Loading…</p> : null}
-        {error ? <p className="mb-3 text-sm text-red-300">{error}</p> : null}
-        {notice ? <p className="mb-3 text-sm text-emerald-300">{notice}</p> : null}
+    <PlatformModalBackdrop>
+      <PlatformModalPanel title="Booking policy" subtitle={tenantName} onClose={onClose}>
+        {loading ? <PlatformLoadingState label="Loading policy…" /> : null}
+        {error ? <PlatformErrorAlert message={error} /> : null}
+        {notice ? <PlatformSuccessAlert message={notice} /> : null}
 
         {form ? (
           <form className="space-y-3" onSubmit={(e) => void onSubmit(e)}>
             {fields.map((field) => (
-              <label key={field.key} className="block text-sm text-stone-300">
-                <span className="mb-1 block">{field.label}</span>
+              <PlatformField key={field.key} label={field.label}>
                 <input
                   type="number"
                   min={field.min}
                   max={field.max}
-                  className="w-full rounded-md border border-white/10 bg-black/30 px-3 py-2 text-white"
+                  className={platformInputClass}
                   value={form[field.key]}
                   onChange={(e) =>
                     setForm({ ...form, [field.key]: Number(e.target.value) })
                   }
                 />
-              </label>
+              </PlatformField>
             ))}
-            <Button type="submit" disabled={saving}>
+            <PlatformButton type="submit" disabled={saving}>
               {saving ? 'Saving…' : 'Save policy'}
-            </Button>
+            </PlatformButton>
           </form>
         ) : null}
-      </div>
-    </div>
+      </PlatformModalPanel>
+    </PlatformModalBackdrop>
   );
 }

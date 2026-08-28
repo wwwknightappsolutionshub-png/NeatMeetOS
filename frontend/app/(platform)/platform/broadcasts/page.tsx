@@ -1,12 +1,15 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ErrorAlert, LoadingState } from '@/components/admin/ui';
 import {
   PlatformButton,
   PlatformCard,
+  PlatformErrorAlert,
   PlatformField,
+  PlatformLoadingState,
+  PlatformPage,
   PlatformPageIntro,
+  PlatformSuccessAlert,
   platformInputClass,
 } from '@/components/platform/ui';
 import type { PlatformBroadcastResult, PlatformTenantRow } from '@/lib/types';
@@ -59,22 +62,21 @@ export default function PlatformBroadcastsPage() {
   }
 
   if (loading) {
-    return <p className="text-sm text-stone-300">Loading tenants…</p>;
+    return <PlatformLoadingState label="Loading tenants…" />;
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-4">
+    <PlatformPage width="2xl">
       <PlatformPageIntro
         title="Tenant broadcasts"
         description="Send reminders to all active salons or one tenant. Delivered as in-app owner notices, optional email, and Web Push when the admin app is installed."
       />
 
-      {error ? <ErrorAlert message={error} /> : null}
+      {error ? <PlatformErrorAlert message={error} /> : null}
       {result ? (
-        <div className="rounded-lg border border-emerald-400/40 bg-emerald-500/15 px-4 py-3 text-sm text-emerald-50">
-          Sent to {result.tenants} tenant(s): {result.notices} notices, {result.emails} emails,{' '}
-          {result.pushes} pushes.
-        </div>
+        <PlatformSuccessAlert
+          message={`Sent to ${result.tenants} tenant(s): ${result.notices} notices, ${result.emails} emails, ${result.pushes} pushes.`}
+        />
       ) : null}
 
       <PlatformCard title="Compose">
@@ -147,6 +149,6 @@ export default function PlatformBroadcastsPage() {
           </PlatformButton>
         </div>
       </PlatformCard>
-    </div>
+    </PlatformPage>
   );
 }

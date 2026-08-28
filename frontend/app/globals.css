@@ -12,16 +12,23 @@
   --admin-sidebar-text: #e7e5e4;
   --admin-accent: #2f5a45;
   --admin-accent-soft: #e8f0eb;
-  --platform-ink: #0c0a09;
-  --platform-accent: #b45309;
-  --platform-accent-soft: #fff7ed;
-  --platform-sidebar: #0c0a09;
-  --platform-surface: #1c1917;
-  --platform-input: #0c0a09;
-  --platform-line: rgba(255, 255, 255, 0.18);
-  --platform-fg: #fafaf9;
-  --platform-label: #e7e5e4;
-  --platform-muted: #a8a29e;
+  --platform-ink: #050608;
+  --platform-accent: #22d3ee;
+  --platform-accent-dim: #0891b2;
+  --platform-accent-soft: rgba(34, 211, 238, 0.12);
+  --platform-glow: rgba(34, 211, 238, 0.22);
+  --platform-sidebar: #06080b;
+  --platform-surface: #0b0f14;
+  --platform-surface-elevated: #111820;
+  --platform-input: #06080b;
+  --platform-line: rgba(34, 211, 238, 0.14);
+  --platform-line-subtle: rgba(255, 255, 255, 0.06);
+  --platform-fg: #e6edf3;
+  --platform-label: #9ba7b4;
+  --platform-muted: #6e7681;
+  --platform-success: #3fb950;
+  --platform-warning: #d29922;
+  --platform-danger: #f85149;
 }
 
 @theme inline {
@@ -69,4 +76,33 @@ body {
     animation: none;
     transform: none;
   }
+}
+
+/* Platform ops console */
+.platform-ops-grid {
+  background-color: var(--platform-ink);
+  background-image:
+    linear-gradient(rgba(34, 211, 238, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(34, 211, 238, 0.03) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+.platform-ops-glow {
+  box-shadow:
+    0 0 0 1px var(--platform-line),
+    0 0 24px -8px var(--platform-glow);
+}
+
+.platform-ops-scanline::after {
+  content: '';
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(34, 211, 238, 0.02) 50%,
+    transparent 100%
+  );
+  opacity: 0.6;
 }

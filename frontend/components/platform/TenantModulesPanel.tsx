@@ -1,7 +1,14 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Button } from '@/components/ui/Button';
+import {
+  PlatformButton,
+  PlatformErrorAlert,
+  PlatformLoadingState,
+  PlatformModalBackdrop,
+  PlatformModalPanel,
+  platformSelectClass,
+} from '@/components/platform/ui';
 import type { TenantModulesState } from '@/lib/types';
 import {
   fetchTenantModules,
@@ -67,38 +74,18 @@ export function TenantModulesPanel({ tenantId, tenantName, onClose }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4 sm:items-center">
-      <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-white/15 bg-stone-950 p-5 text-stone-100 shadow-xl">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-amber-400/90">
-              Tenant modules
-            </p>
-            <h2 className="mt-1 text-lg font-semibold text-white">{tenantName}</h2>
-            <p className="mt-1 text-xs text-stone-400">
-              Plan: {state?.plan_slug ?? '…'} — override individual modules or leave
-              as “Inherit”.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg border border-white/15 px-2 py-1 text-sm text-stone-300 hover:bg-white/10"
-          >
-            Close
-          </button>
-        </div>
-
-        {error ? (
-          <p className="mt-3 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">
-            {error}
-          </p>
-        ) : null}
+    <PlatformModalBackdrop>
+      <PlatformModalPanel
+        title="Tenant modules"
+        subtitle={`${tenantName} · Plan ${state?.plan_slug ?? '…'}`}
+        onClose={onClose}
+      >
+        {error ? <PlatformErrorAlert message={error} /> : null}
 
         {loading || !state ? (
-          <p className="py-8 text-center text-sm text-stone-400">Loading…</p>
+          <PlatformLoadingState label="Loading module overrides…" />
         ) : (
-          <ul className="mt-4 space-y-2">
+          <ul className="space-y-2">
             {state.catalogue.map((mod) => {
               const value = draft[mod.key];
               const planOn = Boolean(state.plan_features[mod.key]);
@@ -118,17 +105,17 @@ export function TenantModulesPanel({ tenantId, tenantName, onClose }: Props) {
               return (
                 <li
                   key={mod.key}
-                  className="rounded-lg border border-white/10 bg-white/5 px-3 py-2.5"
+                  className="rounded-md border border-[var(--platform-line-subtle)] bg-[var(--platform-surface-elevated)] px-3 py-2.5"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="text-sm font-semibold text-white">{mod.label}</p>
-                      <p className="text-xs text-stone-400">
+                      <p className="text-xs text-[var(--platform-muted)]">
                         Plan default: {planOn ? 'On' : 'Off'} · Effective:{' '}
                         {effective ? 'On' : 'Off'}
                       </p>
                       {isAiHairstyle ? (
-                        <p className="mt-1 text-xs text-stone-400">
+                        <p className="mt-1 text-xs text-[var(--platform-muted)]">
                           {state.ai_hairstyle_eligible
                             ? 'Eligible business type'
                             : 'Not eligible (needs barbershop / barber / boutique / chain / spa)'}
@@ -142,11 +129,10 @@ export function TenantModulesPanel({ tenantId, tenantName, onClose }: Props) {
                         const v = e.target.value;
                         setDraft((prev) => ({
                           ...prev,
-                          [mod.key]:
-                            v === 'inherit' ? null : v === 'on',
+                          [mod.key]: v === 'inherit' ? null : v === 'on',
                         }));
                       }}
-                      className="rounded-lg border border-white/15 bg-stone-950/60 px-2 py-1.5 text-xs text-white outline-none focus:border-amber-500"
+                      className={`${platformSelectClass} w-auto text-xs`}
                     >
                       <option value="inherit">Inherit</option>
                       <option value="on">Force on</option>
@@ -160,23 +146,14 @@ export function TenantModulesPanel({ tenantId, tenantName, onClose }: Props) {
         )}
 
         <div className="mt-4 flex justify-end gap-2">
-          <Button
-            type="button"
-            className="!bg-transparent !text-stone-200 border border-white/15"
-            onClick={onClose}
-          >
+          <PlatformButton variant="ghost" onClick={onClose}>
             Cancel
-          </Button>
-          <Button
-            type="button"
-            className="!bg-[var(--platform-accent)]"
-            disabled={saving || loading}
-            onClick={() => void save()}
-          >
+          </PlatformButton>
+          <PlatformButton disabled={saving || loading} onClick={() => void save()}>
             {saving ? 'Saving…' : 'Save overrides'}
-          </Button>
+          </PlatformButton>
         </div>
-      </div>
-    </div>
+      </PlatformModalPanel>
+    </PlatformModalBackdrop>
   );
 }

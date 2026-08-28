@@ -4,9 +4,13 @@ import { FormEvent, useCallback, useEffect, useState } from 'react';
 import {
   PlatformButton,
   PlatformCard,
+  PlatformErrorAlert,
   PlatformField,
+  PlatformLoadingState,
+  PlatformPage,
   PlatformPageIntro,
   platformInputClass,
+  platformSelectClass,
 } from '@/components/platform/ui';
 import type { PlatformRoleSlug, PlatformStaffUser } from '@/services/platform.service';
 import {
@@ -97,17 +101,13 @@ export default function PlatformStaffPage() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-5">
+    <PlatformPage width="4xl">
       <PlatformPageIntro
         title="Platform staff"
         description="Invite managers and support users with lower access. Only owners can manage this list."
       />
 
-      {error ? (
-        <div className="rounded-lg border border-red-500/40 bg-red-950/40 px-3 py-2 text-sm text-red-200">
-          {error}
-        </div>
-      ) : null}
+      {error ? <PlatformErrorAlert message={error} /> : null}
 
       <PlatformCard title="Add staff">
         <form onSubmit={handleCreate} className="grid gap-3 sm:grid-cols-2">
@@ -164,11 +164,11 @@ export default function PlatformStaffPage() {
 
       <PlatformCard title="Current staff" padded={false}>
         {loading ? (
-          <p className="p-5 text-sm text-stone-400">Loading…</p>
+          <PlatformLoadingState label="Loading staff…" />
         ) : items.length === 0 ? (
-          <p className="p-5 text-sm text-stone-400">No platform staff yet.</p>
+          <p className="p-5 text-sm text-[var(--platform-muted)]">No platform staff yet.</p>
         ) : (
-          <ul className="divide-y divide-white/10">
+          <ul className="divide-y divide-[var(--platform-line-subtle)]">
             {items.map((member) => {
               const pwd = passwordEdits[member.id] ?? {
                 password: '',
@@ -247,6 +247,6 @@ export default function PlatformStaffPage() {
           </ul>
         )}
       </PlatformCard>
-    </div>
+    </PlatformPage>
   );
 }

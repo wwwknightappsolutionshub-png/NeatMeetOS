@@ -4,9 +4,14 @@ import { FormEvent, useEffect, useState } from 'react';
 import {
   PlatformButton,
   PlatformCard,
+  PlatformErrorAlert,
   PlatformField,
+  PlatformLoadingState,
+  PlatformPage,
   PlatformPageIntro,
+  PlatformSuccessAlert,
   platformInputClass,
+  platformTextareaClass,
 } from '@/components/platform/ui';
 import type {
   PlatformAiHairstyleSettings,
@@ -290,17 +295,13 @@ export default function PlatformSettingsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-5">
+    <PlatformPage width="2xl">
       <PlatformPageIntro
         title="Account settings"
         description="Update your platform profile, password, and outbound messaging providers."
       />
 
-      {error ? (
-        <div className="rounded-lg border border-red-500/40 bg-red-950/40 px-3 py-2 text-sm text-red-200">
-          {error}
-        </div>
-      ) : null}
+      {error ? <PlatformErrorAlert message={error} /> : null}
 
       <PlatformCard title="Profile">
         {loadingProfile ? (
@@ -752,6 +753,6 @@ export default function PlatformSettingsPage() {
           </div>
         </form>
       </PlatformCard>
-    </div>
+    </PlatformPage>
   );
 }

@@ -1,12 +1,15 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { ErrorAlert } from '@/components/admin/ui';
 import {
   PlatformButton,
   PlatformCard,
+  PlatformErrorAlert,
   PlatformField,
+  PlatformLoadingState,
+  PlatformPage,
   PlatformPageIntro,
+  PlatformSuccessAlert,
   platformInputClass,
 } from '@/components/platform/ui';
 import type { PlatformReferralSettings } from '@/lib/types';
@@ -73,23 +76,19 @@ export default function PlatformReferralsPage() {
   }
 
   if (loading) {
-    return <p className="text-sm text-stone-300">Loading referral settings…</p>;
+    return <PlatformLoadingState label="Loading referral settings…" />;
   }
-  if (!settings) return error ? <ErrorAlert message={error} /> : null;
+  if (!settings) return error ? <PlatformErrorAlert message={error} /> : null;
 
   return (
-    <div className="mx-auto max-w-2xl space-y-4">
+    <PlatformPage width="2xl">
       <PlatformPageIntro
         title="Refer & get rewarded"
         description="Define the salon-to-salon referral reward and when it qualifies. Tenants share a link from Settings → Refer & reward."
       />
 
-      {error ? <ErrorAlert message={error} /> : null}
-      {message ? (
-        <div className="rounded-lg border border-emerald-400/40 bg-emerald-500/15 px-4 py-3 text-sm text-emerald-50">
-          {message}
-        </div>
-      ) : null}
+      {error ? <PlatformErrorAlert message={error} /> : null}
+      {message ? <PlatformSuccessAlert message={message} /> : null}
 
       <PlatformCard title="Programme">
         <div className="space-y-4 text-sm">
@@ -162,6 +161,6 @@ export default function PlatformReferralsPage() {
           </PlatformButton>
         </div>
       </PlatformCard>
-    </div>
+    </PlatformPage>
   );
 }

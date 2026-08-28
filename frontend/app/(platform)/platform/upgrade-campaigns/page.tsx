@@ -1,9 +1,18 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ErrorAlert, LoadingState } from '@/components/admin/ui';
-import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
+import {
+  PlatformButton,
+  PlatformCard,
+  PlatformErrorAlert,
+  PlatformField,
+  PlatformLoadingState,
+  PlatformPage,
+  PlatformPageIntro,
+  PlatformSuccessAlert,
+  platformInputClass,
+  platformTextareaClass,
+} from '@/components/platform/ui';
 import type {
   PlatformUpgradeCampaignSettings,
   PlatformUpgradeTemplate,
@@ -121,30 +130,18 @@ export default function PlatformUpgradeCampaignsPage() {
   }
 
   return (
-    <div className="mx-auto grid max-w-6xl gap-5">
-      <div>
-        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-400/90">
-          Platform
-        </p>
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-white">
-          Upgrade campaigns
-        </h1>
-        <p className="mt-1 text-sm text-stone-400">
-          Day 3 WhatsApp / in-app, day 7 email, and day 21 countdown + 5% claim.
-          Edit copy and toggles here.
-        </p>
-      </div>
+    <PlatformPage>
+      <PlatformPageIntro
+        title="Upgrade campaigns"
+        description="Day 3 WhatsApp / in-app, day 7 email, and day 21 countdown + 5% claim. Edit copy and toggles here."
+      />
 
-      {error ? <ErrorAlert message={error} /> : null}
-      {message ? (
-        <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-200">
-          {message}
-        </p>
-      ) : null}
-      {loading && !settings ? <LoadingState label="Loading campaigns…" /> : null}
+      {error ? <PlatformErrorAlert message={error} /> : null}
+      {message ? <PlatformSuccessAlert message={message} /> : null}
+      {loading && !settings ? <PlatformLoadingState label="Loading campaigns…" /> : null}
 
       {settings ? (
-        <Card className="border-white/10 bg-white/5 p-4 text-stone-100 shadow-none">
+        <PlatformCard className="border-white/10 bg-white/5 p-4 text-stone-100 shadow-none">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="text-base font-semibold text-white">Drip settings</h2>
@@ -152,9 +149,9 @@ export default function PlatformUpgradeCampaignsPage() {
                 Scheduler runs hourly via platform:dispatch-upgrade-campaigns.
               </p>
             </div>
-            <Button type="button" disabled={saving} onClick={() => void saveSettings()}>
+            <PlatformButton type="button" disabled={saving} onClick={() => void saveSettings()}>
               {saving ? 'Saving…' : 'Save settings'}
-            </Button>
+            </PlatformButton>
           </div>
           <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <label className="flex items-center gap-2 text-sm">
@@ -214,11 +211,11 @@ export default function PlatformUpgradeCampaignsPage() {
               />
             </label>
           </div>
-        </Card>
+        </PlatformCard>
       ) : null}
 
       <div className="grid gap-4 lg:grid-cols-[240px_minmax(0,1fr)]">
-        <Card className="border-white/10 bg-white/5 p-3 text-stone-100 shadow-none">
+        <PlatformCard className="border-white/10 bg-white/5 p-3 text-stone-100 shadow-none">
           <p className="mb-2 px-1 text-xs font-semibold uppercase tracking-[0.14em] text-stone-400">
             Templates
           </p>
@@ -253,10 +250,10 @@ export default function PlatformUpgradeCampaignsPage() {
               );
             })}
           </ul>
-        </Card>
+        </PlatformCard>
 
         {draft ? (
-          <Card className="border-white/10 bg-white/5 p-4 text-stone-100 shadow-none">
+          <PlatformCard className="border-white/10 bg-white/5 p-4 text-stone-100 shadow-none">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <h2 className="text-base font-semibold text-white">
@@ -265,9 +262,9 @@ export default function PlatformUpgradeCampaignsPage() {
                 </h2>
                 <p className="text-xs text-stone-400">Version {draft.version}</p>
               </div>
-              <Button type="button" disabled={saving} onClick={() => void saveTemplate()}>
+              <PlatformButton type="button" disabled={saving} onClick={() => void saveTemplate()}>
                 {saving ? 'Saving…' : 'Save template'}
-              </Button>
+              </PlatformButton>
             </div>
 
             <div className="mt-4 grid gap-3">
@@ -328,10 +325,10 @@ export default function PlatformUpgradeCampaignsPage() {
                 {'{{discount_percent}}'}, {'{{trial_ends_at}}'}
               </p>
             </div>
-          </Card>
+          </PlatformCard>
         ) : null}
       </div>
-    </div>
+    </PlatformPage>
   );
 }
 

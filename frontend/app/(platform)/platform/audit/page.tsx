@@ -1,9 +1,19 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { EmptyState, ErrorAlert, LoadingState } from '@/components/admin/ui';
-import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
+import {
+  PlatformButton,
+  PlatformCard,
+  PlatformCodeBlock,
+  PlatformEmptyState,
+  PlatformErrorAlert,
+  PlatformField,
+  PlatformLoadingState,
+  PlatformPage,
+  PlatformPageIntro,
+  platformInputClass,
+  platformSelectClass,
+} from '@/components/platform/ui';
 import type { AuditLogEntry } from '@/lib/identity-types';
 import type { PlatformTenantRow } from '@/lib/types';
 import {
@@ -55,135 +65,112 @@ export default function PlatformAuditPage() {
   }, [load]);
 
   return (
-    <div className="mx-auto grid max-w-6xl gap-5">
-      <div>
-        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-400/90">
-          Platform
-        </p>
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-white">Audit log</h1>
-        <p className="mt-1 text-sm text-stone-400">
-          Cross-tenant activity trail — visible to super admins only.
-        </p>
-      </div>
+    <PlatformPage>
+      <PlatformPageIntro
+        title="Audit log"
+        description="Cross-tenant activity trail — immutable event stream for super admins."
+      />
 
-      <Card className="border-white/10 bg-white/5 text-stone-100" title="Filters">
+      <PlatformCard title="Filters">
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
-          <label className="block flex-1 text-sm sm:min-w-[10rem]">
-            <span className="mb-1 block text-stone-400">Tenant</span>
-            <select
-              value={filters.tenant_id}
-              onChange={(e) => setFilters({ ...filters, tenant_id: e.target.value })}
-              className="w-full rounded-lg border border-white/15 bg-stone-950/40 px-3 py-2 text-sm text-white outline-none focus:border-amber-500"
-            >
-              <option value="">All tenants</option>
-              {tenants.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.trading_name || t.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="block flex-1 text-sm sm:min-w-[10rem]">
-            <span className="mb-1 block text-stone-400">Action</span>
-            <input
-              value={filters.action}
-              onChange={(e) => setFilters({ ...filters, action: e.target.value })}
-              placeholder="e.g. location.created"
-              className="w-full rounded-lg border border-white/15 bg-stone-950/40 px-3 py-2 text-sm text-white outline-none focus:border-amber-500"
-            />
-          </label>
-          <label className="block flex-1 text-sm sm:min-w-[10rem]">
-            <span className="mb-1 block text-stone-400">Entity type</span>
-            <input
-              value={filters.entity_type}
-              onChange={(e) =>
-                setFilters({ ...filters, entity_type: e.target.value })
-              }
-              placeholder="Model class or type"
-              className="w-full rounded-lg border border-white/15 bg-stone-950/40 px-3 py-2 text-sm text-white outline-none focus:border-amber-500"
-            />
-          </label>
-          <Button
-            type="button"
-            className="!bg-[var(--platform-accent)]"
-            onClick={() => load(1)}
-          >
+          <div className="block flex-1 sm:min-w-[10rem]">
+            <PlatformField label="Tenant">
+              <select
+                value={filters.tenant_id}
+                onChange={(e) => setFilters({ ...filters, tenant_id: e.target.value })}
+                className={platformSelectClass}
+              >
+                <option value="">All tenants</option>
+                {tenants.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.trading_name || t.name}
+                  </option>
+                ))}
+              </select>
+            </PlatformField>
+          </div>
+          <div className="block flex-1 sm:min-w-[10rem]">
+            <PlatformField label="Action">
+              <input
+                value={filters.action}
+                onChange={(e) => setFilters({ ...filters, action: e.target.value })}
+                placeholder="e.g. location.created"
+                className={platformInputClass}
+              />
+            </PlatformField>
+          </div>
+          <div className="block flex-1 sm:min-w-[10rem]">
+            <PlatformField label="Entity type">
+              <input
+                value={filters.entity_type}
+                onChange={(e) => setFilters({ ...filters, entity_type: e.target.value })}
+                placeholder="Model class or type"
+                className={platformInputClass}
+              />
+            </PlatformField>
+          </div>
+          <PlatformButton type="button" onClick={() => load(1)}>
             Apply
-          </Button>
+          </PlatformButton>
         </div>
-      </Card>
+      </PlatformCard>
 
-      {error ? <ErrorAlert message={error} /> : null}
+      {error ? <PlatformErrorAlert message={error} /> : null}
 
-      <Card
-        className="border-white/10 bg-white/5 text-stone-100"
-        title={`Entries (${meta.total})`}
-      >
-        {loading ? <LoadingState label="Loading audit log…" /> : null}
+      <PlatformCard title={`Entries (${meta.total})`}>
+        {loading ? <PlatformLoadingState label="Loading audit log…" /> : null}
         {!loading && items.length === 0 ? (
-          <EmptyState message="No audit entries match your filters." />
+          <PlatformEmptyState message="No audit entries match your filters." />
         ) : null}
-        <ul className="divide-y divide-white/10">
+        <ul className="divide-y divide-[var(--platform-line-subtle)]">
           {items.map((entry) => (
             <li key={entry.id} className="py-3">
               <button
                 type="button"
                 className="w-full text-left"
-                onClick={() =>
-                  setExpandedId(expandedId === entry.id ? null : entry.id)
-                }
+                onClick={() => setExpandedId(expandedId === entry.id ? null : entry.id)}
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="font-medium text-white">{entry.action}</span>
-                  <span className="text-xs text-stone-500">
-                    {entry.created_at
-                      ? new Date(entry.created_at).toLocaleString()
-                      : '—'}
+                  <span className="font-mono text-sm font-medium text-white">{entry.action}</span>
+                  <span className="font-mono text-xs text-[var(--platform-muted)]">
+                    {entry.created_at ? new Date(entry.created_at).toLocaleString() : '—'}
                   </span>
                 </div>
-                <p className="mt-0.5 text-xs text-stone-400">
+                <p className="mt-0.5 text-xs text-[var(--platform-label)]">
                   {entry.tenant?.name ?? '—'}
                   {entry.tenant?.slug ? ` · ${entry.tenant.slug}` : ''}
                   {' · '}
                   {entry.actor_name ?? entry.actor_id ?? 'system'}
-                  {entry.entity_type
-                    ? ` · ${entry.entity_type.split('\\').pop()}`
-                    : ''}
+                  {entry.entity_type ? ` · ${entry.entity_type.split('\\').pop()}` : ''}
                 </p>
               </button>
               {expandedId === entry.id ? (
-                <pre className="mt-2 overflow-x-auto rounded-lg border border-white/10 bg-stone-950/50 p-2 text-xs text-stone-300">
-                  {JSON.stringify(
-                    { old: entry.old_values, new: entry.new_values },
-                    null,
-                    2,
-                  )}
-                </pre>
+                <PlatformCodeBlock>
+                  {JSON.stringify({ old: entry.old_values, new: entry.new_values }, null, 2)}
+                </PlatformCodeBlock>
               ) : null}
             </li>
           ))}
         </ul>
         {meta.last_page > 1 ? (
           <div className="mt-4 flex gap-2">
-            <Button
-              type="button"
-              className="!border !border-white/15 !bg-transparent !text-stone-100"
+            <PlatformButton
+              variant="secondary"
               disabled={meta.current_page <= 1}
               onClick={() => load(meta.current_page - 1)}
             >
               Previous
-            </Button>
-            <Button
-              type="button"
-              className="!border !border-white/15 !bg-transparent !text-stone-100"
+            </PlatformButton>
+            <PlatformButton
+              variant="secondary"
               disabled={meta.current_page >= meta.last_page}
               onClick={() => load(meta.current_page + 1)}
             >
               Next
-            </Button>
+            </PlatformButton>
           </div>
         ) : null}
-      </Card>
-    </div>
+      </PlatformCard>
+    </PlatformPage>
   );
 }

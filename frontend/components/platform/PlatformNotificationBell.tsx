@@ -96,7 +96,7 @@ export function PlatformNotificationBell() {
       <button
         type="button"
         onClick={() => void handleOpen()}
-        className="relative rounded-lg border border-white/15 bg-white/5 p-2 text-stone-100 hover:bg-white/10"
+        className="relative rounded-md border border-[var(--platform-line-subtle)] bg-[var(--platform-surface)] p-2 text-[var(--platform-label)] hover:border-[var(--platform-line)] hover:text-white"
         aria-label="Notifications"
       >
         <svg
@@ -105,7 +105,7 @@ export function PlatformNotificationBell() {
           fill="none"
           stroke="currentColor"
           strokeWidth="1.8"
-          className="h-5 w-5"
+          className="h-4 w-4"
         >
           <path
             strokeLinecap="round"
@@ -114,20 +114,22 @@ export function PlatformNotificationBell() {
           />
         </svg>
         {unread > 0 ? (
-          <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-bold text-stone-950">
+          <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--platform-accent)] px-1 font-mono text-[9px] font-bold text-[#041014]">
             {unread > 99 ? '99+' : unread}
           </span>
         ) : null}
       </button>
 
       {open ? (
-        <div className="absolute right-0 z-50 mt-2 w-[min(100vw-2rem,22rem)] overflow-hidden rounded-xl border border-white/15 bg-stone-950 shadow-xl">
-          <div className="flex items-center justify-between border-b border-white/10 px-3 py-2.5">
-            <p className="text-sm font-semibold text-white">Notifications</p>
+        <div className="platform-ops-glow absolute right-0 z-50 mt-2 w-[min(100vw-2rem,22rem)] overflow-hidden rounded-xl border border-[var(--platform-line)] bg-[var(--platform-surface)] shadow-2xl">
+          <div className="flex items-center justify-between border-b border-[var(--platform-line-subtle)] px-3 py-2.5">
+            <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--platform-accent)]">
+              Alerts
+            </p>
             <button
               type="button"
               onClick={() => void handleMarkAll()}
-              className="text-xs font-medium text-amber-300 hover:text-amber-200 disabled:opacity-40"
+              className="text-xs font-medium text-[var(--platform-label)] hover:text-white disabled:opacity-40"
               disabled={unread === 0}
             >
               Mark all read
@@ -135,10 +137,12 @@ export function PlatformNotificationBell() {
           </div>
           <div className="max-h-80 overflow-y-auto">
             {loading && items.length === 0 ? (
-              <p className="px-3 py-6 text-center text-sm text-stone-400">Loading…</p>
+              <p className="px-3 py-6 text-center text-sm text-[var(--platform-muted)]">Loading…</p>
             ) : null}
             {!loading && items.length === 0 ? (
-              <p className="px-3 py-6 text-center text-sm text-stone-400">No notifications yet.</p>
+              <p className="px-3 py-6 text-center text-sm text-[var(--platform-muted)]">
+                No alerts.
+              </p>
             ) : null}
             {items.map((n) => {
               const href =
@@ -152,18 +156,18 @@ export function PlatformNotificationBell() {
                     if (unreadItem) void handleMark(n.id);
                     setOpen(false);
                   }}
-                  className={`block border-b border-white/5 px-3 py-3 transition hover:bg-white/5 ${
-                    unreadItem ? 'bg-amber-500/5' : ''
+                  className={`block border-b border-[var(--platform-line-subtle)] px-3 py-3 transition hover:bg-white/[0.03] ${
+                    unreadItem ? 'bg-[var(--platform-accent-soft)]' : ''
                   }`}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <p className="text-sm font-semibold text-white">{n.title}</p>
                     {unreadItem ? (
-                      <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-amber-400" />
+                      <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-[var(--platform-accent)] shadow-[0_0_8px_var(--platform-glow)]" />
                     ) : null}
                   </div>
-                  <p className="mt-1 text-xs leading-relaxed text-stone-400">{n.body}</p>
-                  <p className="mt-1.5 text-[11px] text-stone-500">
+                  <p className="mt-1 text-xs leading-relaxed text-[var(--platform-muted)]">{n.body}</p>
+                  <p className="mt-1.5 font-mono text-[10px] text-[var(--platform-muted)]">
                     {formatWhen(n.created_at)}
                   </p>
                 </Link>

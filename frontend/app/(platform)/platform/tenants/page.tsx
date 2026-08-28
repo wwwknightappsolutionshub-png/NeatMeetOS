@@ -1,10 +1,22 @@
 'use client';
 
 import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
-import { ErrorAlert, LoadingState } from '@/components/admin/ui';
 import { TenantModulesPanel } from '@/components/platform/TenantModulesPanel';
 import { TenantBookingPolicyPanel } from '@/components/platform/TenantBookingPolicyPanel';
-import { Button } from '@/components/ui/Button';
+import {
+  PlatformBadge,
+  PlatformButton,
+  PlatformCard,
+  PlatformErrorAlert,
+  PlatformField,
+  PlatformLoadingState,
+  PlatformPage,
+  PlatformPageIntro,
+  PlatformSuccessAlert,
+  platformInputClass,
+  platformSelectClass,
+  tenantStatusTone,
+} from '@/components/platform/ui';
 import type { PlatformTenantRow } from '@/lib/types';
 import {
   fetchPlatformProfile,
@@ -15,22 +27,6 @@ import {
   updatePlatformTenantOwnerEmail,
   type PlatformStaffUser,
 } from '@/services/platform.service';
-
-function statusClass(status: string): string {
-  switch (status) {
-    case 'active':
-      return 'bg-emerald-500/15 text-emerald-300';
-    case 'trial':
-      return 'bg-amber-500/15 text-amber-200';
-    case 'pending_activation':
-      return 'bg-sky-500/15 text-sky-200';
-    case 'suspended':
-    case 'inactive':
-      return 'bg-red-500/15 text-red-300';
-    default:
-      return 'bg-white/10 text-stone-300';
-  }
-}
 
 function formatDate(iso: string | null | undefined): string {
   if (!iso) return '—';
@@ -69,11 +65,8 @@ function MoreIcon({ className }: { className?: string }) {
   );
 }
 
-const fieldClass =
-  'w-full rounded-lg border border-white/20 bg-stone-950 px-3 py-2.5 text-sm text-white outline-none placeholder:text-stone-500 focus:border-amber-400';
-
 const menuBtnClass =
-  'block w-full px-3 py-2 text-left text-sm text-stone-100 hover:bg-white/10 disabled:opacity-50';
+  'block w-full px-3 py-2 text-left text-sm text-[var(--platform-fg)] hover:bg-white/[0.04] disabled:opacity-50';
 
 export default function PlatformTenantsPage() {
   const [tenants, setTenants] = useState<PlatformTenantRow[]>([]);
@@ -259,18 +252,13 @@ export default function PlatformTenantsPage() {
   }
 
   return (
-    <div className="mx-auto grid max-w-5xl gap-5">
-      <div>
-        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-400/90">
-          Platform
-        </p>
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-white">Tenants</h1>
-        <p className="mt-1 text-sm text-stone-400">
-          Manage salons, unlock tiers, and update owner login emails.
-        </p>
-      </div>
+    <PlatformPage width="5xl">
+      <PlatformPageIntro
+        title="Tenants"
+        description="Manage salons, unlock tiers, poke owners, and update login emails across the fleet."
+      />
 
-      <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+      <PlatformCard>
         <form
           className="flex flex-col gap-3 sm:flex-row sm:items-end"
           onSubmit={(e) => {
@@ -278,58 +266,46 @@ export default function PlatformTenantsPage() {
             void load();
           }}
         >
-          <label className="block flex-1 text-sm">
-            <span className="mb-1 block text-stone-400">Search</span>
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className={fieldClass}
-              placeholder="Name, slug, email…"
-            />
-          </label>
-          <label className="block text-sm sm:w-44">
-            <span className="mb-1 block text-stone-400">Status</span>
-            <select
-              value={status}
-              onChange={(e) => setStatus(e.target.value)}
-              className={fieldClass}
-            >
-              <option value="">All</option>
-              <option value="active">Active</option>
-              <option value="trial">Trial</option>
-              <option value="pending_activation">Pending activation</option>
-              <option value="suspended">Suspended</option>
-              <option value="inactive">Inactive</option>
-            </select>
-          </label>
-          <Button type="submit" className="!bg-[var(--platform-accent)] !text-white">
-            Filter
-          </Button>
+          <div className="block flex-1">
+            <PlatformField label="Search">
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className={platformInputClass}
+                placeholder="Name, slug, email…"
+              />
+            </PlatformField>
+          </div>
+          <div className="block sm:w-44">
+            <PlatformField label="Status">
+              <select
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+                className={platformSelectClass}
+              >
+                <option value="">All</option>
+                <option value="active">Active</option>
+                <option value="trial">Trial</option>
+                <option value="pending_activation">Pending activation</option>
+                <option value="suspended">Suspended</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </PlatformField>
+          </div>
+          <PlatformButton type="submit">Filter</PlatformButton>
         </form>
-      </section>
+      </PlatformCard>
 
-      {error ? <ErrorAlert message={error} /> : null}
-      {pokeNotice ? (
-        <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
-          {pokeNotice}
-        </div>
-      ) : null}
-      {purgeNotice ? (
-        <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
-          {purgeNotice}
-        </div>
-      ) : null}
-      {emailNotice ? (
-        <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
-          {emailNotice}
-        </div>
-      ) : null}
-      {loading ? <LoadingState label="Loading tenants…" /> : null}
+      {error ? <PlatformErrorAlert message={error} /> : null}
+      {pokeNotice ? <PlatformSuccessAlert message={pokeNotice} /> : null}
+      {purgeNotice ? <PlatformSuccessAlert message={purgeNotice} /> : null}
+      {emailNotice ? <PlatformSuccessAlert message={emailNotice} /> : null}
+      {loading ? <PlatformLoadingState label="Loading tenants…" /> : null}
 
       {!loading ? (
         <div className="space-y-3">
           {tenants.length === 0 ? (
-            <p className="rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-8 text-center text-sm text-stone-400">
+            <p className="rounded-xl border border-dashed border-[var(--platform-line)] px-5 py-8 text-center text-sm text-[var(--platform-muted)]">
               No tenants match.
             </p>
           ) : (
@@ -344,7 +320,7 @@ export default function PlatformTenantsPage() {
               return (
                 <article
                   key={t.id}
-                  className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3"
+                  className="platform-ops-glow rounded-xl border border-[var(--platform-line-subtle)] bg-[var(--platform-surface)] px-4 py-3"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
@@ -352,25 +328,10 @@ export default function PlatformTenantsPage() {
                         <h2 className="truncate text-base font-semibold text-white">
                           {t.trading_name || t.name}
                         </h2>
-                        <span
-                          className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${statusClass(t.status)}`}
-                        >
-                          {t.status}
-                        </span>
-                        <span
-                          className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-                            t.online
-                              ? 'bg-emerald-500/15 text-emerald-300'
-                              : 'bg-white/10 text-stone-400'
-                          }`}
-                        >
-                          <span
-                            className={`h-1.5 w-1.5 rounded-full ${
-                              t.online ? 'bg-emerald-400' : 'bg-stone-500'
-                            }`}
-                          />
+                        <PlatformBadge tone={tenantStatusTone(t.status)}>{t.status}</PlatformBadge>
+                        <PlatformBadge tone={t.online ? 'success' : 'default'}>
                           {t.online ? 'Online' : 'Offline'}
-                        </span>
+                        </PlatformBadge>
                       </div>
                       <p className="mt-1 truncate text-xs text-stone-400">
                         {t.slug}
@@ -394,7 +355,7 @@ export default function PlatformTenantsPage() {
                         href={`/book/${t.slug}`}
                         target="_blank"
                         rel="noreferrer"
-                        className="rounded-lg border border-amber-500/30 px-2.5 py-1.5 text-xs font-semibold text-amber-200 hover:bg-amber-500/10"
+                        className="rounded-md border border-[var(--platform-accent)]/30 px-2.5 py-1.5 text-xs font-semibold text-[var(--platform-accent)] hover:bg-[var(--platform-accent-soft)]"
                       >
                         Book
                       </a>
@@ -406,7 +367,7 @@ export default function PlatformTenantsPage() {
                           type="button"
                           aria-label={`Actions for ${t.trading_name || t.name}`}
                           aria-expanded={menuOpenId === t.id}
-                          className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-white/15 text-stone-200 hover:bg-white/10"
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-[var(--platform-line-subtle)] text-[var(--platform-label)] hover:border-[var(--platform-line)] hover:text-white"
                           onClick={() =>
                             setMenuOpenId((current) => (current === t.id ? null : t.id))
                           }
@@ -414,7 +375,7 @@ export default function PlatformTenantsPage() {
                           <MoreIcon className="h-4 w-4" />
                         </button>
                         {menuOpenId === t.id ? (
-                          <div className="absolute right-0 z-20 mt-1 w-52 overflow-hidden rounded-xl border border-white/15 bg-[#1c1917] py-1 shadow-xl">
+                          <div className="platform-ops-glow absolute right-0 z-20 mt-1 w-52 overflow-hidden rounded-xl border border-[var(--platform-line)] bg-[var(--platform-surface)] py-1 shadow-xl">
                             <button
                               type="button"
                               className={menuBtnClass}
@@ -423,7 +384,7 @@ export default function PlatformTenantsPage() {
                             >
                               {pokingId === t.id ? 'Poking…' : 'Poke'}
                             </button>
-                            <div className="border-t border-white/10 px-3 py-2">
+                            <div className="border-t border-[var(--platform-line-subtle)] px-3 py-2">
                               <label className="mb-1 block text-[11px] text-stone-400">
                                 Unlock plan
                               </label>
@@ -435,7 +396,7 @@ export default function PlatformTenantsPage() {
                                     [t.id]: e.target.value as 'basic' | 'pro' | 'diamond',
                                   }))
                                 }
-                                className="mb-2 w-full rounded-md border border-white/15 bg-stone-950 px-2 py-1.5 text-xs text-white"
+                                className="mb-2 w-full rounded-md border border-[var(--platform-line-subtle)] bg-[var(--platform-input)] px-2 py-1.5 text-xs text-white"
                               >
                                 <option value="basic">Basic</option>
                                 <option value="pro">Pro</option>
@@ -443,7 +404,7 @@ export default function PlatformTenantsPage() {
                               </select>
                               <button
                                 type="button"
-                                className="w-full rounded-md bg-[var(--platform-accent)] px-2 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+                                className="w-full rounded-md bg-[var(--platform-accent)] px-2 py-1.5 text-xs font-semibold text-[#041014] disabled:opacity-50"
                                 disabled={unlockingId === t.id}
                                 onClick={() => void handleUnlock(t)}
                               >
@@ -537,7 +498,7 @@ export default function PlatformTenantsPage() {
                 {purgeTenant.trading_name || purgeTenant.name}
               </span>{' '}
               (
-              <span className="font-mono text-xs text-amber-200">{purgeTenant.slug}</span>
+              <span className="font-mono text-xs text-[var(--platform-accent)]">{purgeTenant.slug}</span>
               ) and all related salon data. This cannot be undone.
             </p>
             {purgeError ? (
@@ -556,7 +517,7 @@ export default function PlatformTenantsPage() {
                     setPurgeSlugConfirm(e.target.value);
                     if (purgeError) setPurgeError(null);
                   }}
-                  className={fieldClass}
+                  className={platformInputClass}
                   placeholder={purgeTenant.slug}
                   autoComplete="off"
                   autoFocus
@@ -615,7 +576,7 @@ export default function PlatformTenantsPage() {
                   required
                   value={emailDraft}
                   onChange={(e) => setEmailDraft(e.target.value)}
-                  className={fieldClass}
+                  className={platformInputClass}
                   placeholder="owner@salon.com"
                   autoComplete="off"
                   autoFocus
@@ -646,6 +607,6 @@ export default function PlatformTenantsPage() {
           </div>
         </div>
       ) : null}
-    </div>
+    </PlatformPage>
   );
 }

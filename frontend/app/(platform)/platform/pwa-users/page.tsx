@@ -1,13 +1,19 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ErrorAlert } from '@/components/admin/ui';
 import {
   PlatformButton,
   PlatformCard,
+  PlatformErrorAlert,
   PlatformField,
+  PlatformLoadingState,
+  PlatformPage,
   PlatformPageIntro,
+  PlatformSuccessAlert,
+  PlatformTable,
+  PlatformTableHead,
   platformInputClass,
+  platformSelectClass,
 } from '@/components/platform/ui';
 import type { PlatformPwaUserRow } from '@/lib/types';
 import {
@@ -88,7 +94,7 @@ export default function PlatformPwaUsersPage() {
   }
 
   return (
-    <div className="mx-auto grid max-w-5xl gap-5">
+    <PlatformPage width="5xl">
       <PlatformPageIntro
         title="PWA users"
         description="Installed admin workspace and member app subscribers across all tenants. Send a push to selected devices or everyone in the current filter."
@@ -101,7 +107,7 @@ export default function PlatformPwaUsersPage() {
               <select
                 value={type}
                 onChange={(e) => setType(e.target.value as 'all' | 'admin' | 'member')}
-                className={platformInputClass}
+                className={platformSelectClass}
               >
                 <option value="all">All PWA users</option>
                 <option value="admin">Admin workspace</option>
@@ -160,14 +166,10 @@ export default function PlatformPwaUsersPage() {
         </div>
       </PlatformCard>
 
-      {error ? <ErrorAlert message={error} /> : null}
-      {notice ? (
-        <div className="rounded-lg border border-emerald-400/40 bg-emerald-500/15 px-4 py-3 text-sm text-emerald-50">
-          {notice}
-        </div>
-      ) : null}
+      {error ? <PlatformErrorAlert message={error} /> : null}
+      {notice ? <PlatformSuccessAlert message={notice} /> : null}
 
-      {loading ? <p className="text-sm text-stone-300">Loading PWA users…</p> : null}
+      {loading ? <PlatformLoadingState label="Loading PWA users…" /> : null}
 
       {!loading ? (
         <PlatformCard padded={false}>
@@ -175,8 +177,8 @@ export default function PlatformPwaUsersPage() {
             <p className="px-5 py-8 text-center text-sm text-stone-300">No PWA subscriptions yet.</p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="min-w-full text-left text-sm">
-                <thead className="border-b border-[var(--platform-line)] text-[11px] uppercase tracking-[0.12em] text-stone-300">
+              <PlatformTable>
+                <PlatformTableHead>
                   <tr>
                     <th className="px-4 py-3" />
                     <th className="px-4 py-3 font-semibold">Type</th>
@@ -184,12 +186,12 @@ export default function PlatformPwaUsersPage() {
                     <th className="px-4 py-3 font-semibold">Tenant</th>
                     <th className="px-4 py-3 font-semibold">Last seen</th>
                   </tr>
-                </thead>
+                </PlatformTableHead>
                 <tbody>
                   {rows.map((row) => (
                     <tr
                       key={`${row.type}-${row.id}`}
-                      className="border-b border-white/5 last:border-0"
+                      className="border-b border-[var(--platform-line-subtle)] last:border-0 hover:bg-white/[0.02]"
                     >
                       <td className="px-4 py-3">
                         <input
@@ -216,11 +218,11 @@ export default function PlatformPwaUsersPage() {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </PlatformTable>
             </div>
           )}
         </PlatformCard>
       ) : null}
-    </div>
+    </PlatformPage>
   );
 }
