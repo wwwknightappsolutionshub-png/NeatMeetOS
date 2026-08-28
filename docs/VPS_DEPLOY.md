@@ -171,7 +171,7 @@ Selfies are ephemeral (local temp, deleted after the job or by hourly purge). On
 
 ## Cloudflare Turnstile + IP bans (public / auth writes)
 
-Invisible captcha on login, magic link, forgot/reset password, signup, public booking / join / member-login / shop writes. Auto IP bans for repeated Turnstile failures, failed logins, honeypot trips, and excess 429s.
+Visible Turnstile captcha on login, magic link, forgot/reset password, signup, public booking / join / member-login / shop writes. Auto IP bans for repeated Turnstile failures, failed logins, honeypot trips, and excess 429s.
 
 Add to **backend** `.env` and **frontend** `.env` / PM2 env (same site key), then `config:cache` and rebuild frontend:
 
@@ -185,7 +185,7 @@ TURNSTILE_ENABLED=true
 NEXT_PUBLIC_TURNSTILE_SITE_KEY=0x4AAAAA...
 ```
 
-Create keys in the Cloudflare dashboard → Turnstile (widget type: **Managed** or **Invisible**).
+Create keys in the Cloudflare dashboard → Turnstile (widget type: **Managed** — shows a visible checkbox/challenge). Add every production hostname (`neatmeetos.com`, `www.neatmeetos.com`, etc.) under the widget’s allowed domains.
 
 Ops unban:
 

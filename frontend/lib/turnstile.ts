@@ -1,6 +1,7 @@
 /**
  * Cloudflare Turnstile helpers for public/auth form posts.
- * When NEXT_PUBLIC_TURNSTILE_SITE_KEY is empty, tokens are omitted (local/dev).
+ * Renders a visible widget (managed / normal size). When
+ * NEXT_PUBLIC_TURNSTILE_SITE_KEY is empty, tokens are omitted (local/dev).
  */
 
 declare global {
@@ -23,12 +24,47 @@ const SCRIPT_ID = 'cf-turnstile-script';
 const SCRIPT_SRC =
   'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=onNeatMeetTurnstileLoad';
 
+const TOKEN_WAIT_MS = 120_000;
+
+export type TurnstileWidgetSize = 'normal' | 'compact';
+
+type TurnstileListener = (ready: boolean) => void;
+
+type MountOptions = {
+  size?: TurnstileWidgetSize;
+  onError?: (message: string) => void;
+};
+
 let widgetId: string | null = null;
-let containerEl: HTMLDivElement | null = null;
+let hostElement: HTMLElement | null = null;
+let widgetSize: TurnstileWidgetSize = 'normal';
 let scriptPromise: Promise<void> | null = null;
+let mountPromise: Promise<void> | null = null;
 let pendingToken: Promise<string> | null = null;
 let resolvePending: ((token: string) => void) | null = null;
 let rejectPending: ((err: Error) => void) | null = null;
+let pollTimer: number | null = null;
+const readyListeners = new Set<TurnstileListener>();
+
+function notifyReady(ready: boolean): void {
+  readyListeners.forEach((listener) => listener(ready));
+}
+
+function clearPoll(): void {
+  if (pollTimer) {
+    window.clearInterval(pollTimer);
+    pollTimer = null;
+  }
+}
+
+function readToken(): string | undefined {
+  if (!window.turnstile || !widgetId) return undefined;
+  return window.turnstile.getResponse(widgetId) || undefined;
+}
+
+function isTokenReady(): boolean {
+  return Boolean(readToken());
+}
 
 export function getTurnstileSiteKey(): string | null {
   const key = (process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? '').trim();
@@ -39,20 +75,10 @@ export function isTurnstileConfigured(): boolean {
   return Boolean(getTurnstileSiteKey());
 }
 
-function ensureContainer(): HTMLDivElement {
-  if (typeof document === 'undefined') {
-    throw new Error('Turnstile requires a browser');
-  }
-  if (containerEl && document.body.contains(containerEl)) {
-    return containerEl;
-  }
-  containerEl = document.createElement('div');
-  containerEl.id = 'nm-turnstile-host';
-  containerEl.setAttribute('aria-hidden', 'true');
-  containerEl.style.cssText =
-    'position:fixed;left:-9999px;top:0;width:1px;height:1px;overflow:hidden;';
-  document.body.appendChild(containerEl);
-  return containerEl;
+export function subscribeTurnstileReady(listener: TurnstileListener): () => void {
+  readyListeners.add(listener);
+  listener(isTokenReady());
+  return () => readyListeners.delete(listener);
 }
 
 function loadScript(): Promise<void> {
@@ -88,54 +114,109 @@ function loadScript(): Promise<void> {
   return scriptPromise;
 }
 
-function renderWidget(): void {
-  const siteKey = getTurnstileSiteKey();
-  if (!siteKey || !window.turnstile) return;
+function teardownWidget(): void {
+  clearPoll();
+  pendingToken = null;
+  resolvePending = null;
+  rejectPending = null;
 
-  const host = ensureContainer();
-  host.innerHTML = '';
-  widgetId = window.turnstile.render(host, {
+  if (window.turnstile && widgetId) {
+    try {
+      window.turnstile.remove(widgetId);
+    } catch {
+      // Widget may already be gone.
+    }
+  }
+
+  widgetId = null;
+  if (hostElement) {
+    hostElement.innerHTML = '';
+  }
+  notifyReady(false);
+}
+
+function renderWidget(options: MountOptions = {}): void {
+  const siteKey = getTurnstileSiteKey();
+  if (!siteKey || !window.turnstile || !hostElement) return;
+
+  widgetSize = options.size ?? widgetSize;
+  hostElement.innerHTML = '';
+
+  widgetId = window.turnstile.render(hostElement, {
     sitekey: siteKey,
-    size: 'invisible',
-    appearance: 'interaction-only',
+    size: widgetSize,
+    theme: 'light',
     callback: (token: string) => {
+      clearPoll();
+      notifyReady(true);
       resolvePending?.(token);
       resolvePending = null;
       rejectPending = null;
       pendingToken = null;
     },
     'error-callback': () => {
-      rejectPending?.(new Error('Security check failed. Please try again.'));
+      clearPoll();
+      notifyReady(false);
+      const message = 'Security check failed. Please try again.';
+      options.onError?.(message);
+      rejectPending?.(new Error(message));
       resolvePending = null;
       rejectPending = null;
       pendingToken = null;
     },
     'expired-callback': () => {
-      // Token expired — next getTurnstileToken will reset.
+      notifyReady(false);
     },
   });
+
+  notifyReady(isTokenReady());
 }
 
-async function ensureWidget(): Promise<void> {
-  if (!isTurnstileConfigured()) return;
+async function ensureRendered(options: MountOptions = {}): Promise<void> {
+  if (!isTurnstileConfigured() || !hostElement) return;
+
   await loadScript();
   if (!widgetId) {
-    renderWidget();
+    renderWidget(options);
   }
 }
 
 /**
- * Obtain a fresh Turnstile token for the next form POST.
- * Returns undefined when Turnstile is not configured (local/dev).
+ * Mount a visible Turnstile widget inside the given container.
+ * Returns cleanup — call on React unmount.
  */
-export async function getTurnstileToken(): Promise<string | undefined> {
+export function mountTurnstileIn(
+  container: HTMLElement,
+  options: MountOptions = {},
+): () => void {
   if (!isTurnstileConfigured()) {
-    return undefined;
+    return () => undefined;
   }
 
-  await ensureWidget();
-  if (!window.turnstile || !widgetId) {
-    throw new Error('Security check unavailable. Please refresh and try again.');
+  if (hostElement && hostElement !== container) {
+    teardownWidget();
+  }
+
+  hostElement = container;
+  widgetSize = options.size ?? 'normal';
+
+  mountPromise = ensureRendered(options).catch(() => {
+    options.onError?.('Security check unavailable. Please refresh and try again.');
+  });
+
+  return () => {
+    if (hostElement === container) {
+      teardownWidget();
+      hostElement = null;
+      mountPromise = null;
+    }
+  };
+}
+
+function waitForToken(): Promise<string> {
+  const existing = readToken();
+  if (existing) {
+    return Promise.resolve(existing);
   }
 
   if (pendingToken) {
@@ -147,25 +228,25 @@ export async function getTurnstileToken(): Promise<string | undefined> {
     rejectPending = reject;
   });
 
-  try {
-    window.turnstile.reset(widgetId);
-  } catch {
-    renderWidget();
-  }
-
-  // Invisible widgets often fire callback after reset; also poll getResponse.
+  clearPoll();
   const started = Date.now();
-  const poll = window.setInterval(() => {
-    const response = window.turnstile?.getResponse(widgetId ?? undefined);
+  pollTimer = window.setInterval(() => {
+    const response = readToken();
     if (response) {
-      window.clearInterval(poll);
+      clearPoll();
+      notifyReady(true);
       resolvePending?.(response);
       resolvePending = null;
       rejectPending = null;
       pendingToken = null;
-    } else if (Date.now() - started > 20_000) {
-      window.clearInterval(poll);
-      rejectPending?.(new Error('Security check timed out. Please try again.'));
+      return;
+    }
+
+    if (Date.now() - started > TOKEN_WAIT_MS) {
+      clearPoll();
+      const message =
+        'Please complete the security check above, then try again.';
+      rejectPending?.(new Error(message));
       resolvePending = null;
       rejectPending = null;
       pendingToken = null;
@@ -173,6 +254,39 @@ export async function getTurnstileToken(): Promise<string | undefined> {
   }, 200);
 
   return pendingToken;
+}
+
+/**
+ * Obtain a Turnstile token for the next form POST.
+ * Returns undefined when Turnstile is not configured (local/dev).
+ */
+export async function getTurnstileToken(): Promise<string | undefined> {
+  if (!isTurnstileConfigured()) {
+    return undefined;
+  }
+
+  if (mountPromise) {
+    await mountPromise;
+  }
+
+  if (!window.turnstile || !widgetId) {
+    throw new Error('Security check unavailable. Please refresh and try again.');
+  }
+
+  const existing = readToken();
+  if (existing) {
+    queueMicrotask(() => {
+      try {
+        window.turnstile?.reset(widgetId ?? undefined);
+      } catch {
+        renderWidget();
+      }
+      notifyReady(false);
+    });
+    return existing;
+  }
+
+  return waitForToken();
 }
 
 export function withTurnstileToken<T extends Record<string, unknown>>(
@@ -183,12 +297,12 @@ export function withTurnstileToken<T extends Record<string, unknown>>(
   return { ...body, turnstile_token: token };
 }
 
-/** Mount early on public pages so the first submit is faster. */
+/** @deprecated Use mountTurnstileIn via TurnstileWidget instead. */
 export async function prefetchTurnstile(): Promise<void> {
-  if (!isTurnstileConfigured()) return;
+  if (!isTurnstileConfigured() || !hostElement) return;
   try {
-    await ensureWidget();
+    await ensureRendered();
   } catch {
-    // Non-fatal — submit will retry.
+    // Non-fatal — submit will surface errors.
   }
 }

@@ -6,7 +6,6 @@ import { useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { NeatMeetLogo } from '@/components/brand/NeatMeetLogo';
 import { ExitIntentTrialModal } from '@/components/marketing/ExitIntentTrialModal';
-import { TurnstileBootstrap } from '@/components/security/TurnstileBootstrap';
 import { resolveReferralCode } from '@/lib/referral-cookie';
 
 const HERO =
@@ -232,7 +231,6 @@ export function MarketingLanding() {
 
   return (
     <div className="min-h-screen bg-[#f3f1ec] text-stone-900">
-      <TurnstileBootstrap />
       <header
         className={[
           'fixed inset-x-0 top-0 z-40 transition-colors duration-300',

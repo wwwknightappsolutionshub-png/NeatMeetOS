@@ -2,7 +2,9 @@
 
 import { FormEvent, useEffect, useState } from 'react';
 import { NeatMeetLogo } from '@/components/brand/NeatMeetLogo';
+import { TurnstileWidget } from '@/components/security/TurnstileWidget';
 import { Button } from '@/components/ui/Button';
+import { useTurnstileReady } from '@/hooks/useTurnstileReady';
 import { resolveReferralCode } from '@/lib/referral-cookie';
 import { captureSignupLead } from '@/services/signup.service';
 
@@ -40,6 +42,7 @@ export function ExitIntentTrialModal({
   const [message, setMessage] = useState<string | null>(null);
   const [tempPassword, setTempPassword] = useState<string | null>(null);
   const [loginUrl, setLoginUrl] = useState<string | null>(null);
+  const turnstileReady = useTurnstileReady();
 
   useEffect(() => {
     if (open) {
@@ -232,8 +235,13 @@ export function ExitIntentTrialModal({
                   />
                 </label>
                 {error ? <p className="text-sm text-red-600">{error}</p> : null}
+                <TurnstileWidget className="pt-1" size="compact" />
                 <div className="flex flex-col gap-2 pt-1 sm:flex-row">
-                  <Button type="submit" disabled={loading} className="flex-1 !bg-[#2f5a45]">
+                  <Button
+                    type="submit"
+                    disabled={loading || !turnstileReady}
+                    className="flex-1 !bg-[#2f5a45]"
+                  >
                     {loading ? 'Sending…' : 'Claim my trial'}
                   </Button>
                   <Button type="button" variant="secondary" onClick={onClose}>

@@ -9,7 +9,8 @@ import {
   useState,
   type FormEvent,
 } from 'react';
-import { TurnstileBootstrap } from '@/components/security/TurnstileBootstrap';
+import { TurnstileWidget } from '@/components/security/TurnstileWidget';
+import { useTurnstileReady } from '@/hooks/useTurnstileReady';
 import { Button } from '@/components/ui/Button';
 import { NeatMeetLogo } from '@/components/brand/NeatMeetLogo';
 import {
@@ -140,6 +141,7 @@ function LoginAuthPage() {
   const [slugAuto, setSlugAuto] = useState(true);
   const [serviceDrafts, setServiceDrafts] = useState<SignupServiceDraft[]>([]);
   const { message: toastMessage, showToast, dismissToast } = useToast();
+  const turnstileReady = useTurnstileReady();
   const basicMaxServices = signupForm?.basic_max_services ?? 4;
 
   useEffect(() => {
@@ -520,7 +522,6 @@ function LoginAuthPage() {
 
   return (
     <div className="flex min-h-screen bg-[#f7f5f2] text-stone-900">
-      <TurnstileBootstrap />
       <Toast message={toastMessage} onDismiss={dismissToast} />
       {/* LEFT — auth forms */}
       <div className="flex w-full flex-col justify-center px-6 py-10 sm:px-10 lg:w-[46%] lg:px-14 xl:px-16">
@@ -596,6 +597,10 @@ function LoginAuthPage() {
             </p>
           ) : null}
 
+          {specialMode !== 'magic-consume' && !signupDone ? (
+            <TurnstileWidget className="mt-4" />
+          ) : null}
+
           {specialMode === 'magic-consume' ? (
             <p className="mt-8 text-sm text-stone-500">Verifying your magic link…</p>
           ) : null}
@@ -622,6 +627,7 @@ function LoginAuthPage() {
                 type="submit"
                 disabled={
                   loading ||
+                  !turnstileReady ||
                   !isPasswordSecure(password) ||
                   password !== passwordConfirm
                 }
@@ -654,6 +660,7 @@ function LoginAuthPage() {
                 type="submit"
                 disabled={
                   loading ||
+                  !turnstileReady ||
                   !isPasswordSecure(password) ||
                   password !== passwordConfirm
                 }
@@ -717,7 +724,11 @@ function LoginAuthPage() {
                       autoComplete="current-password"
                     />
                   </label>
-                  <Button type="submit" disabled={loading} className="w-full !bg-[#2f5a45]">
+                  <Button
+                    type="submit"
+                    disabled={loading || !turnstileReady}
+                    className="w-full !bg-[#2f5a45]"
+                  >
                     {loading ? 'Signing in…' : 'Sign in'}
                   </Button>
                 </form>
@@ -736,7 +747,11 @@ function LoginAuthPage() {
                       autoComplete="email"
                     />
                   </label>
-                  <Button type="submit" disabled={loading} className="w-full !bg-[#2f5a45]">
+                  <Button
+                    type="submit"
+                    disabled={loading || !turnstileReady}
+                    className="w-full !bg-[#2f5a45]"
+                  >
                     {loading ? 'Sending…' : 'Email me a magic link'}
                   </Button>
                 </form>
@@ -755,7 +770,11 @@ function LoginAuthPage() {
                       autoComplete="email"
                     />
                   </label>
-                  <Button type="submit" disabled={loading} className="w-full !bg-[#2f5a45]">
+                  <Button
+                    type="submit"
+                    disabled={loading || !turnstileReady}
+                    className="w-full !bg-[#2f5a45]"
+                  >
                     {loading ? 'Sending…' : 'Send reset link'}
                   </Button>
                 </form>
@@ -863,6 +882,7 @@ function LoginAuthPage() {
                       type="submit"
                       disabled={
                         loading ||
+                        !turnstileReady ||
                         !isPasswordSecure(password) ||
                         password !== passwordConfirm
                       }
@@ -951,7 +971,7 @@ function LoginAuthPage() {
                       ) : null}
                       <Button
                         type="submit"
-                        disabled={loading}
+                        disabled={loading || !turnstileReady}
                         className="flex-1 !bg-[#2f5a45]"
                       >
                         {loading
