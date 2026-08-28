@@ -19,6 +19,8 @@ class PlatformSignupWhatsAppWelcomeService
 
     public const TYPE_ACTIVATION = 'activation';
 
+    public const TYPE_WORKSPACE = 'workspace_live';
+
     public const BANNER_STORAGE_PATH = 'platform/whatsapp/signup-welcome-banner.jpg';
 
     public const PUBLIC_API_PATH = '/api/v1/public/whatsapp/signup-welcome-banner';
@@ -50,6 +52,19 @@ Activate account:
 {{link}}
 
 If you did not sign up, you can ignore this message. This link expires in 48 hours.
+TXT;
+
+    public const DEFAULT_WORKSPACE_BODY = <<<'TXT'
+*Welcome to NeatMeet OS*
+
+Hi {{name}},
+
+Your workspace for *{{salon}}* is live. Sign in with {{email}} and the password you chose during setup.
+
+Open your workspace:
+{{link}}
+
+We are glad you joined NeatMeet OS — reply here if you need help getting started.
 TXT;
 
     public function __construct(
@@ -150,6 +165,20 @@ TXT;
             'salon' => $tenant->trading_name ?: $tenant->name,
             'link' => rtrim((string) config('app.frontend_url'), '/').'/login?activate='.urlencode($plainToken),
             'phone' => $tenant->owner_whatsapp,
+            'tenant_id' => $tenant->id,
+        ]);
+    }
+
+    public function sendWorkspaceWelcome(User $user, Tenant $tenant, ?string $phone = null): array
+    {
+        $phone ??= $tenant->owner_whatsapp ?: $this->phoneFromUserMeta($user);
+
+        return $this->send(self::TYPE_WORKSPACE, [
+            'name' => $user->name,
+            'email' => $user->email,
+            'salon' => $tenant->trading_name ?: $tenant->name,
+            'link' => rtrim((string) config('app.frontend_url'), '/').'/login?email='.urlencode($user->email),
+            'phone' => $phone,
             'tenant_id' => $tenant->id,
         ]);
     }
@@ -320,6 +349,7 @@ TXT;
             self::TYPE_ACTIVATION => filled($settings->signup_welcome_activation_body)
                 ? (string) $settings->signup_welcome_activation_body
                 : self::DEFAULT_ACTIVATION_BODY,
+            self::TYPE_WORKSPACE => self::DEFAULT_WORKSPACE_BODY,
             default => self::DEFAULT_ACTIVATION_BODY,
         };
 

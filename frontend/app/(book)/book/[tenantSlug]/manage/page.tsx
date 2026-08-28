@@ -7,6 +7,7 @@ import { Suspense, useCallback, useEffect, useState, type CSSProperties } from '
 import type { Appointment, OnlineBookingCatalog } from '@/lib/booking-types';
 import { buildGoogleCalendarUrl, downloadIcsFile } from '@/lib/booking-calendar';
 import { resolveMediaUrl } from '@/lib/media-url';
+import { canOptimizeRemoteImage } from '@/lib/remote-image';
 import {
   cancelManagedAppointment,
   fetchManagedAppointment,
@@ -148,7 +149,7 @@ function ManageBookingInner() {
                 fill
                 sizes="100vw"
                 className="object-cover object-center"
-                unoptimized={heroImageSrc.startsWith('http')}
+                unoptimized={!canOptimizeRemoteImage(heroImageSrc)}
               />
               <div className="absolute inset-0 bg-[rgba(18,24,22,0.45)]" />
               <p className="absolute bottom-4 left-5 text-xs font-semibold uppercase tracking-[0.2em] text-white/85">

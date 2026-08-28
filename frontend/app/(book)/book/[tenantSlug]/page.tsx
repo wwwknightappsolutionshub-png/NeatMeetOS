@@ -24,6 +24,7 @@ import {
 import { BookingInstallPrompt } from '@/components/booking/BookingInstallPrompt';
 import { buildGoogleCalendarUrl, downloadIcsFile } from '@/lib/booking-calendar';
 import { resolveMediaUrl } from '@/lib/media-url';
+import { canOptimizeRemoteImage } from '@/lib/remote-image';
 import {
   hasSkippedAiHairstyleLanding,
   markAiHairstyleLandingSkipped,
@@ -770,7 +771,6 @@ function OnlineBookingPageInner() {
   const heroEmblemMode = catalog?.tenant.branding?.hero_emblem_mode ?? 'none';
   const heroImageSrc =
     resolveMediaUrl(catalog?.tenant.branding?.hero_image_url) || '/book/hero.jpg';
-  const heroImageIsDefault = heroImageSrc === '/book/hero.jpg';
   const heroEmblemUrl =
     heroEmblemMode === 'logo'
       ? resolveMediaUrl(brandLogo)
@@ -912,7 +912,7 @@ function OnlineBookingPageInner() {
             fill
             priority
             sizes="100vw"
-            unoptimized={!heroImageIsDefault}
+            unoptimized={!canOptimizeRemoteImage(heroImageSrc)}
             className="object-cover object-center"
           />
           <div className="absolute inset-0 bg-gradient-to-r from-[rgba(18,24,22,0.78)] via-[rgba(18,24,22,0.55)] to-[rgba(18,24,22,0.25)]" />
@@ -1421,7 +1421,7 @@ function OnlineBookingPageInner() {
                     alt=""
                     fill
                     sizes="100vw"
-                    unoptimized={!heroImageIsDefault}
+                    unoptimized={!canOptimizeRemoteImage(heroImageSrc)}
                     className="object-cover object-center"
                   />
                   <div className="absolute inset-0 bg-[rgba(18,24,22,0.45)]" />

@@ -1,6 +1,18 @@
+import dynamic from 'next/dynamic';
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
-import { MarketingLanding } from '@/components/marketing/MarketingLanding';
+
+const MarketingLanding = dynamic(
+  () =>
+    import('@/components/marketing/MarketingLanding').then((m) => m.MarketingLanding),
+  {
+    loading: () => (
+      <div className="flex min-h-screen items-center justify-center bg-[#f3f1ec] text-sm text-stone-500">
+        Loading NeatMeet OS…
+      </div>
+    ),
+  },
+);
 
 /** Public site origin for absolute OG/Twitter URLs (WhatsApp link previews). */
 const SITE_URL = (

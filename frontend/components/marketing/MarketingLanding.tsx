@@ -1,15 +1,27 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { NeatMeetLogo } from '@/components/brand/NeatMeetLogo';
-import { ExitIntentTrialModal } from '@/components/marketing/ExitIntentTrialModal';
 import { resolveReferralCode } from '@/lib/referral-cookie';
+import { optimizeUnsplashUrl } from '@/lib/remote-image';
 
-const HERO =
-  'https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&w=1800&q=75';
+const ExitIntentTrialModal = dynamic(
+  () =>
+    import('@/components/marketing/ExitIntentTrialModal').then(
+      (m) => m.ExitIntentTrialModal,
+    ),
+  { ssr: false },
+);
+
+const HERO = optimizeUnsplashUrl(
+  'https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&w=1800&q=75',
+  1280,
+  68,
+);
 
 const SESSION_KEY = 'nm_exit_intent_shown';
 
@@ -328,6 +340,7 @@ export function MarketingLanding() {
           alt="Salon floor ready for the next client"
           fill
           priority
+          fetchPriority="high"
           sizes="100vw"
           className="object-cover"
         />
@@ -639,12 +652,14 @@ export function MarketingLanding() {
         </div>
       ) : null}
 
-      <ExitIntentTrialModal
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        referralCode={refCode}
-        source={modalSource}
-      />
+      {modalOpen ? (
+        <ExitIntentTrialModal
+          open={modalOpen}
+          onClose={() => setModalOpen(false)}
+          referralCode={refCode}
+          source={modalSource}
+        />
+      ) : null}
     </div>
   );
 }

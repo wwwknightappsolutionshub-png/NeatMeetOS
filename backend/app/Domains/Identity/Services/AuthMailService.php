@@ -117,6 +117,37 @@ HTML;
         });
     }
 
+    /**
+     * Welcome email for tenants whose workspace is already live (post-signup catch-up).
+     */
+    public function sendWorkspaceWelcome(User $user, Tenant $tenant): void
+    {
+        $loginUrl = $this->frontendUrl('/login?email='.urlencode($user->email));
+        $name = e($user->name);
+        $salon = e($tenant->trading_name ?: $tenant->name);
+        $email = e($user->email);
+
+        $html = <<<HTML
+<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#18181b;">
+  <div style="background:#2f5a45;color:#fff;padding:20px 24px;border-radius:12px 12px 0 0;">
+    <p style="margin:0;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;opacity:0.85;">NeatMeet OS</p>
+    <h1 style="margin:8px 0 0;font-size:22px;">Welcome — your salon workspace is ready</h1>
+  </div>
+  <div style="border:1px solid #e7e5e4;border-top:0;padding:24px;border-radius:0 0 12px 12px;">
+    <p style="margin:0 0 12px;">Hi {$name},</p>
+    <p style="margin:0 0 12px;line-height:1.5;">Your NeatMeet OS workspace for <strong>{$salon}</strong> is live. Sign in with <strong>{$email}</strong> and the password you chose during setup to manage bookings, clients, payments, and your team.</p>
+    <p style="margin:24px 0;"><a href="{$loginUrl}" style="display:inline-block;background:#2f5a45;color:#fff;text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:600;">Open your workspace</a></p>
+    <p style="margin:0;font-size:12px;color:#78716c;line-height:1.5;">Need help getting started? Reply to this email or message us on WhatsApp — we are glad you joined NeatMeet OS.</p>
+  </div>
+</div>
+HTML;
+
+        Mail::html($html, function ($message) use ($user, $salon) {
+            $message->to($user->email, $user->name)
+                ->subject('Welcome to NeatMeet OS — '.$salon.' is ready');
+        });
+    }
+
     public function sendMagicLogin(User $user, string $plainToken): void
     {
         $url = $this->frontendUrl('/login?magic='.urlencode($plainToken));

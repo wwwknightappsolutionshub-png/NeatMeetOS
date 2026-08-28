@@ -1,19 +1,37 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { AdminTopBar } from '@/components/admin/AdminTopBar';
-import { AdminPwaPrompt } from '@/components/admin/AdminPwaPrompt';
-import { AdminReferralNudge } from '@/components/admin/AdminReferralNudge';
-import { AvailabilitySetupModal } from '@/components/admin/AvailabilitySetupModal';
-import { StaffSosOverlay } from '@/components/admin/StaffSosOverlay';
-import { ModuleUpgradeGate } from '@/components/admin/ModuleUpgradeGate';
 import { NeatMeetLogo } from '@/components/brand/NeatMeetLogo';
 import { api, clearStoredSession, getStoredTenantSlug, getStoredToken } from '@/lib/api-client';
 import type { ModuleUpgradePayload, ShellStatus } from '@/lib/types';
 import { fetchShell, logout } from '@/services/auth.service';
 import { fetchActiveStaffSosAlerts } from '@/services/staff-sos.service';
+
+const AdminPwaPrompt = dynamic(
+  () => import('@/components/admin/AdminPwaPrompt').then((m) => m.AdminPwaPrompt),
+  { ssr: false },
+);
+const AdminReferralNudge = dynamic(
+  () => import('@/components/admin/AdminReferralNudge').then((m) => m.AdminReferralNudge),
+  { ssr: false },
+);
+const AvailabilitySetupModal = dynamic(
+  () =>
+    import('@/components/admin/AvailabilitySetupModal').then((m) => m.AvailabilitySetupModal),
+  { ssr: false },
+);
+const StaffSosOverlay = dynamic(
+  () => import('@/components/admin/StaffSosOverlay').then((m) => m.StaffSosOverlay),
+  { ssr: false },
+);
+const ModuleUpgradeGate = dynamic(
+  () => import('@/components/admin/ModuleUpgradeGate').then((m) => m.ModuleUpgradeGate),
+  { ssr: false },
+);
 
 interface AdminAppShellProps {
   children: ReactNode;

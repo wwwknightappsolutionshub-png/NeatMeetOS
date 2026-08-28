@@ -82,6 +82,22 @@ pm2 restart neatmeet-queue
 
 If the landing page loads in your browser, you’re done with this deploy.
 
+### Frontend performance (nginx)
+
+Ensure long cache for hashed Next assets and gzip/brotli in aaPanel for the site:
+
+```nginx
+location /_next/static/ {
+    proxy_pass http://127.0.0.1:3006;
+    add_header Cache-Control "public, max-age=31536000, immutable";
+}
+
+gzip on;
+gzip_types text/css application/javascript application/json image/svg+xml;
+```
+
+After env changes to `NEXT_PUBLIC_*`, always **stop** `neatmeet-frontend` before `npm run build` so clients never get stale HTML pointing at missing chunks.
+
 ### Full deploy (when Composer packages also changed)
 
 ```bash
@@ -195,6 +211,19 @@ cd /www/wwwroot/neatmeet.prohost.cloud/backend
 ```
 
 Migration `ip_bans` runs with the normal `artisan migrate --force` deploy step.
+
+---
+
+## Post-deploy tenant workspace welcomes (one-shot)
+
+Queue catch-up welcome **email + WhatsApp** for tenants listed in `backend/config/post_deploy_welcomes.php`. Run **once** after deploy (not on every deploy):
+
+```bash
+cd /www/wwwroot/neatmeet.prohost.cloud/backend
+/www/server/php/83/bin/php artisan tenants:queue-workspace-welcomes --delay=5
+```
+
+Requires `neatmeet-queue` running. Messages send ~5 minutes after the command runs. Use `--dry-run` to preview recipients without queueing.
 
 ---
 

@@ -1,5 +1,6 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
@@ -16,12 +17,11 @@ import { NeatMeetLogo } from '@/components/brand/NeatMeetLogo';
 import {
   buildInitialServiceDrafts,
   matchesBusinessType,
-  SignupServiceCatalogue,
   UPGRADE_TOAST,
 } from '@/components/auth/SignupServiceCatalogue';
-import { PostcodeAddressField } from '@/components/auth/PostcodeAddressField';
-import { ClockTimeField, normalizeClockValue } from '@/components/auth/ClockTimeField';
-import { SecurePasswordField } from '@/components/auth/SecurePasswordField';
+import { normalizeClockValue } from '@/components/auth/ClockTimeField';
+import { resolveReferralCode } from '@/lib/referral-cookie';
+import { optimizeUnsplashUrl } from '@/lib/remote-image';
 import { Toast, useToast } from '@/components/ui/Toast';
 import type {
   SignupForm,
@@ -45,15 +45,37 @@ import {
   selectedServicesPayload,
   type AddressSuggestion,
 } from '@/services/signup.service';
-import { resolveReferralCode } from '@/lib/referral-cookie';
+
+const SignupServiceCatalogue = dynamic(
+  () =>
+    import('@/components/auth/SignupServiceCatalogue').then((m) => m.SignupServiceCatalogue),
+  { loading: () => <p className="text-sm text-stone-500">Loading services…</p> },
+);
+const PostcodeAddressField = dynamic(
+  () =>
+    import('@/components/auth/PostcodeAddressField').then((m) => m.PostcodeAddressField),
+);
+const ClockTimeField = dynamic(
+  () => import('@/components/auth/ClockTimeField').then((m) => m.ClockTimeField),
+);
+const SecurePasswordField = dynamic(
+  () =>
+    import('@/components/auth/SecurePasswordField').then((m) => m.SecurePasswordField),
+);
 
 type AuthTab = 'login' | 'signup';
 type LoginMode = 'password' | 'magic' | 'forgot';
 
-const HERO_LOGIN =
-  'https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&w=1600&q=80';
-const HERO_SIGNUP =
-  'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?auto=format&fit=crop&w=1600&q=80';
+const HERO_LOGIN = optimizeUnsplashUrl(
+  'https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&w=1600&q=80',
+  1200,
+  70,
+);
+const HERO_SIGNUP = optimizeUnsplashUrl(
+  'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?auto=format&fit=crop&w=1600&q=80',
+  1200,
+  70,
+);
 
 const inputClass =
   'mt-1 w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-stone-900 outline-none transition focus:border-[#2f5a45] focus:ring-2 focus:ring-[#2f5a45]/20';
@@ -1003,7 +1025,8 @@ function LoginAuthPage() {
           src={tab === 'signup' ? HERO_SIGNUP : HERO_LOGIN}
           alt={tab === 'signup' ? 'Stylist preparing a salon workspace' : 'Salon interior'}
           fill
-          priority
+          priority={tab !== 'signup'}
+          fetchPriority={tab === 'signup' ? 'auto' : 'high'}
           sizes="54vw"
           className="object-cover transition-opacity duration-500"
         />
