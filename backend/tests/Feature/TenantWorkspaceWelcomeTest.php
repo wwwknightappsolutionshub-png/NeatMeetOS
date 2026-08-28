@@ -9,6 +9,7 @@ use App\Domains\Identity\Models\User;
 use App\Domains\Identity\Services\TenantWorkspaceWelcomeService;
 use App\Domains\Notifications\Models\PlatformWhatsAppSettings;
 use App\Jobs\SendTenantWorkspaceWelcomeJob;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Hash;
@@ -33,9 +34,34 @@ class TenantWorkspaceWelcomeTest extends TestCase
     {
         Queue::fake();
 
-        Artisan::call('tenants:queue-workspace-welcomes', ['--delay' => 5]);
+        Artisan::call('tenants:queue-workspace-welcomes', [
+            '--at' => now('Europe/London')->addHour()->format('Y-m-d H:i:s'),
+        ]);
 
-        Queue::assertPushed(SendTenantWorkspaceWelcomeJob::class, 5);
+        Queue::assertPushed(SendTenantWorkspaceWelcomeJob::class, 6);
+    }
+
+    public function test_queue_command_rejects_past_send_time(): void
+    {
+        $exitCode = Artisan::call('tenants:queue-workspace-welcomes', [
+            '--at' => '2020-01-01 10:00:00',
+        ]);
+
+        $this->assertSame(1, $exitCode);
+        $this->assertStringContainsString('past', Artisan::output());
+    }
+
+    public function test_queue_command_uses_config_scheduled_at(): void
+    {
+        Queue::fake();
+        config([
+            'post_deploy_welcomes.scheduled_at' => Carbon::now('Europe/London')->addHours(2)->format('Y-m-d H:i:s'),
+            'post_deploy_welcomes.scheduled_timezone' => 'Europe/London',
+        ]);
+
+        Artisan::call('tenants:queue-workspace-welcomes');
+
+        Queue::assertPushed(SendTenantWorkspaceWelcomeJob::class, 6);
     }
 
     public function test_workspace_welcome_sends_email_and_whatsapp(): void

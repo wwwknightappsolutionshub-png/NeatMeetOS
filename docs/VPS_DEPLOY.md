@@ -216,14 +216,19 @@ Migration `ip_bans` runs with the normal `artisan migrate --force` deploy step.
 
 ## Post-deploy tenant workspace welcomes (one-shot)
 
-Queue catch-up welcome **email + WhatsApp** for tenants listed in `backend/config/post_deploy_welcomes.php`. Run **once** after deploy (not on every deploy):
+Queue catch-up welcome **email + WhatsApp** for tenants listed in `backend/config/post_deploy_welcomes.php`. Run **once** after deploy (not on every deploy). When `scheduled_at` is set in that config, jobs are delayed until that time (`Europe/London` by default).
 
 ```bash
 cd /www/wwwroot/neatmeet.prohost.cloud/backend
-/www/server/php/83/bin/php artisan tenants:queue-workspace-welcomes --delay=5
+/www/server/php/83/bin/php artisan tenants:queue-workspace-welcomes --dry-run
+/www/server/php/83/bin/php artisan tenants:queue-workspace-welcomes
 ```
 
-Requires `neatmeet-queue` running. Messages send ~5 minutes after the command runs. Use `--dry-run` to preview recipients without queueing.
+Requires `neatmeet-queue` running through the scheduled send window. Override the send time:
+
+```bash
+/www/server/php/83/bin/php artisan tenants:queue-workspace-welcomes --at="2026-08-29 10:00:00"
+```
 
 ---
 
