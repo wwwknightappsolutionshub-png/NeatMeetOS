@@ -7,6 +7,7 @@ import {
   Suspense,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type FormEvent,
 } from 'react';
@@ -154,6 +155,7 @@ function LoginAuthPage() {
   const [magicConsuming, setMagicConsuming] = useState(Boolean(magicToken));
   const [workspaceOnboarding, setWorkspaceOnboarding] = useState(false);
   const [creatingPassword, setCreatingPassword] = useState(false);
+  const magicConsumeAttemptedFor = useRef<string | null>(null);
 
   const [signupForm, setSignupForm] = useState<SignupForm | null>(null);
   const [signupLoading, setSignupLoading] = useState(false);
@@ -178,8 +180,14 @@ function LoginAuthPage() {
     }
   }, [noticeFromQuery]);
 
+  // Magic-link consume needs a mounted Turnstile widget (backend requires the token).
+  // Wait until the check is ready; do not hide the widget during this step.
   useEffect(() => {
     if (!magicToken) return;
+    if (!turnstileReady) return;
+    if (magicConsumeAttemptedFor.current === magicToken) return;
+    magicConsumeAttemptedFor.current = magicToken;
+
     let cancelled = false;
     setMagicConsuming(true);
     setError(null);
@@ -212,7 +220,7 @@ function LoginAuthPage() {
     return () => {
       cancelled = true;
     };
-  }, [magicToken, router]);
+  }, [magicToken, router, turnstileReady, nextPath]);
 
   const awaitingTempPassword =
     forceSignupOnly && Boolean(emailFromQuery) && !workspaceOnboarding;
@@ -570,6 +578,10 @@ function LoginAuthPage() {
               ? 'Choose a password to finish setup and start your trial.'
               : specialMode === 'reset'
                 ? 'Enter a new password for your NeatMeet OS account.'
+                : specialMode === 'magic-consume'
+                  ? turnstileReady
+                    ? 'Verifying your magic link…'
+                    : 'Complete the security check below to finish signing in.'
                 : workspaceOnboarding
                   ? creatingPassword
                     ? 'Choose a permanent password — your temporary unlock password will stop working.'
@@ -619,12 +631,14 @@ function LoginAuthPage() {
             </p>
           ) : null}
 
-          {specialMode !== 'magic-consume' && !signupDone ? (
-            <TurnstileWidget className="mt-4" />
-          ) : null}
+          {!signupDone ? <TurnstileWidget className="mt-4" /> : null}
 
           {specialMode === 'magic-consume' ? (
-            <p className="mt-8 text-sm text-stone-500">Verifying your magic link…</p>
+            <p className="mt-8 text-sm text-stone-500">
+              {turnstileReady
+                ? 'Verifying your magic link…'
+                : 'Waiting for the security check…'}
+            </p>
           ) : null}
 
           {specialMode === 'activate' ? (
