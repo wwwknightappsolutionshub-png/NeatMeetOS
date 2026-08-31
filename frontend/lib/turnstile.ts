@@ -15,6 +15,7 @@ declare global {
       remove: (widgetId?: string) => void;
       getResponse: (widgetId?: string) => string | undefined;
       ready: (cb: () => void) => void;
+      execute: (widgetId?: string) => void;
     };
     onNeatMeetTurnstileLoad?: () => void;
   }
