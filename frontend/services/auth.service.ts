@@ -124,6 +124,18 @@ export async function logout(): Promise<void> {
   }
 }
 
+/** Full navigation so Turnstile singleton and stale ?magic= URL state are cleared. */
+export async function signOutToLogin(): Promise<void> {
+  try {
+    await logout();
+  } catch {
+    clearStoredSession();
+  }
+  if (typeof window !== 'undefined') {
+    window.location.replace('/login');
+  }
+}
+
 let shellCache: { at: number; data: ShellStatus } | null = null;
 let shellInflight: Promise<ShellStatus> | null = null;
 

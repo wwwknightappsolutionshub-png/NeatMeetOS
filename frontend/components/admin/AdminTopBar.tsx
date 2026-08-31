@@ -3,14 +3,14 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { clearStoredSession, getStoredToken } from '@/lib/api-client';
+import { getStoredToken } from '@/lib/api-client';
 import type { ShellStatus, TenantOwnerNotice } from '@/lib/types';
 import {
   formatDateTime,
   purposeLabel,
   type NotificationMessage,
 } from '@/lib/notifications-types';
-import { fetchShell, logout } from '@/services/auth.service';
+import { fetchShell, signOutToLogin } from '@/services/auth.service';
 import {
   fetchOwnerNotices,
   markOwnerNoticeRead,
@@ -86,12 +86,7 @@ export function AdminTopBar({ onMenuClick }: AdminTopBarProps = {}) {
 
   async function handleSignOut() {
     setSigningOut(true);
-    try {
-      await logout();
-    } catch {
-      clearStoredSession();
-    }
-    router.replace('/login');
+    await signOutToLogin();
   }
 
   async function openNotice(notice: TenantOwnerNotice) {

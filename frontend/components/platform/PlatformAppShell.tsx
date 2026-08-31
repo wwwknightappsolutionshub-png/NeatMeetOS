@@ -5,9 +5,9 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { PlatformNotificationBell } from '@/components/platform/PlatformNotificationBell';
 import { NeatMeetLogo } from '@/components/brand/NeatMeetLogo';
-import { clearStoredSession, getStoredToken } from '@/lib/api-client';
+import { getStoredToken } from '@/lib/api-client';
 import type { ShellStatus } from '@/lib/types';
-import { fetchShell, logout } from '@/services/auth.service';
+import { fetchShell, signOutToLogin } from '@/services/auth.service';
 
 interface PlatformAppShellProps {
   children: ReactNode;
@@ -176,12 +176,7 @@ export function PlatformAppShell({ children }: PlatformAppShellProps) {
 
   async function handleSignOut() {
     setSigningOut(true);
-    try {
-      await logout();
-    } catch {
-      clearStoredSession();
-    }
-    router.replace('/login');
+    await signOutToLogin();
   }
 
   return (

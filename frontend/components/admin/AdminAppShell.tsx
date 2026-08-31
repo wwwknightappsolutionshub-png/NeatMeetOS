@@ -6,9 +6,9 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { AdminTopBar } from '@/components/admin/AdminTopBar';
 import { NeatMeetLogo } from '@/components/brand/NeatMeetLogo';
-import { api, clearStoredSession, getStoredTenantSlug, getStoredToken } from '@/lib/api-client';
+import { api, getStoredTenantSlug, getStoredToken } from '@/lib/api-client';
 import type { ModuleUpgradePayload, ShellStatus } from '@/lib/types';
-import { fetchShell, logout } from '@/services/auth.service';
+import { fetchShell, signOutToLogin } from '@/services/auth.service';
 import { fetchActiveStaffSosAlerts } from '@/services/staff-sos.service';
 
 const AdminPwaPrompt = dynamic(
@@ -460,12 +460,7 @@ export function AdminAppShell({ children }: AdminAppShellProps) {
 
   async function handleSignOut() {
     setSigningOut(true);
-    try {
-      await logout();
-    } catch {
-      clearStoredSession();
-    }
-    router.replace('/login');
+    await signOutToLogin();
   }
 
   const analyticsLocked = features !== undefined && !featureEnabled(features, 'analytics');

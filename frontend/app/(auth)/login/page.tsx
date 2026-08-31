@@ -180,6 +180,10 @@ function LoginAuthPage() {
     }
   }, [noticeFromQuery]);
 
+  useEffect(() => {
+    magicConsumeAttemptedFor.current = null;
+  }, [magicToken]);
+
   // Magic-link consume needs a mounted Turnstile widget (backend requires the token).
   // Wait until the check is ready; do not hide the widget during this step.
   useEffect(() => {
@@ -211,9 +215,9 @@ function LoginAuthPage() {
         postLoginRedirect(router, data.user.is_platform_admin, nextPath);
       })
       .catch((e) => {
-        magicConsumeAttemptedFor.current = null;
         setMagicConsuming(false);
         setError(e instanceof Error ? e.message : 'Magic link failed');
+        router.replace('/login');
       });
     // No cleanup cancel: getTurnstileToken() resets the widget after read, which
     // flips turnstileReady false and would discard a successful consume response.
