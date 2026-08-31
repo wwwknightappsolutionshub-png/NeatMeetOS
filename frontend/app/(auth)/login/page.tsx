@@ -188,12 +188,10 @@ function LoginAuthPage() {
     if (magicConsumeAttemptedFor.current === magicToken) return;
     magicConsumeAttemptedFor.current = magicToken;
 
-    let cancelled = false;
     setMagicConsuming(true);
     setError(null);
     void consumeMagicLink(magicToken)
       .then((data) => {
-        if (cancelled) return;
         if (data.workspace_incomplete) {
           setMagicConsuming(false);
           const parts = data.user.name.trim().split(/\s+/);
@@ -213,13 +211,12 @@ function LoginAuthPage() {
         postLoginRedirect(router, data.user.is_platform_admin, nextPath);
       })
       .catch((e) => {
-        if (cancelled) return;
+        magicConsumeAttemptedFor.current = null;
         setMagicConsuming(false);
         setError(e instanceof Error ? e.message : 'Magic link failed');
       });
-    return () => {
-      cancelled = true;
-    };
+    // No cleanup cancel: getTurnstileToken() resets the widget after read, which
+    // flips turnstileReady false and would discard a successful consume response.
   }, [magicToken, router, turnstileReady, nextPath]);
 
   const awaitingTempPassword =
