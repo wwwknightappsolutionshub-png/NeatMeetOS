@@ -15,6 +15,8 @@ import {
   submitAiHairstyleSession,
 } from '@/services/ai-hairstyle.service';
 import { fetchOnlineCatalog } from '@/services/online-booking.service';
+import { TurnstileFormGate } from '@/components/security/TurnstileBootstrap';
+import { useTurnstileReady } from '@/hooks/useTurnstileReady';
 
 type Step = 'upload' | 'generating' | 'compare' | 'details' | 'done';
 
@@ -32,6 +34,7 @@ function AiLookPageInner() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [actionError, setActionError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const turnstileReady = useTurnstileReady();
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -232,6 +235,8 @@ function AiLookPageInner() {
           </p>
         ) : null}
 
+        {step !== 'done' ? <TurnstileFormGate className="mt-4" size="compact" /> : null}
+
         {step === 'upload' ? (
           <section className="mt-8 rounded-2xl border border-[var(--book-line,#e4e4e7)] bg-white p-5">
             <label className="block text-sm font-semibold">Upload a selfie</label>
@@ -242,7 +247,7 @@ function AiLookPageInner() {
               type="file"
               accept="image/*"
               capture="user"
-              disabled={busy}
+              disabled={busy || !turnstileReady}
               className="mt-4 block w-full text-sm"
               onChange={(e) => {
                 const file = e.target.files?.[0] ?? null;
@@ -351,7 +356,7 @@ function AiLookPageInner() {
             />
             <button
               type="submit"
-              disabled={busy || !phone.trim()}
+              disabled={busy || !turnstileReady || !phone.trim()}
               className="inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-[var(--book-moss,#3f5d4a)] px-5 text-base font-semibold text-white disabled:opacity-50"
             >
               {busy ? 'Sending…' : 'Submit look'}

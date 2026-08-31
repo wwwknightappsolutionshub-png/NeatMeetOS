@@ -28,8 +28,8 @@ export function CrmJoinQrPanel({
       heading={heading}
       printSubtitle={
         locationName
-          ? `Scan to book & install · ${locationName}`
-          : 'Scan to book, install the app, then join'
+          ? `Scan to join our salon family · ${locationName}`
+          : 'Scan to join our salon family'
       }
       brandName={brandName}
       variant={variant}

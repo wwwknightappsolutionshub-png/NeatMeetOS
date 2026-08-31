@@ -22,6 +22,8 @@ import {
   reservationFeeRequired,
 } from '@/components/booking/ReservationFeePanel';
 import { BookingInstallPrompt } from '@/components/booking/BookingInstallPrompt';
+import { TurnstileFormGate } from '@/components/security/TurnstileBootstrap';
+import { useTurnstileReady } from '@/hooks/useTurnstileReady';
 import { buildGoogleCalendarUrl, downloadIcsFile } from '@/lib/booking-calendar';
 import { resolveMediaUrl } from '@/lib/media-url';
 import { canOptimizeRemoteImage } from '@/lib/remote-image';
@@ -490,6 +492,7 @@ function OnlineBookingPageInner() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [appointment, setAppointment] = useState<Appointment | null>(null);
+  const turnstileReady = useTurnstileReady();
   const [pricingTier, setPricingTier] = useState<PricingTier>('regular');
   const [pricingGate, setPricingGate] = useState<PricingTier | null>(null);
   const [referGateOpen, setReferGateOpen] = useState(false);
@@ -1385,10 +1388,12 @@ function OnlineBookingPageInner() {
                     />
                   </div>
                   {submitError ? <p className="mt-3 text-sm text-red-700">{submitError}</p> : null}
+                  <TurnstileFormGate className="mt-5" size="compact" />
                   <button
                     type="button"
                     className={`${primaryBtnClass(
                       submitting ||
+                        !turnstileReady ||
                         !phone.trim() ||
                         (reservationFeeRequired(
                           selectedService,
@@ -1398,6 +1403,7 @@ function OnlineBookingPageInner() {
                     )} mt-5`}
                     disabled={
                       submitting ||
+                      !turnstileReady ||
                       !phone.trim() ||
                       (reservationFeeRequired(
                         selectedService,

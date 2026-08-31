@@ -2,16 +2,15 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AdminSettingsShell } from '@/components/admin/AdminSettingsShell';
-import { BookingQrPanel } from '@/components/booking/BookingQrPanel';
+import { CrmJoinQrPanel } from '@/components/crm/CrmJoinQrPanel';
 import { EmptyState, ErrorAlert, LoadingState } from '@/components/admin/ui';
 import { Card } from '@/components/ui/Card';
 import type { Location, TenantProfile } from '@/lib/identity-types';
 import { fetchLocations, fetchOrganization } from '@/services/identity.service';
 
 /**
- * Customer QR for membership funnel. Prints the booking page QR.
- * Guests install the PWA from /book, then join inside the member app.
- * Route kept for bookmarks; prefer Settings → Booking QR for the same codes.
+ * Salon customer QR — public CRM join form at /join/{slug}.
+ * Distinct from Settings → Booking QR which opens online booking.
  */
 export default function CrmJoinQrSettingsPage() {
   const [org, setOrg] = useState<TenantProfile | null>(null);
@@ -48,21 +47,22 @@ export default function CrmJoinQrSettingsPage() {
         <div className="space-y-4">
           <Card title="How it works">
             <p className="text-sm text-zinc-600">
-              Print this booking QR for customers. Scanning opens the booking page with an install
-              gate. After they install the salon app, they join Our Membership Family and log in
-              with WhatsApp OTP. Membership join is not a separate public form QR anymore.
+              Print this QR for walk-in and lobby customers. Scanning opens the salon CRM join
+              form — they save their details (WhatsApp required), then can open the member app
+              or book online.
             </p>
             <p className="mt-2 font-mono text-xs text-zinc-500">
-              /book/{org.slug}
+              /join/{org.slug}
             </p>
             <p className="mt-2 text-xs text-zinc-500">
-              Legacy /join/{org.slug} links still redirect into this funnel.
+              For appointment booking only, use Settings → Booking QR (
+              <span className="font-mono">/book/{org.slug}</span>).
             </p>
           </Card>
 
           {!multiLocation ? (
             <Card title="Salon customer QR">
-              <BookingQrPanel
+              <CrmJoinQrPanel
                 tenantSlug={org.slug}
                 locationId={locations[0]?.id ?? null}
                 locationName={locations[0]?.name ?? null}
@@ -72,14 +72,14 @@ export default function CrmJoinQrSettingsPage() {
           ) : (
             <>
               <Card title="Tenant customer QR (all locations)">
-                <BookingQrPanel tenantSlug={org.slug} brandName={brandName} />
+                <CrmJoinQrPanel tenantSlug={org.slug} brandName={brandName} />
               </Card>
               {locations.length === 0 ? (
                 <EmptyState message="No active locations — add a location first." />
               ) : (
                 locations.map((location) => (
                   <Card key={location.id} title={`QR · ${location.name}`}>
-                    <BookingQrPanel
+                    <CrmJoinQrPanel
                       tenantSlug={org.slug}
                       locationId={location.id}
                       locationName={location.name}

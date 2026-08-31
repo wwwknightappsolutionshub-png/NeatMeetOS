@@ -10,6 +10,8 @@ import {
   type CrmJoinPackageOffer,
 } from '@/services/crm-join.service';
 import { markMemberJoined } from '@/lib/tenant-customer-pwa';
+import { TurnstileFormGate } from '@/components/security/TurnstileBootstrap';
+import { useTurnstileReady } from '@/hooks/useTurnstileReady';
 
 function fieldClass(): string {
   return 'w-full rounded-md border border-[var(--book-line)] bg-white px-3 py-2.5 text-sm text-[var(--book-ink)] outline-none transition focus:border-[var(--book-moss)] focus:ring-2 focus:ring-[var(--book-moss-soft)]';
@@ -219,6 +221,7 @@ export function MembershipJoinForm({
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const turnstileReady = useTurnstileReady();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -424,7 +427,13 @@ export function MembershipJoinForm({
           </p>
         ) : null}
 
-        <button type="submit" className={primaryBtnClass(submitting)} disabled={submitting || !acceptTerms}>
+        <TurnstileFormGate size="compact" />
+
+        <button
+          type="submit"
+          className={primaryBtnClass(submitting || !turnstileReady || !acceptTerms)}
+          disabled={submitting || !turnstileReady || !acceptTerms}
+        >
           {submitting ? 'Saving…' : 'Join Freely My Loyal Customer'}
         </button>
         <p className="text-center text-xs text-[var(--book-muted)]">

@@ -13,6 +13,8 @@ import {
   fetchManagedAppointment,
   fetchOnlineCatalog,
 } from '@/services/online-booking.service';
+import { TurnstileFormGate } from '@/components/security/TurnstileBootstrap';
+import { useTurnstileReady } from '@/hooks/useTurnstileReady';
 
 function formatSlotTime(iso: string): string {
   return new Date(iso).toLocaleString(undefined, {
@@ -49,6 +51,7 @@ function ManageBookingInner() {
   const [loading, setLoading] = useState(true);
   const [cancelling, setCancelling] = useState(false);
   const [cancelRequested, setCancelRequested] = useState(false);
+  const turnstileReady = useTurnstileReady();
 
   const branding = catalog?.tenant.branding;
   const salonName =
@@ -226,14 +229,17 @@ function ManageBookingInner() {
               ) : null}
 
               {canCancel ? (
-                <button
-                  type="button"
-                  className={`${primaryBtnClass(cancelling)} mt-6 w-full bg-red-800 hover:bg-red-900`}
-                  disabled={cancelling}
-                  onClick={() => void handleCancel()}
-                >
-                  {cancelling ? 'Submitting…' : 'Request cancellation'}
-                </button>
+                <>
+                  <TurnstileFormGate className="mt-6" size="compact" />
+                  <button
+                    type="button"
+                    className={`${primaryBtnClass(cancelling || !turnstileReady)} mt-4 w-full bg-red-800 hover:bg-red-900`}
+                    disabled={cancelling || !turnstileReady}
+                    onClick={() => void handleCancel()}
+                  >
+                    {cancelling ? 'Submitting…' : 'Request cancellation'}
+                  </button>
+                </>
               ) : null}
 
               {cancelRequested ? (

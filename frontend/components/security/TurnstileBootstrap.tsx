@@ -3,14 +3,21 @@
 import { TurnstileWidget } from '@/components/security/TurnstileWidget';
 
 /**
- * Shared visible Turnstile for public booking pages (compact, bottom-right).
+ * Inline Turnstile for public forms (booking, join, member login).
+ * Not fixed — sits in document flow so it never covers page content.
  */
-export function TurnstileBootstrap() {
+export function TurnstileFormGate({
+  className = '',
+  size = 'normal',
+}: {
+  className?: string;
+  size?: 'normal' | 'compact';
+}) {
   return (
     <TurnstileWidget
-      className="fixed bottom-3 right-3 z-50 max-w-[320px] rounded-lg border border-stone-200 bg-white/95 p-2 shadow-lg backdrop-blur sm:bottom-4 sm:right-4"
-      size="compact"
-      hint="Complete this check before booking."
+      className={className}
+      size={size}
+      hint="Complete this security check, then continue."
     />
   );
 }

@@ -5,6 +5,8 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type CSSPr
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { SocialFooterIcons } from '@/components/public/SocialFooterIcons';
 import { MembershipJoinForm } from '@/components/member/MembershipJoinForm';
+import { TurnstileFormGate } from '@/components/security/TurnstileBootstrap';
+import { useTurnstileReady } from '@/hooks/useTurnstileReady';
 import { MemberBookingLink } from '@/components/member/MemberBookingLink';
 import { MemberFooterNav } from '@/components/member/MemberFooterNav';
 import { MemberHeaderMenuButton } from '@/components/member/MemberHeaderMenuButton';
@@ -160,6 +162,7 @@ function MemberPortalInner() {
   const [otpChannel, setOtpChannel] = useState<'whatsapp' | 'email' | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const turnstileReady = useTurnstileReady();
   const [checkingIn, setCheckingIn] = useState(false);
   const [checkingOut, setCheckingOut] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -1629,7 +1632,12 @@ function MemberPortalInner() {
                       Not registered yet? Join Freely My Loyal Customer →
                     </button>
                   ) : null}
-                  <button type="submit" className={primaryBtnClass(submitting)} disabled={submitting}>
+                  <TurnstileFormGate size="compact" />
+                  <button
+                    type="submit"
+                    className={primaryBtnClass(submitting || !turnstileReady)}
+                    disabled={submitting || !turnstileReady}
+                  >
                     {submitting
                       ? otpSent
                         ? 'Signing in…'
