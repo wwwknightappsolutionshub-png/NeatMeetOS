@@ -632,7 +632,10 @@ function LoginAuthPage() {
             </p>
           ) : null}
 
-          {!signupDone ? <TurnstileWidget className="mt-4" /> : null}
+          {specialMode === 'magic-consume' ||
+          (!specialMode && tab === 'signup' && !signupDone) ? (
+            <TurnstileWidget className="mt-4" />
+          ) : null}
 
           {specialMode === 'magic-consume' ? (
             <p className="mt-8 text-sm text-stone-500">
@@ -660,6 +663,10 @@ function LoginAuthPage() {
               {passwordConfirm.length > 0 && password !== passwordConfirm ? (
                 <p className="text-xs text-red-600">Passwords do not match.</p>
               ) : null}
+              <TurnstileWidget
+                className="mt-2"
+                hint="Complete the security check, then activate your account."
+              />
               <Button
                 type="submit"
                 disabled={
@@ -693,6 +700,10 @@ function LoginAuthPage() {
               {passwordConfirm.length > 0 && password !== passwordConfirm ? (
                 <p className="text-xs text-red-600">Passwords do not match.</p>
               ) : null}
+              <TurnstileWidget
+                className="mt-2"
+                hint="Complete the security check, then update your password."
+              />
               <Button
                 type="submit"
                 disabled={
@@ -761,6 +772,10 @@ function LoginAuthPage() {
                       autoComplete="current-password"
                     />
                   </label>
+                  <TurnstileWidget
+                    className="mt-2"
+                    hint="Complete the security check, then sign in."
+                  />
                   <Button
                     type="submit"
                     disabled={loading || !turnstileReady}
@@ -784,6 +799,10 @@ function LoginAuthPage() {
                       autoComplete="email"
                     />
                   </label>
+                  <TurnstileWidget
+                    className="mt-2"
+                    hint="Complete the security check, then request your magic link."
+                  />
                   <Button
                     type="submit"
                     disabled={loading || !turnstileReady}
@@ -807,6 +826,10 @@ function LoginAuthPage() {
                       autoComplete="email"
                     />
                   </label>
+                  <TurnstileWidget
+                    className="mt-2"
+                    hint="Complete the security check, then send the reset link."
+                  />
                   <Button
                     type="submit"
                     disabled={loading || !turnstileReady}
