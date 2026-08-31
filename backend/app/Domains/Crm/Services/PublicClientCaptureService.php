@@ -190,6 +190,9 @@ class PublicClientCaptureService
         $tenant = Tenant::query()->findOrFail($tenantId);
         $memberPath = '/member/'.$tenant->slug;
 
+        $existing = $this->findByPhone($tenantId, $phone);
+        $existingHadMembership = $existing !== null && $existing->membership_joined_at !== null;
+
         $result = DB::transaction(function () use (
             $data,
             $phone,
@@ -201,8 +204,8 @@ class PublicClientCaptureService
             $tenantId,
             $thankYou,
             $memberPath,
+            $existing,
         ) {
-            $existing = $this->findByPhone($tenantId, $phone);
             $joinedAt = now();
 
             if ($existing !== null) {
@@ -287,14 +290,16 @@ class PublicClientCaptureService
             ];
         });
 
-        if ($result['created']) {
+        if ($result['created'] || ! $existingHadMembership) {
             $client = Client::query()->find($result['client_id']);
             if ($client !== null) {
-                $this->awardSignupLoyaltyPoints($client);
-                try {
-                    $this->referrals->convertOnJoin($client, $referralCode);
-                } catch (\Throwable) {
-                    // Referral attribution must not block CRM capture.
+                if ($result['created']) {
+                    $this->awardSignupLoyaltyPoints($client);
+                    try {
+                        $this->referrals->convertOnJoin($client, $referralCode);
+                    } catch (\Throwable) {
+                        // Referral attribution must not block CRM capture.
+                    }
                 }
                 $offers = $this->getPublicOffers();
                 $this->notifications->safe(
@@ -314,7 +319,7 @@ class PublicClientCaptureService
         $raw = (string) ($data['next_visit_date'] ?? '');
         if ($raw === '') {
             throw ValidationException::withMessages([
-                'next_visit_date' => ['Next visit date is required.'],
+                'next_visit_date' => ['When next would you visit is required.'],
             ]);
         }
 
@@ -322,13 +327,13 @@ class PublicClientCaptureService
             $date = Carbon::parse($raw)->startOfDay();
         } catch (\Throwable) {
             throw ValidationException::withMessages([
-                'next_visit_date' => ['Next visit date is invalid.'],
+                'next_visit_date' => ['When next would you visit is invalid.'],
             ]);
         }
 
         if ($date->lt(Carbon::today())) {
             throw ValidationException::withMessages([
-                'next_visit_date' => ['Next visit date cannot be in the past.'],
+                'next_visit_date' => ['When next would you visit cannot be in the past.'],
             ]);
         }
 

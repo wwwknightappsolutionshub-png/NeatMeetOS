@@ -544,7 +544,7 @@ class NotificationTriggerService
         $bodyHtml = <<<HTML
 <div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#18181b;">
   <div style="background:{$primaryEsc};color:#fff;padding:20px 24px;border-radius:12px 12px 0 0;">
-    <p style="margin:0;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;opacity:0.85;">Welcome</p>
+    <p style="margin:0;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;opacity:0.85;">Thank you and Welcome</p>
     <h1 style="margin:8px 0 0;font-size:24px;">{$salonNameEsc}</h1>
   </div>
   <div style="border:1px solid #e4e4e7;border-top:none;padding:24px;border-radius:0 0 12px 12px;">
@@ -570,7 +570,7 @@ class NotificationTriggerService
 </div>
 HTML;
 
-        $bodyText = "Hi {$first},\n\nWelcome to {$salonName}!\n\n"
+        $bodyText = "Hi {$first},\n\nThank you and welcome to {$salonName}!\n\n"
             ."Open your membership app: {$pwaUrl}\n"
             ."Book online: {$bookUrl}\n";
 
@@ -581,7 +581,7 @@ HTML;
             'channel' => NotificationChannel::EMAIL,
             'recipient_name' => $client->resolvedDisplayName(),
             'recipient_address' => $email,
-            'subject' => "Welcome to {$salonName}",
+            'subject' => "Thank you and Welcome — {$salonName}",
             'body_text' => $bodyText,
             'body_html' => $bodyHtml,
             'metadata' => [
@@ -598,8 +598,8 @@ HTML;
                 'source_type' => NotificationSourceType::CRM,
                 'purpose' => NotificationPurpose::CRM_JOIN_WELCOME,
                 'channel' => NotificationChannel::IN_APP,
-                'subject' => "Welcome to {$salonName}",
-                'body_text' => "Welcome to {$salonName}! Open the app to explore memberships and book.",
+                'subject' => "Thank you and Welcome — {$salonName}",
+                'body_text' => "Thank you and welcome to {$salonName}! Open the app to explore memberships and book.",
                 'metadata' => [
                     'via' => 'crm_join_form',
                     'href' => $pwaUrl,

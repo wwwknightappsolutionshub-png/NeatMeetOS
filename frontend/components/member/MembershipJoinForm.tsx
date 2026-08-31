@@ -284,8 +284,11 @@ export function MembershipJoinForm({
   return (
     <div className="mt-2">
       <h1 className="book-display text-3xl font-bold text-[var(--book-ink)]">
-        Join Freely My Loyal Customer
+        Your Loyalty Is Treasured
       </h1>
+      <p className="mt-2 text-sm font-semibold text-[var(--book-moss)]">
+        Next Visit Is Tied Down
+      </p>
       <p className="mt-2 text-sm leading-relaxed text-[var(--book-muted)]">
         You have many benefits to gain when you fill the form below and become a loyal partner.
       </p>
@@ -349,7 +352,7 @@ export function MembershipJoinForm({
         </label>
         <label className="block text-sm">
           <span className="mb-1.5 block font-semibold text-[var(--book-muted)]">
-            Next visit date <span className="text-red-600">*</span>
+            When next would you visit <span className="text-red-600">*</span>
           </span>
           <input
             className={fieldClass()}
@@ -427,14 +430,14 @@ export function MembershipJoinForm({
           </p>
         ) : null}
 
-        <TurnstileFormGate size="compact" />
+        <TurnstileFormGate size="compact" deferExecution />
 
         <button
           type="submit"
           className={primaryBtnClass(submitting || !turnstileReady || !acceptTerms)}
           disabled={submitting || !turnstileReady || !acceptTerms}
         >
-          {submitting ? 'Saving…' : 'Join Freely My Loyal Customer'}
+          {submitting ? 'Saving…' : 'Join Now'}
         </button>
         <p className="text-center text-xs text-[var(--book-muted)]">
           We&apos;ll use your WhatsApp number to send login codes and appointment updates.

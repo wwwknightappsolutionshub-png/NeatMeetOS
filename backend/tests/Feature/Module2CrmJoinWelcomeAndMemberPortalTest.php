@@ -44,7 +44,7 @@ class Module2CrmJoinWelcomeAndMemberPortalTest extends TestCase
             ->first();
 
         $this->assertNotNull($message);
-        $this->assertStringContainsString('Welcome', (string) $message->subject);
+        $this->assertStringContainsString('Thank you and Welcome', (string) $message->subject);
         $this->assertStringContainsString('/member/'.$ctx['tenant']->slug, (string) $message->body_html);
         $this->assertMatchesRegularExpression(
             '#href="https?://[^"]+/member/'.preg_quote($ctx['tenant']->slug, '#').'"#',
