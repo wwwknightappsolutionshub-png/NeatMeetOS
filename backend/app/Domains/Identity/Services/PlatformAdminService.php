@@ -4,6 +4,7 @@ namespace App\Domains\Identity\Services;
 
 use App\Domains\Booking\Models\Appointment;
 use App\Domains\Crm\Models\Client;
+use App\Domains\Identity\Models\Location;
 use App\Domains\Identity\Models\TeamMember;
 use App\Domains\Identity\Models\Tenant;
 use App\Domains\Identity\Models\TenantOwnerPushSubscription;
@@ -204,6 +205,116 @@ class PlatformAdminService
                 'owner_user_id' => (string) $owner->id,
             ];
         });
+    }
+
+    /**
+     * Change the salon owner's WhatsApp / contact phone and keep related fields in sync.
+     *
+     * @return array{tenant_id: string, owner_whatsapp: string, contact_phone: string}
+     */
+    public function updateTenantOwnerPhone(Tenant $tenant, string $phone): array
+    {
+        $normalized = $this->normalizeOwnerPhone($phone);
+        if ($normalized === null) {
+            throw ValidationException::withMessages([
+                'phone' => ['Enter a valid phone number with country code (e.g. +447700900123).'],
+            ]);
+        }
+
+        return DB::transaction(function () use ($tenant, $normalized) {
+            $old = [
+                'owner_whatsapp' => $tenant->owner_whatsapp,
+                'contact_phone' => $tenant->contact_phone,
+            ];
+
+            $tenant->owner_whatsapp = $normalized;
+            $tenant->contact_phone = $normalized;
+            $tenant->save();
+
+            $ownerMember = TeamMember::withoutGlobalScopes()
+                ->where('tenant_id', $tenant->id)
+                ->where('is_active', true)
+                ->whereNotNull('user_id')
+                ->orderByRaw(
+                    'CASE WHEN employment_type = ? THEN 0 ELSE 1 END',
+                    [TeamMember::EMPLOYMENT_OWNER],
+                )
+                ->orderBy('created_at')
+                ->first();
+
+            if ($ownerMember !== null) {
+                $ownerMember->phone = $normalized;
+                $ownerMember->save();
+
+                if ($ownerMember->user_id) {
+                    $owner = User::query()->find($ownerMember->user_id);
+                    if ($owner !== null) {
+                        $meta = is_array($owner->signup_meta) ? $owner->signup_meta : [];
+                        if (isset($meta['answers']) && is_array($meta['answers'])) {
+                            $meta['answers']['owner_whatsapp'] = $normalized;
+                            $owner->signup_meta = $meta;
+                            $owner->save();
+                        }
+                    }
+                }
+            }
+
+            $primaryLocation = Location::withoutGlobalScopes()
+                ->where('tenant_id', $tenant->id)
+                ->where('is_active', true)
+                ->orderBy('created_at')
+                ->first();
+            if ($primaryLocation !== null) {
+                $primaryLocation->contact_phone = $normalized;
+                $primaryLocation->save();
+            }
+
+            $settings = is_array($tenant->settings) ? $tenant->settings : [];
+            if (isset($settings['branding']) && is_array($settings['branding'])) {
+                $settings['branding']['support_phone'] = $normalized;
+                $tenant->settings = $settings;
+                $tenant->save();
+            }
+
+            $this->auditLogger->log('platform.tenant.owner_phone_updated', $tenant, $old, [
+                'owner_whatsapp' => $normalized,
+                'contact_phone' => $normalized,
+            ]);
+
+            return [
+                'tenant_id' => $tenant->id,
+                'owner_whatsapp' => $normalized,
+                'contact_phone' => $normalized,
+            ];
+        });
+    }
+
+    public function normalizeOwnerPhone(?string $phone): ?string
+    {
+        $phone = preg_replace('/\s+/', '', trim((string) $phone)) ?? '';
+        if ($phone === '') {
+            return null;
+        }
+
+        if (str_starts_with($phone, '+')) {
+            return preg_match('/^\+[1-9]\d{7,14}$/', $phone) ? $phone : null;
+        }
+
+        if (str_starts_with($phone, '00')) {
+            $converted = '+'.substr($phone, 2);
+
+            return preg_match('/^\+[1-9]\d{7,14}$/', $converted) ? $converted : null;
+        }
+
+        if (str_starts_with($phone, '0')) {
+            $converted = '+44'.substr($phone, 1);
+
+            return preg_match('/^\+[1-9]\d{7,14}$/', $converted) ? $converted : null;
+        }
+
+        $converted = '+'.$phone;
+
+        return preg_match('/^\+[1-9]\d{7,14}$/', $converted) ? $converted : null;
     }
 
     private function resolveOwnerUser(Tenant $tenant): ?User

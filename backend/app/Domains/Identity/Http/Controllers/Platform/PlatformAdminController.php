@@ -112,6 +112,26 @@ class PlatformAdminController extends Controller
         return ApiResponse::success($result, 'Tenant owner email updated');
     }
 
+    public function updateTenantOwnerPhone(Request $request, string $id): JsonResponse
+    {
+        $tenant = Tenant::query()->findOrFail($id);
+        $data = $request->validate([
+            'phone' => ['required', 'string', 'max:32'],
+        ]);
+
+        try {
+            $result = $this->platform->updateTenantOwnerPhone($tenant, $data['phone']);
+        } catch (ValidationException $e) {
+            return ApiResponse::error(
+                collect($e->errors())->flatten()->first() ?: 'Validation failed',
+                422,
+                $e->errors(),
+            );
+        }
+
+        return ApiResponse::success($result, 'Tenant owner phone updated');
+    }
+
     public function purgeTenant(Request $request, string $id): JsonResponse
     {
         $tenant = Tenant::query()->findOrFail($id);

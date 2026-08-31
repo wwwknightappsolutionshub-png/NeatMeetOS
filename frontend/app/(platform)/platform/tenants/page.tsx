@@ -25,6 +25,7 @@ import {
   purgePlatformTenant,
   unlockTenantTiers,
   updatePlatformTenantOwnerEmail,
+  updatePlatformTenantOwnerPhone,
   type PlatformStaffUser,
 } from '@/services/platform.service';
 
@@ -93,6 +94,11 @@ export default function PlatformTenantsPage() {
   const [savingEmail, setSavingEmail] = useState(false);
   const [emailNotice, setEmailNotice] = useState<string | null>(null);
   const [emailError, setEmailError] = useState<string | null>(null);
+  const [phoneTenant, setPhoneTenant] = useState<PlatformTenantRow | null>(null);
+  const [phoneDraft, setPhoneDraft] = useState('');
+  const [savingPhone, setSavingPhone] = useState(false);
+  const [phoneNotice, setPhoneNotice] = useState<string | null>(null);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
@@ -100,7 +106,7 @@ export default function PlatformTenantsPage() {
     profile?.platform_role === 'owner' ||
     (profile?.is_platform_admin === true && !profile?.platform_role);
 
-  const canChangeEmail =
+  const canChangeContact =
     profile?.platform_role === 'owner' ||
     profile?.platform_role === 'manager' ||
     (profile?.is_platform_admin === true && !profile?.platform_role);
@@ -251,11 +257,44 @@ export default function PlatformTenantsPage() {
     }
   }
 
+  async function handleChangePhone(e: FormEvent) {
+    e.preventDefault();
+    if (!phoneTenant) return;
+    const nextPhone = phoneDraft.trim();
+    if (!nextPhone) return;
+    setSavingPhone(true);
+    setPhoneError(null);
+    setPhoneNotice(null);
+    try {
+      const result = await updatePlatformTenantOwnerPhone(phoneTenant.id, nextPhone);
+      setTenants((prev) =>
+        prev.map((t) =>
+          t.id === phoneTenant.id
+            ? {
+                ...t,
+                owner_whatsapp: result.owner_whatsapp,
+              }
+            : t,
+        ),
+      );
+      setPhoneNotice(
+        `Updated phone for ${phoneTenant.trading_name || phoneTenant.name} to ${result.owner_whatsapp}.`,
+      );
+      setPhoneTenant(null);
+      setPhoneDraft('');
+      await load();
+    } catch (err) {
+      setPhoneError(err instanceof Error ? err.message : 'Could not update phone');
+    } finally {
+      setSavingPhone(false);
+    }
+  }
+
   return (
     <PlatformPage width="5xl">
       <PlatformPageIntro
         title="Tenants"
-        description="Manage salons, unlock tiers, poke owners, and update login emails across the fleet."
+        description="Manage salons, unlock tiers, poke owners, and update login emails or phones across the fleet."
       />
 
       <PlatformCard>
@@ -300,6 +339,7 @@ export default function PlatformTenantsPage() {
       {pokeNotice ? <PlatformSuccessAlert message={pokeNotice} /> : null}
       {purgeNotice ? <PlatformSuccessAlert message={purgeNotice} /> : null}
       {emailNotice ? <PlatformSuccessAlert message={emailNotice} /> : null}
+      {phoneNotice ? <PlatformSuccessAlert message={phoneNotice} /> : null}
       {loading ? <PlatformLoadingState label="Loading tenants…" /> : null}
 
       {!loading ? (
@@ -431,7 +471,7 @@ export default function PlatformTenantsPage() {
                             >
                               Booking policy
                             </button>
-                            {canChangeEmail ? (
+                            {canChangeContact ? (
                               <button
                                 type="button"
                                 className={menuBtnClass}
@@ -443,6 +483,20 @@ export default function PlatformTenantsPage() {
                                 }}
                               >
                                 Change email
+                              </button>
+                            ) : null}
+                            {canChangeContact ? (
+                              <button
+                                type="button"
+                                className={menuBtnClass}
+                                onClick={() => {
+                                  setPhoneTenant(t);
+                                  setPhoneDraft(t.owner_whatsapp || '');
+                                  setPhoneError(null);
+                                  setMenuOpenId(null);
+                                }}
+                              >
+                                Change phone
                               </button>
                             ) : null}
                             {canPurge ? (
@@ -598,6 +652,62 @@ export default function PlatformTenantsPage() {
                     setEmailTenant(null);
                     setEmailDraft('');
                     setEmailError(null);
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+
+      {phoneTenant ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-950/80 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-sky-500/40 bg-[#1c1917] p-5 text-stone-100 shadow-2xl">
+            <h2 className="text-lg font-semibold text-white">Change tenant phone</h2>
+            <p className="mt-2 text-sm text-stone-300">
+              Updates the owner WhatsApp / contact phone for{' '}
+              <span className="font-semibold text-white">
+                {phoneTenant.trading_name || phoneTenant.name}
+              </span>
+              . Use international format when possible (e.g. +447700900123).
+            </p>
+            {phoneError ? (
+              <div className="mt-3 rounded-lg border border-red-400/40 bg-red-500/15 px-3 py-2 text-sm text-red-100">
+                {phoneError}
+              </div>
+            ) : null}
+            <form onSubmit={(e) => void handleChangePhone(e)} className="mt-4 space-y-3">
+              <label className="block text-sm">
+                <span className="mb-1 block text-stone-300">Owner phone</span>
+                <input
+                  type="tel"
+                  required
+                  value={phoneDraft}
+                  onChange={(e) => setPhoneDraft(e.target.value)}
+                  className={platformInputClass}
+                  placeholder="+447700900123"
+                  autoComplete="off"
+                  autoFocus
+                />
+              </label>
+              <div className="flex flex-wrap gap-2 pt-1">
+                <button
+                  type="submit"
+                  disabled={savingPhone || !phoneDraft.trim()}
+                  className="rounded-lg bg-[var(--platform-accent)] px-3 py-2 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-50"
+                >
+                  {savingPhone ? 'Saving…' : 'Save phone'}
+                </button>
+                <button
+                  type="button"
+                  disabled={savingPhone}
+                  className="rounded-lg border border-white/25 bg-transparent px-3 py-2 text-sm font-semibold text-stone-100 hover:bg-white/10 disabled:opacity-50"
+                  onClick={() => {
+                    setPhoneTenant(null);
+                    setPhoneDraft('');
+                    setPhoneError(null);
                   }}
                 >
                   Cancel

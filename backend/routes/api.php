@@ -287,6 +287,8 @@ Route::prefix('v1')->group(function () {
             Route::post('/tenants/{id}/unsuspend', [PlatformAdminController::class, 'unsuspendTenant']);
             Route::put('/tenants/{id}/owner-email', [PlatformAdminController::class, 'updateTenantOwnerEmail']);
             Route::post('/tenants/{id}/owner-email', [PlatformAdminController::class, 'updateTenantOwnerEmail']);
+            Route::put('/tenants/{id}/owner-phone', [PlatformAdminController::class, 'updateTenantOwnerPhone']);
+            Route::post('/tenants/{id}/owner-phone', [PlatformAdminController::class, 'updateTenantOwnerPhone']);
             Route::post('/tenants/{id}/impersonate', [PlatformAdminController::class, 'impersonateTenant']);
             Route::post('/tenants/{id}/poke', [PlatformPresenceController::class, 'poke']);
             Route::post('/pwa-users/push', [PlatformPresenceController::class, 'pushPwaUsers']);

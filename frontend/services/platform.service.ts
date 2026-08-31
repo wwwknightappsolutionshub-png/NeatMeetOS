@@ -81,6 +81,22 @@ export async function updatePlatformTenantOwnerEmail(
   });
 }
 
+export async function updatePlatformTenantOwnerPhone(
+  tenantId: string,
+  phone: string,
+): Promise<{
+  tenant_id: string;
+  owner_whatsapp: string;
+  contact_phone: string;
+}> {
+  return api(`/platform/tenants/${tenantId}/owner-phone`, {
+    method: 'POST',
+    auth: true,
+    tenant: false,
+    body: JSON.stringify({ phone }),
+  });
+}
+
 export async function purgePlatformTenant(
   tenantId: string,
   payload: { confirmation_slug: string; confirm: boolean },
