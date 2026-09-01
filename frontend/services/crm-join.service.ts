@@ -57,6 +57,10 @@ export interface CrmJoinResult {
   created: boolean;
   message: string;
   member_path?: string;
+  lucky_position: number;
+  lucky_cap: number;
+  total_customer_count: number;
+  lucky_eligible: boolean;
 }
 
 function publicOpts(tenantSlug: string, init?: RequestInit) {

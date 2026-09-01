@@ -44,4 +44,9 @@ final class FrontendUrl
 
         return self::to('/book/'.rawurlencode($slug));
     }
+
+    public static function tenantLogin(): string
+    {
+        return self::to('/login');
+    }
 }

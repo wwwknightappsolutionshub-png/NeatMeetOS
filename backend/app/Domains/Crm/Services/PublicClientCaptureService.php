@@ -26,6 +26,8 @@ use Illuminate\Validation\ValidationException;
  */
 class PublicClientCaptureService
 {
+    public const LUCKY_JOIN_CAP = 50;
+
     public function __construct(
         private readonly TenantContext $tenantContext,
         private readonly ClientService $clients,
@@ -140,7 +142,7 @@ class PublicClientCaptureService
 
     /**
      * @param  array<string, mixed>  $data
-     * @return array{client_id: string, created: bool, message: string, member_path: string}
+     * @return array{client_id: string, created: bool, message: string, member_path: string, lucky_position: int, lucky_cap: int, total_customer_count: int, lucky_eligible: bool}
      */
     public function capture(array $data): array
     {
@@ -302,10 +304,26 @@ class PublicClientCaptureService
                     }
                 }
                 $offers = $this->getPublicOffers();
-                $this->notifications->safe(
-                    fn () => $this->notifications->sendCrmJoinWelcome($client, $offers)
-                );
+                $stats = $this->resolveCrmJoinStats($client);
+                $this->notifications->safe(function () use ($client, $offers, $stats) {
+                    $this->notifications->sendCrmJoinWelcome($client, $offers, $stats);
+                    $this->notifications->sendCrmJoinTenantAlert($client, $stats);
+                });
             }
+        }
+
+        $client = Client::query()->find($result['client_id']);
+        if ($client !== null) {
+            $stats = $this->resolveCrmJoinStats($client);
+            $result['lucky_position'] = $stats['position'];
+            $result['lucky_cap'] = $stats['cap'];
+            $result['total_customer_count'] = $stats['total_count'];
+            $result['lucky_eligible'] = $stats['lucky_eligible'];
+        } else {
+            $result['lucky_position'] = 0;
+            $result['lucky_cap'] = self::LUCKY_JOIN_CAP;
+            $result['total_customer_count'] = 0;
+            $result['lucky_eligible'] = false;
         }
 
         return $result;
@@ -416,7 +434,44 @@ class PublicClientCaptureService
         $tenant = Tenant::query()->findOrFail($this->requireTenantId());
         $salonName = $tenant->trading_name ?: $tenant->name;
 
-        return 'Thank you so much for joining "'.$salonName.'". We are excited about your decision. Open the membership app and log in with your email, WhatsApp number, and the OTP we send you.';
+        return 'Thank you for joining our customer list at "'.$salonName.'". Install the membership app to validate your membership.';
+    }
+
+    /**
+     * @return array{position: int, cap: int, total_count: int, lucky_eligible: bool}
+     */
+    private function resolveCrmJoinStats(Client $client): array
+    {
+        $cap = self::LUCKY_JOIN_CAP;
+        $tenantId = $client->tenant_id;
+
+        $totalCount = Client::query()
+            ->where('tenant_id', $tenantId)
+            ->whereNotNull('membership_joined_at')
+            ->count();
+
+        $joinedAt = $client->membership_joined_at;
+        if ($joinedAt === null) {
+            return [
+                'position' => 0,
+                'cap' => $cap,
+                'total_count' => $totalCount,
+                'lucky_eligible' => false,
+            ];
+        }
+
+        $position = Client::query()
+            ->where('tenant_id', $tenantId)
+            ->whereNotNull('membership_joined_at')
+            ->where('membership_joined_at', '<=', $joinedAt)
+            ->count();
+
+        return [
+            'position' => $position,
+            'cap' => $cap,
+            'total_count' => $totalCount,
+            'lucky_eligible' => $position > 0 && $position <= $cap,
+        ];
     }
 
     private function recordJoinConsents(Client $client): void

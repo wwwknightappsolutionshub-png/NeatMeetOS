@@ -7,8 +7,10 @@ use App\Domains\Booking\Models\BookingChangeRequest;
 use App\Domains\Booking\Models\WaitlistEntry;
 use App\Domains\Crm\Models\Client;
 use App\Domains\Crm\Models\ClientReferralSetting;
+use App\Domains\Crm\Services\PublicClientCaptureService;
 use App\Domains\Identity\Models\TeamMember;
 use App\Domains\Memberships\Models\ClientMembership;
+use App\Domains\Marketing\Services\MarketingEmailLayoutService;
 use App\Domains\Notifications\Enums\NotificationCategory;
 use App\Domains\Notifications\Enums\NotificationChannel;
 use App\Domains\Notifications\Enums\NotificationPreferenceCategory;
@@ -39,6 +41,7 @@ class NotificationTriggerService
         private readonly NotificationPreferenceService $preferences,
         private readonly TenantContext $tenantContext,
         private readonly PlatformWhatsAppSettingsService $platformWhatsApp,
+        private readonly MarketingEmailLayoutService $emailLayout,
     ) {}
 
     public function sendBookingConfirmation(Appointment $appointment, array $context = []): ?NotificationMessage
@@ -482,15 +485,32 @@ class NotificationTriggerService
     }
 
     /**
-     * Branded welcome email after CRM join QR signup (email required on client).
+     * Branded welcome email + WhatsApp after CRM join QR signup.
+     *
+     * @param  array{position?: int, cap?: int, total_count?: int, lucky_eligible?: bool}  $lucky
      */
-    public function sendCrmJoinWelcome(Client $client, array $offers = []): ?NotificationMessage
+    public function sendCrmJoinWelcome(Client $client, array $offers = [], array $lucky = []): ?NotificationMessage
     {
         $this->scope->assertTenantModel($client);
 
         $email = trim((string) ($client->email ?? ''));
-        if ($email === '') {
+        $phone = trim((string) ($client->phone ?? ''));
+        if ($email === '' && $phone === '') {
             return null;
+        }
+
+        if ($phone !== '') {
+            try {
+                $this->preferences->update($client, [
+                    'allow_whatsapp' => true,
+                    'preferred_channel' => NotificationChannel::WHATSAPP,
+                ]);
+            } catch (\Throwable $e) {
+                Log::warning('CRM join welcome WhatsApp preference update failed', [
+                    'client_id' => $client->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
         }
 
         $tenant = $this->tenantContext->get();
@@ -507,6 +527,13 @@ class NotificationTriggerService
         $primaryEsc = e($primary);
         $pwaUrlEsc = e($pwaUrl);
         $bookUrlEsc = e($bookUrl);
+        $luckyPosition = (int) ($lucky['position'] ?? 0);
+        $luckyCap = (int) ($lucky['cap'] ?? PublicClientCaptureService::LUCKY_JOIN_CAP);
+        $showLucky = (bool) ($lucky['lucky_eligible'] ?? ($luckyPosition > 0 && $luckyPosition <= $luckyCap));
+        $luckyLine = $showLucky
+            ? "You are our {$luckyPosition} / {$luckyCap} lucky customer and we are happy to let you know that your next visit will be discounted as our way of showing gratitude for joining our customer list."
+            : 'We are glad you joined our customer list and look forward to your next visit.';
+        $luckyLineEsc = e($luckyLine);
 
         $membershipLines = '';
         foreach ($offers['memberships'] ?? [] as $plan) {
@@ -541,56 +568,91 @@ class NotificationTriggerService
                 .'<ul style="padding-left:18px;margin:0;color:#222;">'.$membershipLines.'</ul>'
             : '<p style="margin:16px 0 0;color:#555;">Ask us about membership and package options on your next visit.</p>';
 
-        $bodyHtml = <<<HTML
-<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#18181b;">
-  <div style="background:{$primaryEsc};color:#fff;padding:20px 24px;border-radius:12px 12px 0 0;">
-    <p style="margin:0;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;opacity:0.85;">Thank you and Welcome</p>
-    <h1 style="margin:8px 0 0;font-size:24px;">{$salonNameEsc}</h1>
-  </div>
-  <div style="border:1px solid #e4e4e7;border-top:none;padding:24px;border-radius:0 0 12px 12px;">
-    <p style="margin:0 0 12px;font-size:16px;">Hi {$firstEsc},</p>
-    <p style="margin:0 0 12px;line-height:1.5;color:#444;">
-      Thanks for joining the {$salonNameEsc} client list. We’re glad you’re here.
-    </p>
-    {$offersSection}
-    {$loyaltyBlock}
-    <div style="margin:28px 0 12px;padding:16px;background:#f4f4f5;border-radius:10px;">
-      <p style="margin:0 0 8px;font-weight:700;color:{$primaryEsc};">Get the {$salonNameEsc} app</p>
-      <p style="margin:0 0 12px;color:#555;font-size:14px;line-height:1.45;">
-        Open your membership app to view benefits, unlock member pricing, and book faster.
-      </p>
-      <a href="{$pwaUrlEsc}" style="display:inline-block;background:{$primaryEsc};color:#fff;text-decoration:none;padding:10px 16px;border-radius:8px;font-weight:600;font-size:14px;">
-        Download / open app
-      </a>
-    </div>
-    <p style="margin:16px 0 0;font-size:14px;">
-      <a href="{$bookUrlEsc}" style="color:{$primaryEsc};">Book an appointment</a>
-    </p>
-  </div>
-</div>
-HTML;
+        $innerHtml = '<p style="margin:0 0 8px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:#71717a;">Thank you and Welcome</p>'
+            .'<h1 style="margin:0 0 16px;font-size:22px;line-height:1.3;font-weight:700;color:#18181b;">Hi '.$firstEsc.',</h1>'
+            .'<p style="margin:0 0 12px;line-height:1.5;color:#444;">'
+            .'Thank you for joining our customer list at '.$salonNameEsc.'.'
+            .'</p>'
+            .'<p style="margin:0 0 12px;line-height:1.5;color:#444;">'
+            .$luckyLineEsc
+            .'</p>'
+            .$offersSection
+            .$loyaltyBlock
+            .'<div style="margin:28px 0 12px;padding:16px;background:#f4f4f5;border-radius:10px;">'
+            .'<p style="margin:0 0 8px;font-weight:700;color:'.$primaryEsc.';">Install the '.$salonNameEsc.' app</p>'
+            .'<p style="margin:0 0 12px;color:#555;font-size:14px;line-height:1.45;">'
+            .'Install the app to validate your membership and receive updates about your next visit discount.'
+            .'</p>'
+            .'<a href="'.$pwaUrlEsc.'" class="nm-cta" style="display:inline-block;text-decoration:none;padding:10px 16px;border-radius:8px;font-weight:600;font-size:14px;">'
+            .'Install App'
+            .'</a>'
+            .'</div>'
+            .'<p style="margin:16px 0 0;font-size:14px;">'
+            .'<a href="'.$bookUrlEsc.'" style="color:'.$primaryEsc.';">Book an appointment</a>'
+            .'</p>';
 
-        $bodyText = "Hi {$first},\n\nThank you and welcome to {$salonName}!\n\n"
-            ."Open your membership app: {$pwaUrl}\n"
+        $bodyHtml = $tenant !== null
+            ? $this->emailLayout->wrap($tenant, $innerHtml)
+            : $innerHtml;
+
+        $bodyText = "Hi {$first},\n\nThank you for joining our customer list at {$salonName}!\n\n"
+            ."{$luckyLine}\n\n"
+            ."Install App: {$pwaUrl}\n"
             ."Book online: {$bookUrl}\n";
 
-        $emailMessage = $this->messageService->createSystemMessage([
-            'client_id' => $client->id,
-            'source_type' => NotificationSourceType::CRM,
-            'purpose' => NotificationPurpose::CRM_JOIN_WELCOME,
-            'channel' => NotificationChannel::EMAIL,
-            'recipient_name' => $client->resolvedDisplayName(),
-            'recipient_address' => $email,
-            'subject' => "Thank you and Welcome — {$salonName}",
-            'body_text' => $bodyText,
-            'body_html' => $bodyHtml,
-            'metadata' => [
-                'via' => 'crm_join_form',
-                'pwa_url' => $pwaUrl,
-                'href' => $pwaUrl,
-                'tenant_slug' => $slug,
-            ],
-        ]);
+        $emailMessage = null;
+        if ($email !== '') {
+            $emailMessage = $this->messageService->createSystemMessage([
+                'client_id' => $client->id,
+                'source_type' => NotificationSourceType::CRM,
+                'purpose' => NotificationPurpose::CRM_JOIN_WELCOME,
+                'channel' => NotificationChannel::EMAIL,
+                'recipient_name' => $client->resolvedDisplayName(),
+                'recipient_address' => $email,
+                'subject' => "Thank you and Welcome — {$salonName}",
+                'body_text' => $bodyText,
+                'body_html' => $bodyHtml,
+                'metadata' => [
+                    'via' => 'crm_join_form',
+                    'pwa_url' => $pwaUrl,
+                    'href' => $pwaUrl,
+                    'tenant_slug' => $slug,
+                    'lucky_position' => $luckyPosition,
+                    'lucky_cap' => $luckyCap,
+                ],
+            ]);
+        }
+
+        if ($phone !== ''
+            && $this->preferences->allowsDelivery(
+                $client,
+                NotificationChannel::WHATSAPP,
+                NotificationPreferenceCategory::GENERAL,
+            )
+        ) {
+            try {
+                $this->messageService->createSystemMessage([
+                    'client_id' => $client->id,
+                    'source_type' => NotificationSourceType::CRM,
+                    'purpose' => NotificationPurpose::CRM_JOIN_WELCOME,
+                    'channel' => NotificationChannel::WHATSAPP,
+                    'recipient_name' => $client->resolvedDisplayName(),
+                    'recipient_address' => $phone,
+                    'subject' => "Thank you and Welcome — {$salonName}",
+                    'body_text' => $bodyText,
+                    'metadata' => [
+                        'via' => 'crm_join_form',
+                        'pwa_url' => $pwaUrl,
+                        'href' => $pwaUrl,
+                        'tenant_slug' => $slug,
+                        'lucky_position' => $luckyPosition,
+                        'lucky_cap' => $luckyCap,
+                    ],
+                ]);
+            } catch (\Throwable $e) {
+                Log::warning('CRM join welcome WhatsApp failed', ['error' => $e->getMessage()]);
+            }
+        }
 
         try {
             $this->messageService->createSystemMessage([
@@ -599,7 +661,7 @@ HTML;
                 'purpose' => NotificationPurpose::CRM_JOIN_WELCOME,
                 'channel' => NotificationChannel::IN_APP,
                 'subject' => "Thank you and Welcome — {$salonName}",
-                'body_text' => "Thank you and welcome to {$salonName}! Open the app to explore memberships and book.",
+                'body_text' => "Thank you for joining our customer list at {$salonName}! {$luckyLine} Install the app: {$pwaUrl}",
                 'metadata' => [
                     'via' => 'crm_join_form',
                     'href' => $pwaUrl,
@@ -610,6 +672,97 @@ HTML;
         }
 
         return $emailMessage;
+    }
+
+    /**
+     * Notify the salon owner when a new customer joins the CRM list.
+     *
+     * @param  array{position?: int, cap?: int, total_count?: int, lucky_eligible?: bool}  $stats
+     */
+    public function sendCrmJoinTenantAlert(Client $client, array $stats = []): void
+    {
+        $this->scope->assertTenantModel($client);
+
+        $tenant = $this->tenantContext->get();
+        if ($tenant === null) {
+            return;
+        }
+
+        $tenantName = trim((string) ($tenant->trading_name ?: $tenant->name ?: 'Salon'));
+        $totalCount = (int) ($stats['total_count'] ?? 0);
+        if ($totalCount <= 0) {
+            $totalCount = Client::query()
+                ->where('tenant_id', $tenant->id)
+                ->whereNotNull('membership_joined_at')
+                ->count();
+        }
+
+        $loginUrl = FrontendUrl::tenantLogin();
+        $bodyText = sprintf(
+            'Hey "%s", Congratulations, be informed that you now have new customer on your customer CRM list. The total customer count is now "%d". Login to your account (%s) and view their details and engage with them.',
+            $tenantName,
+            $totalCount,
+            $loginUrl,
+        );
+        $subject = 'New CRM customer — '.$tenantName;
+        $tenantNameEsc = e($tenantName);
+        $loginUrlEsc = e($loginUrl);
+        $innerHtml = '<h1 style="margin:0 0 16px;font-size:22px;line-height:1.3;font-weight:700;color:#18181b;">New CRM customer</h1>'
+            .'<p style="margin:0;line-height:1.6;color:#444;">'
+            .'Hey &quot;'.$tenantNameEsc.'&quot;, Congratulations, be informed that you now have new customer on your customer CRM list. '
+            .'The total customer count is now &quot;'.$totalCount.'&quot;. '
+            .'Login to your account (<a href="'.$loginUrlEsc.'" style="color:#2f5a45;">'.$loginUrlEsc.'</a>) '
+            .'and view their details and engage with them.'
+            .'</p>';
+        $bodyHtml = $this->emailLayout->wrap($tenant, $innerHtml);
+
+        $contacts = $this->resolveTenantDeskContacts();
+        $metadata = [
+            'via' => 'crm_join_form',
+            'client_id' => $client->id,
+            'total_customer_count' => $totalCount,
+            'login_url' => $loginUrl,
+            'href' => FrontendUrl::to('/admin/clients/'.$client->id),
+        ];
+
+        if ($contacts['email'] !== '') {
+            try {
+                $this->messageService->createSystemMessage([
+                    'client_id' => $client->id,
+                    'source_type' => NotificationSourceType::CRM,
+                    'purpose' => NotificationPurpose::CRM_JOIN_TENANT_ALERT,
+                    'channel' => NotificationChannel::EMAIL,
+                    'recipient_name' => $tenantName,
+                    'recipient_address' => $contacts['email'],
+                    'subject' => $subject,
+                    'body_text' => $bodyText,
+                    'body_html' => $bodyHtml,
+                    'metadata' => $metadata,
+                ]);
+            } catch (\Throwable $e) {
+                Log::warning('CRM join tenant alert email failed', ['error' => $e->getMessage()]);
+            }
+        }
+
+        if ($contacts['whatsapp'] === '') {
+            return;
+        }
+
+        try {
+            $this->messageService->createSystemMessage([
+                'client_id' => $client->id,
+                'source_type' => NotificationSourceType::CRM,
+                'purpose' => NotificationPurpose::CRM_JOIN_TENANT_ALERT,
+                'channel' => NotificationChannel::WHATSAPP,
+                'recipient_name' => $tenantName,
+                'recipient_address' => $contacts['whatsapp'],
+                'subject' => $subject,
+                'body_text' => $bodyText,
+                'metadata' => $metadata,
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('CRM join tenant alert WhatsApp failed', ['error' => $e->getMessage()]);
+        }
     }
 
     /**
@@ -1025,6 +1178,9 @@ HTML;
     {
         $tenant = $this->tenantContext->get();
         $email = trim((string) (($tenant?->getBranding()['support_email'] ?? null) ?: ''));
+        if ($email === '' && $tenant !== null) {
+            $email = trim((string) ($tenant->contact_email ?? ''));
+        }
         if ($email === '') {
             $email = trim($fallbackEmail);
         }

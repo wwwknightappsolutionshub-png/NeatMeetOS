@@ -36,6 +36,8 @@ final class NotificationPurpose
 
     public const CRM_JOIN_WELCOME = 'crm_join_welcome';
 
+    public const CRM_JOIN_TENANT_ALERT = 'crm_join_tenant_alert';
+
     public const REFERRAL_THANK_YOU = 'referral_thank_you';
 
     public const REFERRAL_INVITE = 'referral_invite';
@@ -59,6 +61,7 @@ final class NotificationPurpose
             self::MANUAL_CLIENT_MESSAGE,
             self::INTERNAL_NOTE_DELIVERY,
             self::CRM_JOIN_WELCOME,
+            self::CRM_JOIN_TENANT_ALERT,
             self::REFERRAL_THANK_YOU,
             self::REFERRAL_INVITE,
         ];
@@ -74,7 +77,7 @@ final class NotificationPurpose
             self::BOOKING_CHANGE_REQUEST, self::BOOKING_CHANGE_REQUEST_REMINDER, self::BOOKING_CHANGE_REQUEST_DECLINED, self::BOOKING_FREE_WINDOW_REMINDER => NotificationPreferenceCategory::BOOKING,
             self::PAYMENT_LINK, self::PAYMENT_REMINDER => NotificationPreferenceCategory::PAYMENT,
             self::MEMBERSHIP_RENEWAL_NOTICE, self::MEMBERSHIP_EXPIRY_NOTICE => NotificationPreferenceCategory::MEMBERSHIP,
-            self::CRM_JOIN_WELCOME, self::REFERRAL_THANK_YOU, self::REFERRAL_INVITE => NotificationPreferenceCategory::GENERAL,
+            self::CRM_JOIN_WELCOME, self::CRM_JOIN_TENANT_ALERT, self::REFERRAL_THANK_YOU, self::REFERRAL_INVITE => NotificationPreferenceCategory::GENERAL,
             default => NotificationPreferenceCategory::GENERAL,
         };
     }

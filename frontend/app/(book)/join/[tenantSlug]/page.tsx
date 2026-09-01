@@ -20,7 +20,6 @@ function CrmJoinPageInner() {
 
   const [bootstrap, setBootstrap] = useState<CrmJoinBootstrap | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [joined, setJoined] = useState(false);
 
   useEffect(() => {
     captureJoinAttribution(tenantSlug, search.get('ref'), search.get('location'));
@@ -86,60 +85,32 @@ function CrmJoinPageInner() {
           </div>
         ) : null}
 
-        {joined ? (
-          <div className="rounded-2xl border border-[var(--book-line)] bg-white p-6 shadow-[var(--book-shadow)]">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--book-moss)]">
-              Welcome
-            </p>
-            <h1 className="book-display mt-2 text-3xl font-bold text-[var(--book-ink)]">
-              You&apos;re in the family
-            </h1>
-            <p className="mt-3 text-sm leading-relaxed text-[var(--book-muted)]">
-              Your details are saved with {salonName}. Open the member app to log in with a
-              one-time WhatsApp code, or book your next visit anytime.
-            </p>
-            <div className="mt-6 flex flex-col gap-3">
-              <button
-                type="button"
-                className="inline-flex items-center justify-center rounded-md bg-[var(--book-moss)] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[var(--book-moss-deep)]"
-                onClick={() => router.push(memberHref)}
-              >
-                Open member app
-              </button>
-              <Link
-                href={`/book/${encodeURIComponent(tenantSlug)}`}
-                className="inline-flex items-center justify-center rounded-md border border-[var(--book-line)] bg-white px-5 py-2.5 text-sm font-semibold text-[var(--book-ink)] hover:bg-[var(--book-wash)]"
-              >
-                Book an appointment
-              </Link>
-            </div>
-          </div>
-        ) : (
-          <div className="rounded-2xl border border-[var(--book-line)] bg-white p-5 shadow-[var(--book-shadow)] sm:p-6">
-            <MembershipJoinForm
-              tenantSlug={tenantSlug}
-              referralCode={search.get('ref') || undefined}
-              locationFromQuery={search.get('location')}
-              onJoined={() => setJoined(true)}
-            />
-            <p className="mt-6 border-t border-[var(--book-line)] pt-4 text-center text-xs text-[var(--book-muted)]">
-              Already a member?{' '}
-              <Link
-                href={memberHref}
-                className="font-semibold text-[var(--book-moss)] underline-offset-2 hover:underline"
-              >
-                Log in here
-              </Link>
-              {' · '}
-              <Link
-                href={`/book/${encodeURIComponent(tenantSlug)}`}
-                className="font-semibold text-[var(--book-moss)] underline-offset-2 hover:underline"
-              >
-                Book online
-              </Link>
-            </p>
-          </div>
-        )}
+        <div className="rounded-2xl border border-[var(--book-line)] bg-white p-5 shadow-[var(--book-shadow)] sm:p-6">
+          <MembershipJoinForm
+            tenantSlug={tenantSlug}
+            referralCode={search.get('ref') || undefined}
+            locationFromQuery={search.get('location')}
+            onJoined={() => {
+              router.push(memberHref);
+            }}
+          />
+          <p className="mt-6 border-t border-[var(--book-line)] pt-4 text-center text-xs text-[var(--book-muted)]">
+            Already a member?{' '}
+            <Link
+              href={memberHref}
+              className="font-semibold text-[var(--book-moss)] underline-offset-2 hover:underline"
+            >
+              Log in here
+            </Link>
+            {' · '}
+            <Link
+              href={`/book/${encodeURIComponent(tenantSlug)}`}
+              className="font-semibold text-[var(--book-moss)] underline-offset-2 hover:underline"
+            >
+              Book online
+            </Link>
+          </p>
+        </div>
       </main>
     </div>
   );
