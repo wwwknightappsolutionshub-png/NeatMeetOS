@@ -55,6 +55,7 @@ export interface CrmJoinBootstrap {
 export interface CrmJoinResult {
   client_id: string;
   created: boolean;
+  already_on_list: boolean;
   message: string;
   member_path?: string;
   lucky_position: number;

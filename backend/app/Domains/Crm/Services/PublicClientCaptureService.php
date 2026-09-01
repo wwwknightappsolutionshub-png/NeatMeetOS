@@ -142,7 +142,7 @@ class PublicClientCaptureService
 
     /**
      * @param  array<string, mixed>  $data
-     * @return array{client_id: string, created: bool, message: string, member_path: string, lucky_position: int, lucky_cap: int, total_customer_count: int, lucky_eligible: bool}
+     * @return array{client_id: string, created: bool, already_on_list: bool, message: string, member_path: string, lucky_position: int, lucky_cap: int, total_customer_count: int, lucky_eligible: bool}
      */
     public function capture(array $data): array
     {
@@ -192,7 +192,23 @@ class PublicClientCaptureService
         $tenant = Tenant::query()->findOrFail($tenantId);
         $memberPath = '/member/'.$tenant->slug;
 
-        $existing = $this->findByPhone($tenantId, $phone);
+        $existing = $this->findExistingClient($tenantId, $phone, $email);
+        if ($existing !== null && $existing->membership_joined_at !== null) {
+            $stats = $this->resolveCrmJoinStats($existing);
+
+            return [
+                'client_id' => $existing->id,
+                'created' => false,
+                'already_on_list' => true,
+                'message' => 'You are already on our member list. Log in to see more benefits.',
+                'member_path' => $memberPath,
+                'lucky_position' => $stats['position'],
+                'lucky_cap' => $stats['cap'],
+                'total_customer_count' => $stats['total_count'],
+                'lucky_eligible' => $stats['lucky_eligible'],
+            ];
+        }
+
         $existingHadMembership = $existing !== null && $existing->membership_joined_at !== null;
 
         $result = DB::transaction(function () use (
@@ -258,6 +274,7 @@ class PublicClientCaptureService
                 return [
                     'client_id' => $existing->id,
                     'created' => false,
+                    'already_on_list' => false,
                     'message' => $thankYou,
                     'member_path' => $memberPath,
                 ];
@@ -287,6 +304,7 @@ class PublicClientCaptureService
             return [
                 'client_id' => $client->id,
                 'created' => true,
+                'already_on_list' => false,
                 'message' => $thankYou,
                 'member_path' => $memberPath,
             ];
@@ -319,11 +337,13 @@ class PublicClientCaptureService
             $result['lucky_cap'] = $stats['cap'];
             $result['total_customer_count'] = $stats['total_count'];
             $result['lucky_eligible'] = $stats['lucky_eligible'];
+            $result['already_on_list'] = $result['already_on_list'] ?? false;
         } else {
             $result['lucky_position'] = 0;
             $result['lucky_cap'] = self::LUCKY_JOIN_CAP;
             $result['total_customer_count'] = 0;
             $result['lucky_eligible'] = false;
+            $result['already_on_list'] = false;
         }
 
         return $result;
@@ -541,6 +561,23 @@ class PublicClientCaptureService
         } catch (\Throwable) {
             return null;
         }
+    }
+
+    private function findExistingClient(string $tenantId, string $normalizedPhone, string $email): ?Client
+    {
+        $byPhone = $this->findByPhone($tenantId, $normalizedPhone);
+        if ($byPhone !== null) {
+            return $byPhone;
+        }
+
+        if ($email === '') {
+            return null;
+        }
+
+        return Client::query()
+            ->where('tenant_id', $tenantId)
+            ->whereRaw('LOWER(email) = ?', [$email])
+            ->first();
     }
 
     private function findByPhone(string $tenantId, string $normalizedPhone): ?Client

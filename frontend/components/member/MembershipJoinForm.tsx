@@ -13,6 +13,7 @@ import { markMemberJoined } from '@/lib/tenant-customer-pwa';
 import { TurnstileFormGate } from '@/components/security/TurnstileBootstrap';
 import { useTurnstileReady } from '@/hooks/useTurnstileReady';
 import { CrmJoinThankYouScreen } from '@/components/member/CrmJoinThankYouScreen';
+import { CrmJoinAlreadyMemberScreen } from '@/components/member/CrmJoinAlreadyMemberScreen';
 
 function fieldClass(): string {
   return 'w-full rounded-md border border-[var(--book-line)] bg-white px-3 py-2.5 text-sm text-[var(--book-ink)] outline-none transition focus:border-[var(--book-moss)] focus:ring-2 focus:ring-[var(--book-moss-soft)]';
@@ -229,6 +230,10 @@ export function MembershipJoinForm({
     luckyCap: number;
     luckyEligible: boolean;
   } | null>(null);
+  const [alreadyMember, setAlreadyMember] = useState<{
+    email: string;
+    phone: string;
+  } | null>(null);
   const turnstileReady = useTurnstileReady();
 
   const load = useCallback(async () => {
@@ -269,6 +274,13 @@ export function MembershipJoinForm({
         special_event_label: specialEventLabel.trim() || undefined,
         referral_code: referralCode,
       });
+      if (result.already_on_list) {
+        setAlreadyMember({
+          email: email.trim(),
+          phone: whatsapp.trim(),
+        });
+        return;
+      }
       markMemberJoined(tenantSlug);
       setThankYou({
         email: email.trim(),
@@ -299,6 +311,18 @@ export function MembershipJoinForm({
     bootstrap?.tenant.branding?.brand_display_name ||
     bootstrap?.tenant.name ||
     'Salon';
+
+  if (alreadyMember) {
+    return (
+      <CrmJoinAlreadyMemberScreen
+        tenantSlug={tenantSlug}
+        salonName={salonName}
+        onLogin={() =>
+          onJoined({ email: alreadyMember.email, phone: alreadyMember.phone })
+        }
+      />
+    );
+  }
 
   if (thankYou) {
     return (

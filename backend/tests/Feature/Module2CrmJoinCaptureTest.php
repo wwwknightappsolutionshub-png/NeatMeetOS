@@ -74,7 +74,8 @@ class Module2CrmJoinCaptureTest extends TestCase
                 'email' => 'old@example.test',
             ]))
             ->assertOk()
-            ->assertJsonPath('data.created', false);
+            ->assertJsonPath('data.created', false)
+            ->assertJsonPath('data.already_on_list', false);
 
         $this->assertEquals(1, Client::withoutGlobalScopes()
             ->where('tenant_id', $ctx['tenant']->id)
@@ -87,6 +88,59 @@ class Module2CrmJoinCaptureTest extends TestCase
             'email' => 'old@example.test',
             'display_name' => 'Old',
         ]);
+    }
+
+    public function test_public_join_returns_already_on_list_for_existing_member_by_phone(): void
+    {
+        $ctx = $this->seedTenantContext(['crm.view', 'crm.manage']);
+
+        Client::withoutGlobalScopes()->create([
+            'tenant_id' => $ctx['tenant']->id,
+            'first_name' => 'Member',
+            'phone' => '+447700900444',
+            'email' => 'member@example.test',
+            'membership_joined_at' => now()->subDay(),
+            'is_active' => true,
+        ]);
+
+        $this->withHeaders(['X-Tenant-Slug' => $ctx['tenant']->slug])
+            ->postJson('/api/v1/join/clients', $this->membershipJoinPayload([
+                'preferred_name' => 'Member',
+                'whatsapp_number' => '+44 7700 900444',
+                'email' => 'member@example.test',
+            ]))
+            ->assertOk()
+            ->assertJsonPath('data.created', false)
+            ->assertJsonPath('data.already_on_list', true);
+
+        $this->assertEquals(1, Client::withoutGlobalScopes()
+            ->where('tenant_id', $ctx['tenant']->id)
+            ->where('phone', '+447700900444')
+            ->count());
+    }
+
+    public function test_public_join_returns_already_on_list_for_existing_member_by_email(): void
+    {
+        $ctx = $this->seedTenantContext(['crm.view', 'crm.manage']);
+
+        Client::withoutGlobalScopes()->create([
+            'tenant_id' => $ctx['tenant']->id,
+            'first_name' => 'Email',
+            'phone' => '+447700900555',
+            'email' => 'listed@example.test',
+            'membership_joined_at' => now()->subDay(),
+            'is_active' => true,
+        ]);
+
+        $this->withHeaders(['X-Tenant-Slug' => $ctx['tenant']->slug])
+            ->postJson('/api/v1/join/clients', $this->membershipJoinPayload([
+                'preferred_name' => 'Email',
+                'whatsapp_number' => '+44 7700 900999',
+                'email' => 'listed@example.test',
+            ]))
+            ->assertOk()
+            ->assertJsonPath('data.created', false)
+            ->assertJsonPath('data.already_on_list', true);
     }
 
     public function test_join_bootstrap_and_tenant_isolation(): void
