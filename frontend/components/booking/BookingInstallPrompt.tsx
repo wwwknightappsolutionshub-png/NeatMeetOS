@@ -4,6 +4,10 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { registerMemberServiceWorker } from '@/services/member-portal.service';
 import {
+  clearCrmInstallNudgeSession,
+  CRM_INSTALL_NUDGE_FIRST_MS,
+  CRM_INSTALL_NUDGE_SECOND_MS,
+  hasCrmInstallNudgeSession,
   INSTALL_GATE_REPROMPT_MS,
   isStandaloneDisplay,
   promptTenantCustomerPwaInstall,
@@ -20,6 +24,7 @@ interface BookingInstallPromptProps {
 }
 
 type PromptPhase = 'offer' | 'manual';
+type PromptMode = 'immediate' | 'crm_delayed';
 
 export function BookingInstallPrompt({
   salonName,
@@ -32,7 +37,9 @@ export function BookingInstallPrompt({
   const [installEvent, setInstallEvent] = useState<BeforeInstallPromptEvent | null>(null);
   const [busy, setBusy] = useState(false);
   const [skipReady, setSkipReady] = useState(false);
+  const [promptMode, setPromptMode] = useState<PromptMode>('immediate');
   const repromptTimer = useRef<number | null>(null);
+  const crmTimers = useRef<number[]>([]);
 
   const installHint = useMemo(() => tenantCustomerPwaInstallHint(), []);
 
@@ -50,13 +57,40 @@ export function BookingInstallPrompt({
       if (repromptTimer.current != null) {
         window.clearTimeout(repromptTimer.current);
       }
+      for (const id of crmTimers.current) {
+        window.clearTimeout(id);
+      }
+      crmTimers.current = [];
     };
   }, []);
+
+  function clearCrmTimers() {
+    for (const id of crmTimers.current) {
+      window.clearTimeout(id);
+    }
+    crmTimers.current = [];
+  }
+
+  function scheduleCrmNudges() {
+    clearCrmTimers();
+    let nudgesShown = 0;
+    const showNudge = () => {
+      nudgesShown += 1;
+      setPhase('offer');
+      setVisible(true);
+      if (nudgesShown >= 2) {
+        clearCrmInstallNudgeSession(tenantSlug);
+      }
+    };
+    crmTimers.current.push(window.setTimeout(showNudge, CRM_INSTALL_NUDGE_FIRST_MS));
+    crmTimers.current.push(window.setTimeout(showNudge, CRM_INSTALL_NUDGE_SECOND_MS));
+  }
 
   useEffect(() => {
     if (!active) {
       setVisible(false);
       setSkipReady(false);
+      clearCrmTimers();
       return;
     }
 
@@ -67,20 +101,37 @@ export function BookingInstallPrompt({
       const skip = await shouldSkipBookingInstallGate(tenantSlug);
       if (cancelled) return;
       if (skip || isStandaloneDisplay()) {
-        // Member already joined or app installed — skip the install gate and allow booking.
+        clearCrmInstallNudgeSession(tenantSlug);
         return;
       }
+
+      const crmDelayed = hasCrmInstallNudgeSession(tenantSlug);
+      setPromptMode(crmDelayed ? 'crm_delayed' : 'immediate');
       setSkipReady(true);
       setPhase('offer');
+
+      if (crmDelayed) {
+        setVisible(false);
+        scheduleCrmNudges();
+        return;
+      }
+
       setVisible(true);
     })();
 
     return () => {
       cancelled = true;
+      clearCrmTimers();
     };
   }, [active, tenantSlug, router]);
 
   function scheduleReprompt() {
+    if (promptMode === 'crm_delayed') {
+      setVisible(false);
+      setPhase('offer');
+      return;
+    }
+
     if (repromptTimer.current != null) {
       window.clearTimeout(repromptTimer.current);
     }
@@ -90,6 +141,12 @@ export function BookingInstallPrompt({
       setVisible(true);
       setPhase('offer');
     }, INSTALL_GATE_REPROMPT_MS);
+  }
+
+  function finishInstallFlow() {
+    clearCrmTimers();
+    clearCrmInstallNudgeSession(tenantSlug);
+    router.replace(tenantCustomerPwaPath(tenantSlug));
   }
 
   async function handleInstall() {
@@ -102,7 +159,7 @@ export function BookingInstallPrompt({
       );
 
       if (result === 'accepted' || result === 'already_standalone') {
-        router.replace(tenantCustomerPwaPath(tenantSlug));
+        finishInstallFlow();
         return;
       }
       if (result === 'dismissed') {
@@ -141,7 +198,7 @@ export function BookingInstallPrompt({
             <button
               type="button"
               className="mt-5 inline-flex w-full items-center justify-center rounded-md bg-[var(--book-moss)] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[var(--book-moss-deep)]"
-              onClick={() => router.replace(tenantCustomerPwaPath(tenantSlug))}
+              onClick={() => finishInstallFlow()}
             >
               I installed it — open the app
             </button>
@@ -159,8 +216,9 @@ export function BookingInstallPrompt({
               Install my {salonName} app
             </h3>
             <p className="mt-2 text-sm leading-relaxed text-[var(--book-muted)]">
-              Install the salon app for membership, check-in, and rewards. You can continue booking
-              without installing — we&apos;ll ask again in a moment.
+              {promptMode === 'crm_delayed'
+                ? 'Install the salon app so we can validate your membership on your next visit. You can keep browsing — we may remind you again later.'
+                : "Install the salon app for membership, check-in, and rewards. You can continue booking without installing — we'll ask again in a moment."}
             </p>
             <div className="mt-5 flex flex-col gap-2 sm:flex-row">
               <button
@@ -169,7 +227,7 @@ export function BookingInstallPrompt({
                 className="inline-flex flex-1 items-center justify-center rounded-md bg-[var(--book-moss)] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[var(--book-moss-deep)] disabled:opacity-60"
                 onClick={() => void handleInstall()}
               >
-                {busy ? 'Installing…' : 'Install PWA'}
+                {busy ? 'Installing…' : 'Install App'}
               </button>
               <button
                 type="button"

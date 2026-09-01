@@ -1,10 +1,13 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { fireConfettiBurst } from '@/lib/confetti-burst';
 import { registerMemberServiceWorker } from '@/services/member-portal.service';
 import {
   isStandaloneDisplay,
+  markCrmInstallNudgeSession,
   promptTenantCustomerPwaInstall,
   tenantCustomerPwaInstallHint,
   tenantCustomerPwaPath,
@@ -14,10 +17,10 @@ import {
 type Props = {
   tenantSlug: string;
   salonName: string;
+  customerName: string;
   luckyPosition: number;
   luckyCap: number;
   luckyEligible: boolean;
-  onContinue: () => void;
 };
 
 type Phase = 'main' | 'manual';
@@ -25,10 +28,10 @@ type Phase = 'main' | 'manual';
 export function CrmJoinThankYouScreen({
   tenantSlug,
   salonName,
+  customerName,
   luckyPosition,
   luckyCap,
   luckyEligible,
-  onContinue,
 }: Props) {
   const router = useRouter();
   const [phase, setPhase] = useState<Phase>('main');
@@ -38,6 +41,12 @@ export function CrmJoinThankYouScreen({
 
   const installHint = useMemo(() => tenantCustomerPwaInstallHint(), []);
   const showLuckyMessage = luckyEligible && luckyPosition > 0 && luckyPosition <= luckyCap;
+  const bookingHref = `/book/${encodeURIComponent(tenantSlug)}`;
+  const displayName = customerName.trim() || 'there';
+
+  useEffect(() => {
+    fireConfettiBurst();
+  }, []);
 
   useEffect(() => {
     const onBeforeInstall = (event: Event) => {
@@ -59,7 +68,9 @@ export function CrmJoinThankYouScreen({
     try {
       const result = await Notification.requestPermission();
       if (result === 'denied') {
-        setNotificationHint('Notifications are blocked in your browser settings. You can enable them later in the app.');
+        setNotificationHint(
+          'Notifications are blocked in your browser settings. You can enable them later in the app.',
+        );
       }
     } catch {
       // ignore
@@ -102,36 +113,44 @@ export function CrmJoinThankYouScreen({
       className="fixed inset-0 z-[100] flex flex-col bg-[var(--book-wash)] text-[var(--book-ink)]"
       role="dialog"
       aria-modal="true"
-      aria-label="Thank you for joining"
+      aria-label={`Welcome ${displayName}`}
     >
       <div className="flex flex-1 flex-col items-center justify-center overflow-y-auto px-6 py-10">
         <div className="w-full max-w-md text-center">
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--book-moss)]">
-            Thank you
+            Welcome &ldquo;{displayName}&rdquo;
           </p>
           <h1 className="book-display mt-3 text-3xl font-bold text-[var(--book-ink)] sm:text-4xl">
-            Thank you for joining our customer list
+            Thank You For Joining Our Customer List!
           </h1>
 
           {showLuckyMessage ? (
             <p className="mt-5 text-base leading-relaxed text-[var(--book-muted)]">
-              You are our{' '}
+              You are{' '}
               <span className="font-bold text-[var(--book-moss)]">
                 {luckyPosition} / {luckyCap}
               </span>{' '}
-              lucky customer and we are happy to let you know that your next visit will be
-              discounted as our way of showing gratitude for joining our customer list.
+              lucky customer.
             </p>
-          ) : (
-            <p className="mt-5 text-base leading-relaxed text-[var(--book-muted)]">
-              We&apos;re glad you joined {salonName}. Your details are saved and we look forward to
-              your next visit.
-            </p>
-          )}
+          ) : null}
+
+          <p className="mt-4 text-base leading-relaxed text-[var(--book-muted)]">
+            {showLuckyMessage ? (
+              <>
+                We are glad to inform you that your next visit to &ldquo;{salonName}&rdquo; will be
+                discounted. This is our way of saying &ldquo;Thank You&rdquo;. Please note that you
+                need to install our mobile app so we can validate you at your next visit.
+              </>
+            ) : (
+              <>
+                We are glad you joined &ldquo;{salonName}&rdquo;. Please install our mobile app so we
+                can validate you at your next visit.
+              </>
+            )}
+          </p>
 
           <p className="mt-4 text-sm leading-relaxed text-[var(--book-muted)]">
-            Click the button below to install the {salonName} app so we can validate your
-            membership. If prompted, please allow notifications from us.
+            Click the button below to install the app and enable notifications.
           </p>
 
           {notificationHint ? (
@@ -178,13 +197,13 @@ export function CrmJoinThankYouScreen({
       </div>
 
       <div className="border-t border-[var(--book-line)] bg-white/90 px-6 py-4">
-        <button
-          type="button"
-          className="mx-auto block text-sm font-semibold text-[var(--book-muted)] underline-offset-2 hover:text-[var(--book-ink)] hover:underline"
-          onClick={onContinue}
+        <Link
+          href={bookingHref}
+          onClick={() => markCrmInstallNudgeSession(tenantSlug)}
+          className="mx-auto block text-center text-sm font-semibold text-[var(--book-muted)] underline-offset-2 hover:text-[var(--book-ink)] hover:underline"
         >
           Continue without installing
-        </button>
+        </Link>
       </div>
     </div>
   );

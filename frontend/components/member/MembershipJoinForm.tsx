@@ -226,6 +226,7 @@ export function MembershipJoinForm({
   const [thankYou, setThankYou] = useState<{
     email: string;
     phone: string;
+    preferredName: string;
     luckyPosition: number;
     luckyCap: number;
     luckyEligible: boolean;
@@ -285,6 +286,7 @@ export function MembershipJoinForm({
       setThankYou({
         email: email.trim(),
         phone: whatsapp.trim(),
+        preferredName: preferredName.trim(),
         luckyPosition: result.lucky_position ?? 0,
         luckyCap: result.lucky_cap ?? 50,
         luckyEligible: result.lucky_eligible ?? false,
@@ -329,10 +331,10 @@ export function MembershipJoinForm({
       <CrmJoinThankYouScreen
         tenantSlug={tenantSlug}
         salonName={salonName}
+        customerName={thankYou.preferredName}
         luckyPosition={thankYou.luckyPosition}
         luckyCap={thankYou.luckyCap}
         luckyEligible={thankYou.luckyEligible}
-        onContinue={() => onJoined({ email: thankYou.email, phone: thankYou.phone })}
       />
     );
   }

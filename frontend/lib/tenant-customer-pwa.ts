@@ -11,6 +11,44 @@ export type TenantCustomerPwaInstallResult =
 
 export const INSTALL_GATE_REPROMPT_MS = 300_000;
 
+/** CRM joiners who skip install on the thank-you screen — first nudge on the book page. */
+export const CRM_INSTALL_NUDGE_FIRST_MS = 300_000;
+
+/** Second install nudge for CRM joiners who continued without installing. */
+export const CRM_INSTALL_NUDGE_SECOND_MS = 900_000;
+
+function crmInstallNudgeSessionKey(tenantSlug: string): string {
+  return `neatmeet_crm_install_nudge_${tenantSlug}`;
+}
+
+/** Set when the visitor taps Continue without installing on the CRM thank-you screen. */
+export function markCrmInstallNudgeSession(tenantSlug: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    sessionStorage.setItem(crmInstallNudgeSessionKey(tenantSlug), '1');
+  } catch {
+    // ignore
+  }
+}
+
+export function hasCrmInstallNudgeSession(tenantSlug: string): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return sessionStorage.getItem(crmInstallNudgeSessionKey(tenantSlug)) === '1';
+  } catch {
+    return false;
+  }
+}
+
+export function clearCrmInstallNudgeSession(tenantSlug: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    sessionStorage.removeItem(crmInstallNudgeSessionKey(tenantSlug));
+  } catch {
+    // ignore
+  }
+}
+
 export function isStandaloneDisplay(): boolean {
   if (typeof window === 'undefined') return false;
   return (
