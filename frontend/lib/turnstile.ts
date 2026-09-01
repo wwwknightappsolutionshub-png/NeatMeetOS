@@ -1,7 +1,8 @@
 /**
  * Cloudflare Turnstile helpers for public/auth form posts.
- * Renders a visible widget (managed / normal size). When
- * NEXT_PUBLIC_TURNSTILE_SITE_KEY is empty, tokens are omitted (local/dev).
+ * Renders a visible Managed checkbox (appearance: always). Submit stays
+ * disabled until the visitor ticks the box and a token is issued.
+ * When NEXT_PUBLIC_TURNSTILE_SITE_KEY is empty, tokens are omitted (local/dev).
  */
 
 declare global {
@@ -27,6 +28,10 @@ const SCRIPT_SRC =
 
 const TOKEN_WAIT_MS = 120_000;
 
+/** Shown under every Turnstile widget on public/auth forms. */
+export const TURNSTILE_FORM_HINT =
+  'Tick the security check box, then continue.';
+
 export type TurnstileWidgetSize = 'normal' | 'compact';
 
 type TurnstileListener = (ready: boolean) => void;
@@ -34,14 +39,11 @@ type TurnstileListener = (ready: boolean) => void;
 type MountOptions = {
   size?: TurnstileWidgetSize;
   onError?: (message: string) => void;
-  /** When true, challenge runs only after turnstile.execute() (user taps the widget). */
-  deferExecution?: boolean;
 };
 
 let widgetId: string | null = null;
 let hostElement: HTMLElement | null = null;
 let widgetSize: TurnstileWidgetSize = 'normal';
-let deferExecution = false;
 let scriptPromise: Promise<void> | null = null;
 let mountPromise: Promise<void> | null = null;
 let pendingToken: Promise<string> | null = null;
@@ -133,7 +135,6 @@ function teardownWidget(): void {
   }
 
   widgetId = null;
-  deferExecution = false;
   if (hostElement) {
     hostElement.innerHTML = '';
   }
@@ -145,14 +146,13 @@ function renderWidget(options: MountOptions = {}): void {
   if (!siteKey || !window.turnstile || !hostElement) return;
 
   widgetSize = options.size ?? widgetSize;
-  deferExecution = options.deferExecution ?? false;
   hostElement.innerHTML = '';
 
   widgetId = window.turnstile.render(hostElement, {
     sitekey: siteKey,
     size: widgetSize,
     theme: 'light',
-    ...(deferExecution ? { execution: 'execute' } : {}),
+    appearance: 'always',
     callback: (token: string) => {
       clearPoll();
       notifyReady(true);
@@ -206,7 +206,6 @@ export function mountTurnstileIn(
 
   hostElement = container;
   widgetSize = options.size ?? 'normal';
-  deferExecution = options.deferExecution ?? false;
 
   mountPromise = ensureRendered(options).catch(() => {
     options.onError?.('Security check unavailable. Please refresh and try again.');
@@ -303,16 +302,6 @@ export function withTurnstileToken<T extends Record<string, unknown>>(
 ): T & { turnstile_token?: string } {
   if (!token) return body;
   return { ...body, turnstile_token: token };
-}
-
-/** Start a deferred Turnstile challenge after the user taps the widget. */
-export function triggerTurnstileChallenge(): void {
-  if (!window.turnstile || !widgetId || !deferExecution) return;
-  try {
-    window.turnstile.execute(widgetId);
-  } catch {
-    // Widget may still be initialising.
-  }
 }
 
 /** @deprecated Use mountTurnstileIn via TurnstileWidget instead. */

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   isTurnstileConfigured,
   mountTurnstileIn,
-  triggerTurnstileChallenge,
+  TURNSTILE_FORM_HINT,
   type TurnstileWidgetSize,
 } from '@/lib/turnstile';
 
@@ -12,18 +12,16 @@ type Props = {
   className?: string;
   size?: TurnstileWidgetSize;
   hint?: string;
-  /** Require the user to tap the widget before verification runs (no auto-pass). */
-  deferExecution?: boolean;
 };
 
 /**
- * Visible Cloudflare Turnstile widget. Mount once per page/section that POSTs.
+ * Visible Cloudflare Turnstile checkbox. Mount once per page/section that POSTs.
+ * Submit buttons should stay disabled until useTurnstileReady() is true.
  */
 export function TurnstileWidget({
   className = '',
   size = 'normal',
-  hint = 'Complete the security check before submitting.',
-  deferExecution = false,
+  hint = TURNSTILE_FORM_HINT,
 }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
@@ -34,12 +32,11 @@ export function TurnstileWidget({
 
     const cleanup = mountTurnstileIn(host, {
       size,
-      deferExecution,
       onError: (message) => setError(message),
     });
 
     return cleanup;
-  }, [size, deferExecution]);
+  }, [size]);
 
   if (!isTurnstileConfigured()) {
     return null;
@@ -49,22 +46,8 @@ export function TurnstileWidget({
     <div className={className}>
       <div
         ref={hostRef}
-        className={[
-          'flex min-h-[65px] max-w-[200px] items-center justify-start',
-          deferExecution ? 'cursor-pointer' : '',
-        ].join(' ')}
+        className="flex min-h-[65px] max-w-[200px] items-center justify-start"
         aria-live="polite"
-        onClick={() => {
-          if (deferExecution) triggerTurnstileChallenge();
-        }}
-        onKeyDown={(e) => {
-          if (deferExecution && (e.key === 'Enter' || e.key === ' ')) {
-            e.preventDefault();
-            triggerTurnstileChallenge();
-          }
-        }}
-        role={deferExecution ? 'button' : undefined}
-        tabIndex={deferExecution ? 0 : undefined}
       />
       {error ? (
         <p className="mt-2 text-xs text-red-600">{error}</p>

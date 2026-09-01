@@ -1650,7 +1650,7 @@ function MemberPortalInner() {
                     <button
                       type="button"
                       className="text-sm font-semibold text-[var(--book-moss)]"
-                      disabled={submitting || !email.trim() || !phone.trim()}
+                      disabled={submitting || !turnstileReady || !email.trim() || !phone.trim()}
                       onClick={() => void handleRequestOtp(null, 'email')}
                     >
                       Email me the code instead
@@ -1660,7 +1660,7 @@ function MemberPortalInner() {
                     <button
                       type="button"
                       className="text-sm font-semibold text-[var(--book-moss)]"
-                      disabled={submitting}
+                      disabled={submitting || !turnstileReady}
                       onClick={() => void handleRequestOtp(null, 'email')}
                     >
                       Didn’t get WhatsApp? Email me the code

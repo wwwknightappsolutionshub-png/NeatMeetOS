@@ -486,7 +486,7 @@ export function MembershipJoinForm({
           </p>
         ) : null}
 
-        <TurnstileFormGate size="compact" deferExecution />
+        <TurnstileFormGate size="compact" />
 
         <button
           type="submit"
