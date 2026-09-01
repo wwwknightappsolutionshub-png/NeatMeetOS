@@ -57,6 +57,42 @@ export function isStandaloneDisplay(): boolean {
   );
 }
 
+export function isIosDevice(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  return /iPhone|iPad|iPod/i.test(navigator.userAgent);
+}
+
+export function pwaInstallQueryValue(): string {
+  return 'pwa';
+}
+
+export function pwaInstallBookPath(tenantSlug: string): string {
+  return `${bookingPagePath(tenantSlug)}?install=${pwaInstallQueryValue()}`;
+}
+
+function legacyMemberInstallKey(tenantSlug: string): string {
+  return `neatmeet_legacy_install_routed_${tenantSlug}`;
+}
+
+/** One-time redirect from legacy /member email links to the install flow. */
+export function shouldRouteLegacyMemberInstall(tenantSlug: string): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return localStorage.getItem(legacyMemberInstallKey(tenantSlug)) !== '1';
+  } catch {
+    return false;
+  }
+}
+
+export function markLegacyMemberInstallRouted(tenantSlug: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(legacyMemberInstallKey(tenantSlug), '1');
+  } catch {
+    // ignore
+  }
+}
+
 export function memberJoinedStorageKey(tenantSlug: string): string {
   return `neatmeet_joined_${tenantSlug}`;
 }

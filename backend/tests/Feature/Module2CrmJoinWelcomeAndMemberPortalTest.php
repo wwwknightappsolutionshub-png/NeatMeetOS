@@ -79,13 +79,13 @@ class Module2CrmJoinWelcomeAndMemberPortalTest extends TestCase
         $this->assertStringContainsString('1 / 50 lucky customer', (string) $message->body_html);
         $this->assertStringContainsString(MarketingEmailLayoutService::POWERED_BY, (string) $message->body_html);
         $this->assertStringContainsString('Anek Latin', (string) $message->body_html);
-        $this->assertStringContainsString('/member/'.$ctx['tenant']->slug, (string) $message->body_html);
+        $this->assertStringContainsString('/book/'.$ctx['tenant']->slug.'?install=pwa', (string) $message->body_html);
         $this->assertMatchesRegularExpression(
-            '#href="https?://[^"]+/member/'.preg_quote($ctx['tenant']->slug, '#').'"#',
+            '#href="https?://[^"]+/book/'.preg_quote($ctx['tenant']->slug, '#').'\?install=pwa"#',
             (string) $message->body_html,
         );
         $this->assertSame(
-            rtrim((string) config('app.frontend_url'), '/').'/member/'.$ctx['tenant']->slug,
+            rtrim((string) config('app.frontend_url'), '/').'/book/'.$ctx['tenant']->slug.'?install=pwa',
             data_get($message->metadata, 'pwa_url'),
         );
 

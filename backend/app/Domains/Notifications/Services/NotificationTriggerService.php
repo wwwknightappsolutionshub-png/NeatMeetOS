@@ -519,7 +519,7 @@ class NotificationTriggerService
             ?: ($tenant?->trading_name ?: $tenant?->name ?: 'Your salon');
         $primary = trim((string) ($branding['primary_color'] ?? '')) ?: '#2f5a45';
         $slug = (string) ($tenant?->slug ?? '');
-        $pwaUrl = FrontendUrl::memberApp($slug);
+        $pwaUrl = FrontendUrl::pwaInstallPage($slug);
         $bookUrl = FrontendUrl::bookingPage($slug);
         $first = trim((string) ($client->first_name ?? 'there'));
         $salonNameEsc = e($salonName);

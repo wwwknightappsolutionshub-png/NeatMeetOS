@@ -28,9 +28,13 @@ import {
   openTenantBookingPage,
   hasMarkedMemberJoined,
   isStandaloneDisplay,
+  markLegacyMemberInstallRouted,
+  pwaInstallBookPath,
+  pwaInstallQueryValue,
   readJoinLocationId,
   readJoinReferralCode,
   resolveTenantPageUrl,
+  shouldRouteLegacyMemberInstall,
 } from '@/lib/tenant-customer-pwa';
 import { fetchOnlineCatalog } from '@/services/online-booking.service';
 import { fetchPublicLookbookItems } from '@/services/lookbook.service';
@@ -299,6 +303,22 @@ function MemberPortalInner() {
       }
     })();
   }, [tenantSlug, refreshSession]);
+
+  useEffect(() => {
+    if (loading || session || standalone) return;
+    if (search.get('install') === pwaInstallQueryValue()) {
+      router.replace(pwaInstallBookPath(tenantSlug));
+      return;
+    }
+    if (
+      guestFlow === 'login' &&
+      hasMarkedMemberJoined(tenantSlug) &&
+      shouldRouteLegacyMemberInstall(tenantSlug)
+    ) {
+      markLegacyMemberInstallRouted(tenantSlug);
+      router.replace(pwaInstallBookPath(tenantSlug));
+    }
+  }, [guestFlow, loading, router, search, session, standalone, tenantSlug]);
 
   useEffect(() => {
     const onBeforeInstall = (e: Event) => {
@@ -1693,10 +1713,10 @@ function MemberPortalInner() {
                       <p className="font-semibold text-[var(--book-ink)]">Install this app</p>
                       <p className="mt-1">{installHint}</p>
                       <Link
-                        href={bookHref}
+                        href={pwaInstallBookPath(tenantSlug)}
                         className="mt-2 inline-block text-sm font-semibold text-[var(--book-moss)]"
                       >
-                        Open booking to install →
+                        Install the app →
                       </Link>
                     </div>
                   ) : hasMarkedMemberJoined(tenantSlug) ? null : (

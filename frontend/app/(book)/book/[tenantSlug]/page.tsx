@@ -22,6 +22,7 @@ import {
   reservationFeeRequired,
 } from '@/components/booking/ReservationFeePanel';
 import { BookingInstallPrompt } from '@/components/booking/BookingInstallPrompt';
+import { TenantPwaInstallGate } from '@/components/booking/TenantPwaInstallGate';
 import { TurnstileFormGate } from '@/components/security/TurnstileBootstrap';
 import { useTurnstileReady } from '@/hooks/useTurnstileReady';
 import { buildGoogleCalendarUrl, downloadIcsFile } from '@/lib/booking-calendar';
@@ -35,7 +36,7 @@ import Link from 'next/link';
 import { AiHairstyleLandingGate } from '@/components/booking/AiHairstyleLandingGate';
 import { SocialFooterIcons } from '@/components/public/SocialFooterIcons';
 import { loadMemberSession } from '@/services/member-portal.service';
-import { captureJoinAttribution } from '@/lib/tenant-customer-pwa';
+import { captureJoinAttribution, pwaInstallQueryValue } from '@/lib/tenant-customer-pwa';
 
 const VoiceBookingConcierge = dynamic(
   () =>
@@ -460,6 +461,7 @@ function OnlineBookingPageInner() {
   const tenantSlug = params.tenantSlug;
   const locationFromQuery = searchParams.get('location');
   const serviceFromQuery = searchParams.get('service');
+  const installPwa = searchParams.get('install') === pwaInstallQueryValue();
 
   const [step, setStep] = useState<Step>('service');
   const [catalog, setCatalog] = useState<OnlineBookingCatalog | null>(null);
@@ -1568,8 +1570,11 @@ function OnlineBookingPageInner() {
       <BookingInstallPrompt
         salonName={salonName}
         tenantSlug={tenantSlug}
-        active={!loadError}
+        active={!loadError && !installPwa}
       />
+      {installPwa && !loadError ? (
+        <TenantPwaInstallGate salonName={salonName} tenantSlug={tenantSlug} />
+      ) : null}
     </div>
   );
 }

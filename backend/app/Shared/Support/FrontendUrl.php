@@ -45,6 +45,12 @@ final class FrontendUrl
         return self::to('/book/'.rawurlencode($slug));
     }
 
+    /** CRM welcome email / deep link — opens tenant booking page with PWA install instructions. */
+    public static function pwaInstallPage(string $tenantSlug): string
+    {
+        return self::bookingPage($tenantSlug).'?install=pwa';
+    }
+
     public static function tenantLogin(): string
     {
         return self::to('/login');
