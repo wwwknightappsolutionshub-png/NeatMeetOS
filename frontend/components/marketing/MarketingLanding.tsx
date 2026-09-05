@@ -6,7 +6,10 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { NeatMeetLogo } from '@/components/brand/NeatMeetLogo';
+import { AssessmentScorePreview } from '@/components/marketing/AssessmentScorePreview';
 import { BpiProductPreview } from '@/components/marketing/BpiProductPreview';
+import { CapabilitySwitcher } from '@/components/marketing/CapabilitySwitcher';
+import { JourneyPath } from '@/components/marketing/JourneyPath';
 import { LandingFaq } from '@/components/marketing/LandingFaq';
 import { trackMarketingEvent } from '@/lib/marketing-events';
 import { resolveReferralCode } from '@/lib/referral-cookie';
@@ -109,14 +112,6 @@ const CAPABILITY_CATEGORIES: Array<{
     items: ['Gallery', 'Lookbook', 'AI Hairstyle', 'Ecommerce', 'Integrations'],
   },
 ];
-
-const ASSESSMENT_SCORES = [
-  'Customer visibility',
-  'Retention',
-  'Re-engagement',
-  'Revenue visibility',
-  'Overall growth',
-] as const;
 
 const PRICING = [
   {
@@ -436,7 +431,7 @@ export function MarketingLanding() {
               NeatMeet OS brings bookings, customers, loyalty, payments, marketing and business
               performance intelligence together in one system built to help you grow.
             </p>
-            <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:flex-wrap lg:justify-start">
+            <div className="mt-8 flex flex-col items-center gap-3 lg:items-start">
               <AssessmentLink
                 eventLabel="hero_primary"
                 className="inline-flex w-full items-center justify-center rounded-lg bg-[#2f5a45] px-6 py-3.5 text-sm font-semibold text-white transition hover:bg-[#264a39] sm:w-auto"
@@ -446,9 +441,9 @@ export function MarketingLanding() {
               <TrialLink
                 href={signupHref}
                 eventLabel="hero_secondary"
-                className="inline-flex w-full items-center justify-center rounded-lg border border-white/35 bg-white/10 px-6 py-3.5 text-sm font-semibold text-white backdrop-blur-sm transition hover:bg-white/20 sm:w-auto"
+                className="text-sm font-semibold text-white/85 underline-offset-4 hover:text-white hover:underline"
               >
-                Start 30-Day Free Trial
+                Start 30-Day Free Trial →
               </TrialLink>
             </div>
             <p className="mt-4 text-sm text-white/70">2–3 minutes · Free · No obligation</p>
@@ -459,9 +454,16 @@ export function MarketingLanding() {
             ) : null}
           </div>
 
-          <div className="mx-auto w-full max-w-md shrink-0 lg:mx-0 lg:max-w-lg">
-            <div className="origin-top scale-[0.92] sm:scale-100">
-              <BpiProductPreview />
+          <div className="relative mx-auto w-full max-w-md shrink-0 lg:mx-0 lg:max-w-lg">
+            <div
+              className="pointer-events-none absolute -inset-6 rounded-[2rem] bg-gradient-to-br from-[#2f5a45]/35 via-transparent to-white/10 blur-2xl"
+              aria-hidden
+            />
+            <div className="relative origin-center rotate-[-1.5deg] transition duration-700 hover:rotate-0">
+              <span className="absolute -left-2 -top-3 z-10 rounded-full bg-[#2f5a45] px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-white shadow-lg">
+                Growth intelligence
+              </span>
+              <BpiProductPreview elevated />
             </div>
           </div>
         </div>
@@ -479,46 +481,76 @@ export function MarketingLanding() {
             </h2>
             <p className="mt-4 text-base leading-relaxed text-stone-600">
               You can see today&apos;s sales. You can see tomorrow&apos;s appointments. But do you
-              know:
+              know what happens to customers afterwards?
             </p>
           </div>
-          <ul className="mx-auto mt-10 grid max-w-4xl gap-3 sm:grid-cols-2">
-            {[
-              'How many customers visited this month?',
-              'How many were first-time customers?',
-              'How many came back?',
-              'How many haven\'t returned?',
-              'Which customers are worth re-engaging?',
-              'How many customers can you actually reach?',
-              'How much potential repeat revenue could come from customers who return?',
-            ].map((q) => (
-              <li
-                key={q}
-                className="rounded-xl border border-stone-200/90 bg-white px-4 py-3.5 text-sm leading-relaxed text-stone-700"
-              >
-                {q}
-              </li>
-            ))}
-          </ul>
+
+          <div className="mt-12 grid overflow-hidden rounded-2xl border border-stone-200/90 bg-white shadow-sm lg:grid-cols-2">
+            <div className="border-b border-stone-100 bg-[#f8f7f4] p-6 sm:p-8 lg:border-b-0 lg:border-r">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-stone-500">
+                What you already see
+              </p>
+              <ul className="mt-5 space-y-4">
+                {['Today\'s sales', 'Tomorrow\'s appointments', 'Who is on the chair now'].map(
+                  (item) => (
+                    <li key={item} className="flex items-center gap-3 text-sm font-medium text-stone-800">
+                      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-stone-200/80 text-xs text-stone-500" aria-hidden>
+                        ✓
+                      </span>
+                      {item}
+                    </li>
+                  ),
+                )}
+              </ul>
+            </div>
+            <div className="p-6 sm:p-8">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#2f5a45]">
+                What often stays unknown
+              </p>
+              <ol className="mt-5 space-y-3">
+                {[
+                  'How many customers visited this month?',
+                  'How many were first-time customers?',
+                  'How many came back?',
+                  'How many haven\'t returned?',
+                  'Which customers are worth re-engaging?',
+                  'How many customers can you actually reach?',
+                  'How much potential repeat revenue could come from customers who return?',
+                ].map((q, i) => (
+                  <li key={q} className="flex gap-3 text-sm leading-relaxed text-stone-700">
+                    <span className="font-mono text-xs font-semibold text-[#2f5a45]/70">
+                      {String(i + 1).padStart(2, '0')}
+                    </span>
+                    <span>{q}</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          </div>
+
           <p className="mx-auto mt-8 max-w-2xl text-center text-base leading-relaxed text-stone-600">
             Most salon software helps you run the day. NeatMeet helps you understand what happens
             next.
           </p>
-          <div className="mt-8 flex justify-center">
+          <p className="mt-5 text-center">
             <AssessmentLink
               eventLabel="problem_section"
-              className="rounded-lg bg-[#2f5a45] px-5 py-3 text-sm font-semibold text-white hover:bg-[#264a39]"
+              className="text-sm font-semibold text-[#2f5a45] underline-offset-4 hover:underline"
             >
-              Get My Free Growth Assessment
+              Get my free growth assessment →
             </AssessmentLink>
-          </div>
+          </p>
         </div>
       </section>
 
       {/* Assessment */}
-      <section id="assessment" className="border-b border-stone-200/70 bg-[#ebe8e1] px-5 py-16 sm:px-8 sm:py-24">
-        <div className="mx-auto max-w-6xl">
-          <div className="grid items-center gap-10 lg:grid-cols-2">
+      <section id="assessment" className="relative overflow-hidden border-b border-stone-200/70 bg-[#ebe8e1] px-5 py-16 sm:px-8 sm:py-24">
+        <div
+          className="pointer-events-none absolute inset-y-0 right-0 hidden w-1/3 bg-gradient-to-l from-[#2f5a45]/8 to-transparent lg:block"
+          aria-hidden
+        />
+        <div className="relative mx-auto max-w-6xl">
+          <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-14">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#2f5a45]">
                 Free salon growth assessment
@@ -531,7 +563,7 @@ export function MarketingLanding() {
                 perform across customer visibility, retention, re-engagement and repeat-revenue
                 opportunity.
               </p>
-              <div className="mt-8 flex flex-wrap items-center gap-3">
+              <div className="mt-8 flex flex-wrap items-center gap-4">
                 <AssessmentLink
                   eventLabel="assessment_section"
                   className="rounded-lg bg-[#2f5a45] px-5 py-3 text-sm font-semibold text-white hover:bg-[#264a39]"
@@ -540,31 +572,16 @@ export function MarketingLanding() {
                 </AssessmentLink>
                 <span className="text-sm text-stone-500">Free · Takes 2–3 minutes · No obligation</span>
               </div>
-            </div>
-            <div className="rounded-2xl border border-stone-200/90 bg-white p-6 shadow-sm sm:p-8">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#2f5a45]">
-                What your results include
-              </p>
-              <ul className="mt-5 space-y-3">
-                {ASSESSMENT_SCORES.map((label) => (
-                  <li
-                    key={label}
-                    className="flex items-center justify-between gap-3 rounded-xl border border-stone-100 bg-[#f3f1ec]/80 px-3.5 py-3"
-                  >
-                    <span className="text-sm font-medium text-stone-800">{label}</span>
-                    <span className="font-mono text-xs text-stone-400">/100</span>
-                  </li>
-                ))}
-              </ul>
               <p className="mt-5 text-sm leading-relaxed text-stone-600">
-                Your assessment gives you an indicative view of where your salon is performing well
-                and where there may be opportunities to improve — including an{' '}
+                Your assessment gives an indicative view of where you are performing well and where
+                there may be opportunity — including an{' '}
                 <strong className="font-semibold text-stone-800">
                   estimated repeat-revenue opportunity
                 </strong>
                 . It is not guaranteed lost revenue.
               </p>
             </div>
+            <AssessmentScorePreview />
           </div>
         </div>
       </section>
@@ -572,7 +589,7 @@ export function MarketingLanding() {
       {/* BPI */}
       <section id="intelligence" className="border-b border-stone-200/70 bg-[#f3f1ec] px-5 py-16 sm:px-8 sm:py-24">
         <div className="mx-auto max-w-6xl">
-          <div className="mx-auto max-w-2xl text-center">
+          <div className="max-w-2xl">
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#2f5a45]">
               Business Performance Intelligence
             </p>
@@ -581,34 +598,35 @@ export function MarketingLanding() {
             </h2>
             <p className="mt-4 text-base leading-relaxed text-stone-600">
               NeatMeet OS turns everyday salon activity into practical business intelligence. See
-              more than bookings and today&apos;s takings.
+              more than bookings and today&apos;s takings — then answer{' '}
+              <span className="font-semibold text-stone-900">What should I do next?</span>
             </p>
           </div>
 
-          <div className="mt-12 grid items-start gap-10 lg:grid-cols-[0.95fr_1.05fr]">
-            <ul className="space-y-3 text-sm leading-relaxed text-stone-700">
-              {[
-                'Customers served',
-                'Identified vs anonymous customers',
-                'Returning customers',
-                'Customers who may be due to return',
-                'Customers becoming inactive',
-                'Loyalty activity',
-                'Estimated repeat-revenue opportunity',
-                'Business performance',
-                'Actions that deserve attention',
-              ].map((item) => (
-                <li key={item} className="flex gap-3">
-                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#2f5a45]" aria-hidden />
-                  {item}
-                </li>
-              ))}
-              <li className="pt-2 text-stone-600">
-                The objective is not to overwhelm you with charts. It is to help you answer:{' '}
-                <em className="not-italic font-semibold text-stone-900">What should I do next?</em>
-              </li>
-            </ul>
-            <BpiProductPreview />
+          <div className="mt-10 lg:mt-14">
+            <div className="relative mx-auto max-w-4xl">
+              <div
+                className="pointer-events-none absolute -inset-4 rounded-[2rem] bg-[#2f5a45]/5 blur-xl sm:-inset-8"
+                aria-hidden
+              />
+              <div className="relative">
+                <BpiProductPreview elevated />
+                <p className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-xs font-medium uppercase tracking-[0.12em] text-stone-500">
+                  {[
+                    'Customers served',
+                    'Identified vs anonymous',
+                    'Returning',
+                    'Due to return',
+                    'Inactive',
+                    'Loyalty',
+                    'Repeat-revenue opportunity',
+                    'Action centre',
+                  ].map((label) => (
+                    <span key={label}>{label}</span>
+                  ))}
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -629,22 +647,47 @@ export function MarketingLanding() {
               designed to help you understand what happens before, during and after the appointment.
             </p>
           </div>
-          <ul className="mx-auto mt-12 grid max-w-4xl gap-3 sm:grid-cols-2">
+
+          <div className="mt-12 grid gap-4 lg:grid-cols-2">
+            <div className="rounded-2xl border border-dashed border-stone-300 bg-[#f3f1ec]/60 p-6 sm:p-8">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-stone-500">
+                Booking software
+              </p>
+              <p className="mt-3 text-lg font-semibold text-stone-800">Runs the appointment</p>
+              <div className="mt-6 space-y-2 font-mono text-xs text-stone-500">
+                <div className="rounded-lg border border-stone-200 bg-white px-3 py-2">09:00 — Cut &amp; finish</div>
+                <div className="rounded-lg border border-stone-200 bg-white px-3 py-2">10:30 — Colour</div>
+                <div className="rounded-lg border border-stone-200 bg-white/70 px-3 py-2 opacity-60">12:00 — …</div>
+              </div>
+            </div>
+            <div className="rounded-2xl border border-[#2f5a45]/30 bg-[#2f5a45] p-6 text-white sm:p-8">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/70">
+                NeatMeet OS
+              </p>
+              <p className="mt-3 text-lg font-semibold">Grows the relationship</p>
+              <p className="mt-4 text-sm leading-relaxed text-white/85">
+                Know → serve → bring back → reward → understand opportunity — connected to the same
+                customer story.
+              </p>
+            </div>
+          </div>
+
+          <ul className="mx-auto mt-10 grid max-w-4xl grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-4">
             {[
               'Know your customers',
-              'Understand customer behaviour',
+              'Understand behaviour',
               'Increase repeat visits',
               'Build loyalty',
               'Re-engage customers',
-              'Understand business performance',
-              'Identify growth opportunities',
-              'Turn relationships into repeat business',
-            ].map((item) => (
-              <li
-                key={item}
-                className="rounded-xl border border-stone-200/80 bg-white px-4 py-3.5 text-sm font-medium text-stone-800"
-              >
-                {item}
+              'Business performance',
+              'Growth opportunities',
+              'Repeat business',
+            ].map((item, i) => (
+              <li key={item} className="text-center sm:text-left">
+                <span className="font-mono text-[10px] font-semibold text-[#2f5a45]">
+                  {String(i + 1).padStart(2, '0')}
+                </span>
+                <p className="mt-1 text-sm font-medium leading-snug text-stone-800">{item}</p>
               </li>
             ))}
           </ul>
@@ -666,20 +709,7 @@ export function MarketingLanding() {
               From First Visit to Repeat Revenue
             </h2>
           </div>
-          <ol className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {JOURNEY.map((step, i) => (
-              <li
-                key={step.title}
-                className="relative rounded-2xl border border-stone-200/90 bg-white p-5"
-              >
-                <span className="font-mono text-[11px] font-semibold text-[#2f5a45]">
-                  {String(i + 1).padStart(2, '0')}
-                </span>
-                <h3 className="mt-2 text-lg font-semibold text-stone-900">{step.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-stone-600">{step.body}</p>
-              </li>
-            ))}
-          </ol>
+          <JourneyPath steps={JOURNEY} />
         </div>
       </section>
 
@@ -697,144 +727,154 @@ export function MarketingLanding() {
               Capabilities organised around outcomes — not a module catalogue.
             </p>
           </div>
-          <div className="mt-12 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-            {CAPABILITY_CATEGORIES.map((cat) => (
-              <div
-                key={cat.title}
-                className="rounded-2xl border border-stone-200/90 bg-[#f3f1ec] p-5 sm:p-6"
-              >
-                <h3 className="text-base font-semibold text-stone-900">{cat.title}</h3>
-                <ul className="mt-4 space-y-2">
-                  {cat.items.map((item) => (
-                    <li key={item} className="text-sm text-stone-600">
-                      {item}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Walk-in visibility */}
-      <section className="border-b border-stone-200/70 bg-[#f3f1ec] px-5 py-16 sm:px-8 sm:py-24">
-        <div className="mx-auto max-w-3xl text-center">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#2f5a45]">
-            Every visit counts
-          </p>
-          <h2 className="mt-3 text-3xl font-semibold tracking-tight text-stone-900 sm:text-4xl">
-            You Shouldn&apos;t Need Every Visitor on an App to Understand the Floor
-          </h2>
-          <p className="mt-4 text-base leading-relaxed text-stone-600">
-            NeatMeet helps salons distinguish overall visits from identifiable customer
-            relationships. A visit can contribute to your understanding of customer activity even
-            when the visitor has not yet become a fully identified CRM customer. When contact
-            details are captured appropriately, that visit can connect to the customer&apos;s history
-            and relationship with the salon.
-          </p>
+          <CapabilitySwitcher categories={[...CAPABILITY_CATEGORIES]} />
         </div>
       </section>
 
       {/* Retention */}
-      <section className="border-b border-stone-200/70 bg-[#ebe8e1] px-5 py-16 sm:px-8 sm:py-24">
+      <section className="border-b border-stone-200/70 bg-[#f3f1ec] px-5 py-16 sm:px-8 sm:py-24">
         <div className="mx-auto max-w-6xl">
-          <div className="mx-auto max-w-2xl text-center">
-            <h2 className="text-3xl font-semibold tracking-tight text-stone-900 sm:text-4xl">
-              The Next Visit Is Where Growth Happens
-            </h2>
-            <p className="mt-4 text-base leading-relaxed text-stone-600">
-              Getting a customer through the door is only the beginning. NeatMeet helps you
-              understand what happens after the appointment — and gives your team tools to encourage
-              the next visit.
-            </p>
-          </div>
-          <ul className="mx-auto mt-10 grid max-w-4xl gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {[
-              'Next-visit booking',
-              'Reminders',
-              'Customer follow-up',
-              'Loyalty',
-              'Memberships',
-              'Win-back marketing',
-              'Customer history',
-              'Targeted communication',
-            ].map((item) => (
-              <li
-                key={item}
-                className="rounded-xl border border-stone-200/80 bg-white px-4 py-3 text-center text-sm font-medium text-stone-800"
-              >
-                {item}
-              </li>
-            ))}
-          </ul>
-          <div className="mt-10 flex justify-center">
-            <AssessmentLink
-              eventLabel="retention_section"
-              className="rounded-lg bg-[#2f5a45] px-5 py-3 text-sm font-semibold text-white hover:bg-[#264a39]"
-            >
-              See How NeatMeet Helps Customers Come Back
-            </AssessmentLink>
+          <div className="grid items-center gap-10 lg:grid-cols-[1.1fr_0.9fr]">
+            <div>
+              <h2 className="text-3xl font-semibold tracking-tight text-stone-900 sm:text-4xl">
+                The Next Visit Is Where Growth Happens
+              </h2>
+              <p className="mt-4 text-base leading-relaxed text-stone-600">
+                Getting a customer through the door is only the beginning. NeatMeet helps you
+                understand what happens after the appointment — and gives your team tools to
+                encourage the next visit.
+              </p>
+              <div className="mt-8 flex flex-wrap gap-2">
+                {[
+                  'Next-visit booking',
+                  'Reminders',
+                  'Customer follow-up',
+                  'Loyalty',
+                  'Memberships',
+                  'Win-back marketing',
+                  'Customer history',
+                  'Targeted communication',
+                ].map((item) => (
+                  <span
+                    key={item}
+                    className="rounded-full bg-white px-3 py-1.5 text-xs font-medium text-stone-700 ring-1 ring-stone-200/80"
+                  >
+                    {item}
+                  </span>
+                ))}
+              </div>
+              <p className="mt-8">
+                <AssessmentLink
+                  eventLabel="retention_section"
+                  className="text-sm font-semibold text-[#2f5a45] underline-offset-4 hover:underline"
+                >
+                  See how NeatMeet helps customers come back →
+                </AssessmentLink>
+              </p>
+            </div>
+            <div className="relative overflow-hidden rounded-2xl border border-stone-200/90 bg-white shadow-lg">
+              <div className="grid grid-cols-2 divide-x divide-stone-100">
+                <div className="p-5 sm:p-6">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-400">
+                    Today
+                  </p>
+                  <p className="mt-3 text-sm font-semibold text-stone-900">Appointment complete</p>
+                  <p className="mt-2 text-xs leading-relaxed text-stone-500">
+                    Service paid. Chair free. Story ends if nothing follows.
+                  </p>
+                </div>
+                <div className="bg-[#2f5a45]/5 p-5 sm:p-6">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#2f5a45]">
+                    Next
+                  </p>
+                  <p className="mt-3 text-sm font-semibold text-stone-900">Return planned</p>
+                  <p className="mt-2 text-xs leading-relaxed text-stone-600">
+                    Next visit booked. Reminder queued. Loyalty recognised.
+                  </p>
+                </div>
+              </div>
+              <div className="border-t border-stone-100 px-5 py-3 text-center text-[11px] font-medium text-stone-500">
+                Before the appointment → after the appointment
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
       {/* Action centre */}
-      <section className="border-b border-stone-200/70 bg-[#f3f1ec] px-5 py-16 sm:px-8 sm:py-24">
+      <section className="border-b border-stone-200/70 bg-[#ebe8e1] px-5 py-16 sm:px-8 sm:py-24">
         <div className="mx-auto max-w-6xl">
-          <div className="mx-auto max-w-2xl text-center">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#2f5a45]">
-              Turn insight into action
-            </p>
-            <h2 className="mt-3 text-3xl font-semibold tracking-tight text-stone-900 sm:text-4xl">
-              Don&apos;t Just See the Numbers. Know What to Do Next.
-            </h2>
-            <p className="mt-4 text-base leading-relaxed text-stone-600">
-              A useful dashboard should not leave you staring at charts. NeatMeet is designed to
-              help you identify customers and business situations that deserve attention.
-            </p>
-          </div>
-          <ul className="mx-auto mt-10 grid max-w-4xl gap-3 sm:grid-cols-2">
-            {[
-              'Customers to follow up with',
-              'Customers due for another visit',
-              'Inactive customers',
-              'Failed or pending payments',
-              'Customers eligible for offers',
-              'Loyalty opportunities',
-              'Estimated repeat-revenue opportunities',
-            ].map((item) => (
-              <li
-                key={item}
-                className="rounded-xl border border-stone-200/90 bg-white px-4 py-3.5 text-sm text-stone-700"
-              >
-                {item}
-              </li>
-            ))}
-          </ul>
-          <div className="mt-10 flex justify-center">
-            <AssessmentLink
-              eventLabel="action_section"
-              className="rounded-lg bg-[#2f5a45] px-5 py-3 text-sm font-semibold text-white hover:bg-[#264a39]"
-            >
-              Discover Your Growth Opportunities
-            </AssessmentLink>
+          <div className="grid items-start gap-10 lg:grid-cols-[0.95fr_1.05fr]">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#2f5a45]">
+                Turn insight into action
+              </p>
+              <h2 className="mt-3 text-3xl font-semibold tracking-tight text-stone-900 sm:text-4xl">
+                Don&apos;t Just See the Numbers. Know What to Do Next.
+              </h2>
+              <p className="mt-4 text-base leading-relaxed text-stone-600">
+                A useful dashboard should not leave you staring at charts. NeatMeet is designed to
+                help you identify customers and business situations that deserve attention.
+              </p>
+              <p className="mt-6">
+                <AssessmentLink
+                  eventLabel="action_section"
+                  className="text-sm font-semibold text-[#2f5a45] underline-offset-4 hover:underline"
+                >
+                  Discover your growth opportunities →
+                </AssessmentLink>
+              </p>
+            </div>
+            <ul className="space-y-3">
+              {[
+                {
+                  tone: 'border-amber-200/80 bg-amber-50/80',
+                  label: 'Due soon',
+                  body: 'Customers due for another visit',
+                },
+                {
+                  tone: 'border-rose-200/80 bg-rose-50/70',
+                  label: 'Needs attention',
+                  body: 'Inactive customers · Failed or pending payments',
+                },
+                {
+                  tone: 'border-emerald-200/80 bg-emerald-50/70',
+                  label: 'Opportunity',
+                  body: 'Loyalty · Offers · Estimated repeat-revenue opportunities',
+                },
+                {
+                  tone: 'border-stone-200 bg-white',
+                  label: 'Follow up',
+                  body: 'Customers to follow up with · Eligible for offers',
+                },
+              ].map((ticket) => (
+                <li
+                  key={ticket.label}
+                  className={`rounded-xl border px-4 py-3.5 ${ticket.tone}`}
+                >
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500">
+                    {ticket.label}
+                  </p>
+                  <p className="mt-1 text-sm font-medium text-stone-800">{ticket.body}</p>
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
       </section>
 
       {/* Imagine your day */}
-      <section className="border-b border-stone-200/70 bg-[#ebe8e1] px-5 py-16 sm:px-8 sm:py-24">
+      <section className="border-b border-stone-200/70 bg-[#f3f1ec] px-5 py-16 sm:px-8 sm:py-24">
         <div className="mx-auto max-w-6xl">
           <div className="mx-auto max-w-2xl text-center">
             <h2 className="text-3xl font-semibold tracking-tight text-stone-900 sm:text-4xl">
               Run the Salon. Understand the Business. Grow the Customer Base.
             </h2>
           </div>
-          <div className="mt-12 grid gap-6 lg:grid-cols-2">
-            <div className="rounded-2xl border border-stone-200 bg-white p-6 sm:p-8">
-              <h3 className="text-lg font-semibold text-stone-900">Instead of</h3>
-              <ul className="mt-5 space-y-3">
+          <div className="mt-12 overflow-hidden rounded-2xl border border-stone-200/90 shadow-sm lg:grid lg:grid-cols-2">
+            <div className="bg-stone-800 px-6 py-8 text-stone-100 sm:px-8 sm:py-10">
+              <h3 className="text-lg font-semibold text-white">Instead of</h3>
+              <ul className="mt-6 space-y-3">
                 {[
                   'Juggling disconnected systems',
                   'Guessing which customers will return',
@@ -842,16 +882,16 @@ export function MarketingLanding() {
                   'Relying on spreadsheets',
                   'Trying to understand reports',
                 ].map((item) => (
-                  <li key={item} className="flex gap-3 text-sm text-stone-600">
-                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-stone-300" aria-hidden />
+                  <li key={item} className="flex gap-3 text-sm text-stone-300">
+                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-stone-500" aria-hidden />
                     {item}
                   </li>
                 ))}
               </ul>
             </div>
-            <div className="rounded-2xl border border-[#2f5a45]/25 bg-[#2f5a45] p-6 text-white sm:p-8">
+            <div className="bg-[#2f5a45] px-6 py-8 text-white sm:px-8 sm:py-10">
               <h3 className="text-lg font-semibold">You can</h3>
-              <ul className="mt-5 space-y-3">
+              <ul className="mt-6 space-y-3">
                 {[
                   'Manage bookings',
                   'Serve customers',
@@ -875,17 +915,25 @@ export function MarketingLanding() {
       </section>
 
       {/* Trust */}
-      <section className="border-b border-stone-200/70 bg-[#f3f1ec] px-5 py-12 sm:px-8">
-        <div className="mx-auto max-w-6xl text-center">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#2f5a45]">
+      <section className="border-b border-stone-200/70 bg-[#ebe8e1] px-5 py-10 sm:px-8">
+        <div className="mx-auto flex max-w-6xl flex-col items-center gap-4 sm:flex-row sm:gap-6">
+          <p className="shrink-0 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#2f5a45]">
             Built for
           </p>
-          <p className="mt-3 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm font-medium text-stone-700">
-            <span>Hair salons</span>
-            <span>Barbershops</span>
-            <span>Beauty studios</span>
-            <span>Spas</span>
-            <span>Multi-location beauty businesses</span>
+          <div className="hidden h-px flex-1 bg-stone-300/80 sm:block" aria-hidden />
+          <p className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm font-medium text-stone-700">
+            {['Hair salons', 'Barbershops', 'Beauty studios', 'Spas', 'Multi-location'].map(
+              (label, i, arr) => (
+                <span key={label} className="inline-flex items-center gap-5">
+                  {label}
+                  {i < arr.length - 1 ? (
+                    <span className="hidden text-stone-300 sm:inline" aria-hidden>
+                      ·
+                    </span>
+                  ) : null}
+                </span>
+              ),
+            )}
           </p>
         </div>
       </section>
@@ -906,15 +954,15 @@ export function MarketingLanding() {
             </p>
           </div>
 
-          <div className="mt-12 grid gap-5 lg:grid-cols-3">
+          <div className="mt-12 grid items-stretch gap-5 lg:grid-cols-3 lg:gap-4">
             {PRICING.map((plan) => (
               <div
                 key={plan.slug}
                 className={[
                   'relative flex flex-col rounded-2xl border p-6 sm:p-7',
                   plan.featured
-                    ? 'border-[#2f5a45] bg-white shadow-lg shadow-[#2f5a45]/10'
-                    : 'border-stone-200/90 bg-[#f3f1ec]',
+                    ? 'z-10 border-[#2f5a45] bg-white shadow-xl shadow-[#2f5a45]/15 lg:-my-3 lg:scale-[1.03]'
+                    : 'border-stone-200/80 bg-[#f3f1ec]/80',
                 ].join(' ')}
               >
                 {plan.featured ? (
@@ -933,7 +981,9 @@ export function MarketingLanding() {
                 <ul className="mt-6 flex-1 space-y-2.5">
                   {plan.outcomes.map((item) => (
                     <li key={item} className="flex gap-2 text-sm text-stone-700">
-                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#2f5a45]" aria-hidden />
+                      <span className="mt-0.5 text-[#2f5a45]" aria-hidden>
+                        ✓
+                      </span>
                       {item}
                     </li>
                   ))}
@@ -976,51 +1026,51 @@ export function MarketingLanding() {
 
       {/* Trial */}
       <section id="trial" className="bg-[#2f5a45] px-5 py-16 text-white sm:px-8 sm:py-24">
-        <div className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-[1.2fr_0.8fr] lg:items-center">
-          <div>
+        <div className="mx-auto max-w-6xl">
+          <div className="max-w-2xl">
             <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">
               Ready to See What NeatMeet Can Do for Your Salon?
             </h2>
-            <p className="mt-4 max-w-xl text-base leading-relaxed text-white/85">
+            <p className="mt-4 text-base leading-relaxed text-white/85">
               Start with a free Salon Growth Assessment to see where you stand — or begin your
               30-day free trial and experience one connected system for running your salon,
               understanding your customers and building stronger repeat business.
             </p>
-            <div className="mt-8 flex flex-wrap gap-3">
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-5">
               <AssessmentLink
                 eventLabel="final_assessment"
-                className="rounded-lg bg-white px-5 py-3.5 text-sm font-semibold text-[#2f5a45] hover:bg-[#f3f1ec]"
+                className="inline-flex items-center justify-center rounded-lg bg-white px-5 py-3.5 text-sm font-semibold text-[#2f5a45] hover:bg-[#f3f1ec]"
               >
                 Get Your Free Growth Assessment
               </AssessmentLink>
               <TrialLink
                 href={signupHref}
                 eventLabel="final_trial"
-                className="rounded-lg border border-white/35 px-5 py-3.5 text-sm font-semibold text-white hover:bg-white/10"
+                className="text-sm font-semibold text-white/90 underline-offset-4 hover:underline"
               >
-                Start 30-Day Free Trial
+                Start 30-Day Free Trial →
               </TrialLink>
             </div>
             <p className="mt-4 text-sm text-white/70">
               No card required to start · Cancel anytime · Import your clients
             </p>
           </div>
-          <div className="rounded-2xl border border-white/15 bg-[#264a39]/80 p-6 sm:p-7">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-white/70">
-              Conversion path
-            </p>
-            <ol className="mt-4 space-y-3 text-sm text-white/90">
-              <li>1. Assess how your salon is performing</li>
-              <li>2. See indicative growth and opportunity scores</li>
-              <li>3. Start a trial when you are ready to act</li>
-            </ol>
-            <p className="mt-6 border-t border-white/15 pt-4 text-[11px] text-white/55">
-              Already have login details?{' '}
+          <ol className="mt-10 flex flex-col gap-3 border-t border-white/15 pt-8 text-sm text-white/85 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-6 sm:gap-y-2">
+            <li className="font-semibold text-white">1. Assess</li>
+            <li className="hidden text-white/40 sm:inline" aria-hidden>
+              →
+            </li>
+            <li className="font-semibold text-white">2. See your scores</li>
+            <li className="hidden text-white/40 sm:inline" aria-hidden>
+              →
+            </li>
+            <li className="font-semibold text-white">3. Start a trial when ready</li>
+            <li className="sm:ml-auto">
               <Link href="/login" className="font-semibold text-white underline-offset-2 hover:underline">
                 Sign in
               </Link>
-            </p>
-          </div>
+            </li>
+          </ol>
         </div>
       </section>
 
