@@ -419,8 +419,8 @@ export function MarketingLanding() {
           <div className="text-center">
             <NeatMeetLogo
               size={48}
-              variant="color"
-              className="mx-auto mb-5 shadow-lg shadow-black/30"
+              variant="onDark"
+              className="mx-auto mb-5"
             />
             <p className="text-[11px] font-semibold tracking-[0.16em] text-white/80 uppercase sm:tracking-[0.2em] sm:text-xs">
               NeatMeet OS — The Salon Growth Operating System
@@ -735,7 +735,7 @@ export function MarketingLanding() {
             <div className="min-w-0">
               <h2 className="text-[clamp(1.5rem,4vw,2.25rem)] font-semibold tracking-tight text-balance text-stone-900 sm:text-4xl">
                 The{' '}
-                <span className="text-[#2f5a45]">Next Visit Is</span> Where{' '}
+                <span className="text-[#2f5a45]">Next Visit</span> Is Where{' '}
                 <span className="text-[#2f5a45]">Growth Happens</span>
               </h2>
               <p className="mt-4 text-base leading-relaxed text-stone-600">

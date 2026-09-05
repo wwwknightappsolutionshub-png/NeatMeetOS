@@ -3,17 +3,18 @@ import Image from 'next/image';
 type Props = {
   size?: number;
   withWordmark?: boolean;
-  /** color = green mark; inverse/onDark = mark on white tile for dark chrome */
+  /** color = green mark on light UI; inverse/onDark = white mark on dark UI */
   variant?: 'color' | 'inverse' | 'onDark';
   className?: string;
   wordmarkClassName?: string;
 };
 
-const MARK_SRC = '/brand/neatmeet-mark.png';
+const MARK_COLOR = '/brand/neatmeet-mark.png';
+const MARK_WHITE = '/brand/neatmeet-mark-white.png';
 
 /**
  * NeatMeet OS brand mark — shared across marketing, auth, admin, platform, and PWA.
- * Always uses the canonical chair + calendar mark asset.
+ * Green mark on light backgrounds; white mark on dark backgrounds.
  */
 export function NeatMeetLogo({
   size = 32,
@@ -23,23 +24,9 @@ export function NeatMeetLogo({
   wordmarkClassName = '',
 }: Props) {
   const onDark = variant !== 'color';
-  const mark = onDark ? (
-    <span
-      className="inline-flex overflow-hidden rounded-[22%] bg-white"
-      style={{ width: size, height: size }}
-    >
-      <Image
-        src={MARK_SRC}
-        alt="NeatMeet OS"
-        width={size}
-        height={size}
-        className="object-contain p-[14%]"
-        priority={size >= 40}
-      />
-    </span>
-  ) : (
+  const mark = (
     <Image
-      src={MARK_SRC}
+      src={onDark ? MARK_WHITE : MARK_COLOR}
       alt="NeatMeet OS"
       width={size}
       height={size}
@@ -72,7 +59,7 @@ export function NeatMeetLogo({
   );
 }
 
-/** @deprecated Prefer NeatMeetLogo — kept for rare SVG-only needs */
+/** @deprecated Prefer NeatMeetLogo */
 export function NeatMeetMarkSvg({
   size = 32,
   inverse = false,
@@ -83,10 +70,6 @@ export function NeatMeetMarkSvg({
   className?: string;
 }) {
   return (
-    <NeatMeetLogo
-      size={size}
-      variant={inverse ? 'onDark' : 'color'}
-      className={className}
-    />
+    <NeatMeetLogo size={size} variant={inverse ? 'onDark' : 'color'} className={className} />
   );
 }

@@ -18,7 +18,7 @@ export function CapabilitySwitcher({
   return (
     <div className="mt-12 overflow-hidden rounded-2xl border border-stone-200/90 bg-white shadow-sm">
       <div
-        className="flex gap-1 overflow-x-auto border-b border-stone-100 bg-[#f8f7f4] p-2 sm:flex-wrap"
+        className="flex justify-center gap-1 overflow-x-auto border-b border-stone-100 bg-[#f8f7f4] p-2 sm:flex-wrap sm:justify-center"
         role="tablist"
         aria-label="Platform capability categories"
       >
@@ -33,7 +33,7 @@ export function CapabilitySwitcher({
               id={`cap-tab-${i}`}
               aria-controls={`cap-panel-${i}`}
               className={[
-                'shrink-0 rounded-lg px-3 py-2 text-left text-sm font-medium transition',
+                'shrink-0 rounded-lg px-3 py-2 text-center text-sm font-medium transition',
                 selected
                   ? 'bg-[#2f5a45] text-white shadow-sm'
                   : 'text-stone-600 hover:bg-white hover:text-stone-900',
