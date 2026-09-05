@@ -12,6 +12,11 @@ interface AdminAnalyticsShellProps {
 const links = [
   { href: '/admin/analytics', label: 'Overview', match: (p: string) => p === '/admin/analytics' },
   {
+    href: '/admin/analytics/intelligence',
+    label: 'Intelligence',
+    match: (p: string) => p.startsWith('/admin/analytics/intelligence'),
+  },
+  {
     href: '/admin/analytics/bookings',
     label: 'Bookings',
     match: (p: string) => p.startsWith('/admin/analytics/bookings'),

@@ -6,6 +6,7 @@ use App\Domains\Analytics\Services\AnalyticsDateRangeResolver;
 use App\Domains\Analytics\Services\AnalyticsOverviewService;
 use App\Domains\Analytics\Services\AnalyticsScopeValidator;
 use App\Domains\Analytics\Services\BookingAnalyticsService;
+use App\Domains\Analytics\Services\BusinessPerformanceIntelligenceService;
 use App\Domains\Analytics\Services\ClientAnalyticsService;
 use App\Domains\Analytics\Services\CommunicationsAnalyticsService;
 use App\Domains\Analytics\Services\InventoryAnalyticsService;
@@ -30,6 +31,7 @@ class AnalyticsController extends Controller
         private readonly ClientAnalyticsService $clientAnalytics,
         private readonly InventoryAnalyticsService $inventoryAnalytics,
         private readonly CommunicationsAnalyticsService $communicationsAnalytics,
+        private readonly BusinessPerformanceIntelligenceService $businessIntelligence,
     ) {}
 
     public function overview(Request $request): JsonResponse
@@ -83,6 +85,22 @@ class AnalyticsController extends Controller
 
         return ApiResponse::success(
             $this->communicationsAnalytics->report($this->scope->tenantId(), $range),
+        );
+    }
+
+    public function intelligence(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'location_id' => ['nullable', 'uuid'],
+            'provider_id' => ['nullable', 'uuid'],
+        ]);
+
+        return ApiResponse::success(
+            $this->businessIntelligence->report(
+                $this->scope->tenantId(),
+                $data['location_id'] ?? null,
+                $data['provider_id'] ?? null,
+            ),
         );
     }
 

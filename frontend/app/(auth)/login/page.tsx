@@ -136,6 +136,7 @@ function LoginAuthPage() {
   const referralCode = resolveReferralCode(searchParams.get('ref')) ?? '';
   const forceSignupOnly = searchParams.get('tab') === 'signup';
   const wantSignup = forceSignupOnly || Boolean(referralCode);
+  const planFromQuery = (searchParams.get('plan') ?? '').trim().toLowerCase();
   const emailFromQuery = (searchParams.get('email') ?? '').trim();
 
   const [tab, setTab] = useState<AuthTab>(
@@ -234,8 +235,13 @@ function LoginAuthPage() {
     void fetchSignupForm()
       .then((form) => {
         setSignupForm(form);
+        const allowed = new Set(form.plans.map((p) => p.slug));
+        const preferredPlan =
+          planFromQuery && allowed.has(planFromQuery)
+            ? planFromQuery
+            : form.default_plan_slug;
         setAnswers((prev) => ({
-          desired_plan_slug: form.default_plan_slug,
+          desired_plan_slug: preferredPlan,
           timezone: 'Europe/London',
           country: 'GB',
           ...prev,
@@ -252,7 +258,7 @@ function LoginAuthPage() {
         setError(e instanceof Error ? e.message : 'Could not load signup form');
       })
       .finally(() => setSignupLoading(false));
-  }, [tab, signupForm, awaitingTempPassword]);
+  }, [tab, signupForm, awaitingTempPassword, planFromQuery]);
 
   const steps = signupForm?.steps ?? [];
   const currentStep = steps[signupStep];

@@ -20,9 +20,9 @@ const SITE_URL = (
   'https://neatmeet.prohost.cloud'
 ).replace(/\/$/, '');
 
-const OG_TITLE = 'NeatMeet OS — Salon operating system';
+const OG_TITLE = 'NeatMeet OS — Salon Growth & Customer Retention Platform';
 const OG_DESCRIPTION =
-  'Your Daily Beauty & Grooming Operations Made Easier. Start a 30-day free trial.';
+  'Grow your salon with smarter customer management, loyalty, retention, marketing and business performance intelligence. Start your free salon growth assessment or 30-day trial.';
 /** JPEG under ~100KB — WhatsApp often drops large PNG previews. */
 const OG_IMAGE_PATH = '/brand/og-landing.jpg';
 const OG_IMAGE_URL = `${SITE_URL}${OG_IMAGE_PATH}`;
@@ -44,7 +44,7 @@ export const metadata: Metadata = {
         secureUrl: OG_IMAGE_URL,
         width: 1200,
         height: 630,
-        alt: 'NeatMeet OS — salon operating system. Start a 30-day free trial.',
+        alt: 'NeatMeet OS — salon growth and customer retention platform',
         type: 'image/jpeg',
       },
     ],

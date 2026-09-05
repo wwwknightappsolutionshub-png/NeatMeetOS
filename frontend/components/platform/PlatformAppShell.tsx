@@ -79,6 +79,12 @@ const navGroups: Array<{ title: string; links: NavLink[] }> = [
         code: 'RF',
         match: (p) => p.startsWith('/platform/referrals'),
       },
+      {
+        href: '/platform/growth-assessments',
+        label: 'Growth assessments',
+        code: 'GA',
+        match: (p) => p.startsWith('/platform/growth-assessments'),
+      },
     ],
   },
   {

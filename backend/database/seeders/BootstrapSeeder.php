@@ -24,11 +24,11 @@ class BootstrapSeeder extends Seeder
 
         app(SignupFormDefinitionService::class)->ensureDefaultActive();
 
-        $basicPlan = SubscriptionPlan::query()->firstOrCreate(
+        $basicPlan = SubscriptionPlan::query()->updateOrCreate(
             ['slug' => 'basic'],
             [
                 'name' => 'Basic',
-                'description' => 'Essentials for a single salon — booking, CRM capture, and day-to-day ops.',
+                'description' => 'For independent professionals and smaller salons getting organised — booking, CRM and day-to-day ops.',
                 'billing_interval' => SubscriptionPlan::INTERVAL_MONTHLY,
                 'features' => [
                     'booking' => true,
@@ -45,16 +45,16 @@ class BootstrapSeeder extends Seeder
                     'ecommerce' => false,
                 ],
                 'limits' => ['max_locations' => 1, 'max_staff' => 5, 'max_workspaces' => 10],
-                'display_price_cents' => 4900,
+                'display_price_cents' => 5900,
                 'is_active' => true,
             ],
         );
 
-        SubscriptionPlan::query()->firstOrCreate(
+        SubscriptionPlan::query()->updateOrCreate(
             ['slug' => 'pro'],
             [
-                'name' => 'Pro',
-                'description' => 'Growing teams — POS, inventory, memberships, and multi-chair workflows.',
+                'name' => 'Advanced',
+                'description' => 'For growing salons that want stronger retention, loyalty and business intelligence.',
                 'billing_interval' => SubscriptionPlan::INTERVAL_MONTHLY,
                 'features' => [
                     'booking' => true,
@@ -71,16 +71,16 @@ class BootstrapSeeder extends Seeder
                     'ecommerce' => false,
                 ],
                 'limits' => ['max_locations' => 5, 'max_staff' => 25, 'max_workspaces' => 50],
-                'display_price_cents' => 12900,
+                'display_price_cents' => 9900,
                 'is_active' => true,
             ],
         );
 
-        SubscriptionPlan::query()->firstOrCreate(
+        SubscriptionPlan::query()->updateOrCreate(
             ['slug' => 'diamond'],
             [
                 'name' => 'Diamond',
-                'description' => 'Multi-location brands — full suite, advanced analytics, and priority platform support.',
+                'description' => 'For established or multi-location businesses that need deeper growth control.',
                 'billing_interval' => SubscriptionPlan::INTERVAL_MONTHLY,
                 'features' => [
                     'booking' => true,
@@ -97,7 +97,7 @@ class BootstrapSeeder extends Seeder
                     'ecommerce' => true,
                 ],
                 'limits' => ['max_locations' => 25, 'max_staff' => 200, 'max_workspaces' => 500],
-                'display_price_cents' => 29900,
+                'display_price_cents' => 17900,
                 'is_active' => true,
             ],
         );

@@ -19,10 +19,35 @@ Read-only operational analytics domain. Aggregates KPIs across CRM, Booking, Pay
 | GET | `/analytics/clients` | `from`, `to`, `location_id` | Client growth, tags, consent uptake, membership attachment |
 | GET | `/analytics/inventory` | `from`, `to`, `location_id` | Low stock snapshot, movement breakdown, top consumed items |
 | GET | `/analytics/communications` | `from`, `to` | Marketing + Notifications operational delivery summary |
+| GET | `/analytics/intelligence` | `location_id`, `provider_id` | Business Performance Intelligence (5 sections; action-oriented) |
 
 All routes require `analytics.view`. Owner and Manager roles receive both `analytics.view` and `analytics.reporting.view` (reserved for future granular reporting surfaces in 21B).
 
-Default date window when `from`/`to` omitted: **last 30 days** (inclusive).
+Default date window when `from`/`to` omitted: **last 30 days** (inclusive). Intelligence uses fixed today / week-to-date / month-to-date windows (see metric doc).
+
+## Module 12C — Business Performance Intelligence
+
+Action-oriented owner dashboard. Canonical formulas live in `docs/BUSINESS_PERFORMANCE_INTELLIGENCE_METRICS.md`.
+
+### Sections
+
+1. **Business performance** — customers served (today/week/month), revenue, average spend, new vs returning, walk-ins, online
+2. **Customer intelligence** — identified vs anonymous visibility, returning/first-time rates
+3. **Repeat revenue opportunity** — due soon / overdue pools × average spend
+4. **Action center** — countable tasks with deep links into Marketing, Payments, Memberships, CRM join QR, Next Visit
+5. **Business insights** — rule-based explanatory copy (no ML)
+
+### Service
+
+| Service | Responsibility |
+|---------|----------------|
+| `BusinessPerformanceIntelligenceService` | Live aggregation + action tasks + insights |
+
+### Tests
+
+| File | Coverage |
+|------|----------|
+| `tests/Feature/Module12CBusinessPerformanceIntelligenceTest.php` | Payload shape, visibility math, permission gate, tenant isolation |
 
 ## Module 12B ? Saved reports & exports
 

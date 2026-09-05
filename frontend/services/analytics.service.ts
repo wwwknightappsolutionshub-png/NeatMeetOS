@@ -7,6 +7,7 @@ import type {
   AnalyticsSavedReport,
   AnalyticsScopedFilters,
   BookingAnalytics,
+  BusinessPerformanceIntelligence,
   ClientAnalytics,
   CommunicationsAnalytics,
   ExportCreatePayload,
@@ -66,6 +67,16 @@ export async function fetchCommunicationsAnalytics(
   params?: AnalyticsDateFilters,
 ): Promise<CommunicationsAnalytics> {
   return api<CommunicationsAnalytics>(`/admin/analytics/communications${buildQuery(params as QueryParams | undefined)}`, auth);
+}
+
+export async function fetchBusinessPerformanceIntelligence(params?: {
+  location_id?: string;
+  provider_id?: string;
+}): Promise<BusinessPerformanceIntelligence> {
+  return api<BusinessPerformanceIntelligence>(
+    `/admin/analytics/intelligence${buildQuery(params as QueryParams | undefined)}`,
+    auth,
+  );
 }
 
 // ── Module 12B — Saved reports ────────────────────────────────────────────────

@@ -44,7 +44,12 @@ export default function AnalyticsOverviewPage() {
 
       {data ? (
         <>
-          <p className="mb-4 text-xs text-zinc-500">Window: {formatRangeLabel(data.range)}</p>
+          <p className="mb-4 text-xs text-zinc-500">
+            Window: {formatRangeLabel(data.range)} ·{' '}
+            <a href="/admin/analytics/intelligence" className="font-medium text-zinc-700 underline">
+              Open Business Performance Intelligence
+            </a>
+          </p>
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <AnalyticsStatCard

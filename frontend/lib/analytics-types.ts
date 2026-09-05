@@ -100,6 +100,72 @@ export interface AnalyticsOverview {
   notifications: OverviewNotifications;
 }
 
+// ── Business Performance Intelligence (12C) ──────────────────────────────────
+
+export interface BusinessPerformanceKpis {
+  customers_served_today: number;
+  customers_served_week: number;
+  customers_served_month: number;
+  total_revenue_cents: number;
+  average_spend_cents: number;
+  new_customers_month: number;
+  returning_customers_month: number;
+  walk_ins_month: number;
+  online_bookings_month: number;
+}
+
+export interface CustomerIntelligenceKpis {
+  identified_served_month: number;
+  anonymous_served_month: number;
+  visibility_rate: number;
+  returning_rate: number;
+  first_time_rate: number;
+  unidentified_gap_count: number;
+}
+
+export interface RepeatRevenueOpportunity {
+  typical_cycle_days: number;
+  avg_identified_spend_cents: number;
+  clients_due_soon: number;
+  clients_overdue: number;
+  estimated_opportunity_cents: number;
+  crm_joiners_without_visit: number;
+}
+
+export interface IntelligenceActionTask {
+  key: string;
+  label: string;
+  count: number;
+  href: string;
+  why: string;
+}
+
+export interface BusinessInsight {
+  code: string;
+  severity: 'info' | 'warning' | 'success';
+  message: string;
+  action_href?: string | null;
+}
+
+export interface BusinessPerformanceIntelligence {
+  generated_at: string;
+  windows: {
+    today: AnalyticsRange;
+    week: AnalyticsRange;
+    month: AnalyticsRange;
+  };
+  business_performance: BusinessPerformanceKpis;
+  customer_intelligence: CustomerIntelligenceKpis;
+  repeat_revenue_opportunity: RepeatRevenueOpportunity;
+  action_center: IntelligenceActionTask[];
+  business_insights: BusinessInsight[];
+  metric_definitions_doc: string;
+}
+
+export function formatPercentRate(rate: number): string {
+  return `${Math.round(rate * 100)}%`;
+}
+
 // ── Bookings ─────────────────────────────────────────────────────────────────
 
 export interface BookingSummary {

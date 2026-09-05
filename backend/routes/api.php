@@ -25,6 +25,8 @@ use App\Domains\Ecommerce\Http\Controllers\Admin\EcommerceProductController;
 use App\Domains\Ecommerce\Http\Controllers\ShopController;
 use App\Domains\Gallery\Http\Controllers\Admin\GalleryWorkController;
 use App\Domains\Gallery\Http\Controllers\PublicGalleryController;
+use App\Domains\GrowthAssessment\Http\Controllers\Platform\PlatformSalonGrowthAssessmentController;
+use App\Domains\GrowthAssessment\Http\Controllers\Public\PublicSalonGrowthAssessmentController;
 use App\Domains\Lookbook\Http\Controllers\Admin\LookbookItemController;
 use App\Domains\Money\Http\Controllers\Admin\MoneyNotebookController;
 use App\Domains\Lookbook\Http\Controllers\PublicLookbookController;
@@ -140,6 +142,12 @@ Route::prefix('v1')->group(function () {
     Route::post('/auth/magic-link/consume', [AuthLinkController::class, 'consumeMagic'])->middleware(['ip.ban', 'throttle:auth-login', 'turnstile']);
     Route::post('/auth/forgot-password', [AuthLinkController::class, 'requestPasswordReset'])->middleware(['ip.ban', 'throttle:public-signup', 'turnstile']);
     Route::post('/auth/reset-password', [AuthLinkController::class, 'resetPassword'])->middleware(['ip.ban', 'throttle:public-signup', 'turnstile']);
+
+    Route::middleware(['ip.ban', 'throttle:public-signup'])->group(function () {
+        Route::post('/growth-assessments', [PublicSalonGrowthAssessmentController::class, 'store'])->middleware('turnstile');
+        Route::get('/growth-assessments/{token}', [PublicSalonGrowthAssessmentController::class, 'show']);
+        Route::post('/growth-assessments/{token}/whatsapp', [PublicSalonGrowthAssessmentController::class, 'sendWhatsApp'])->middleware('turnstile');
+    });
 
     Route::prefix('signup')->middleware(['ip.ban', 'throttle:public-signup'])->group(function () {
         Route::get('/form', [PublicSignupController::class, 'form']);
@@ -281,7 +289,12 @@ Route::prefix('v1')->group(function () {
         Route::get('/signup-forms', [PlatformSignupFormController::class, 'index']);
         Route::get('/signup-forms/{id}', [PlatformSignupFormController::class, 'show']);
 
+        Route::get('/growth-assessments', [PlatformSalonGrowthAssessmentController::class, 'index']);
+        Route::get('/growth-assessments/{id}', [PlatformSalonGrowthAssessmentController::class, 'show']);
+
         Route::middleware('platform.role:owner,manager')->group(function () {
+            Route::patch('/growth-assessments/{id}', [PlatformSalonGrowthAssessmentController::class, 'update']);
+            Route::put('/growth-assessments/{id}', [PlatformSalonGrowthAssessmentController::class, 'update']);
             Route::post('/tenants/{id}/unlock-tiers', [PlatformAdminController::class, 'unlockTenantTier']);
             Route::post('/tenants/{id}/suspend', [PlatformAdminController::class, 'suspendTenant']);
             Route::post('/tenants/{id}/unsuspend', [PlatformAdminController::class, 'unsuspendTenant']);
@@ -837,6 +850,7 @@ Route::prefix('v1')->group(function () {
             Route::get('/analytics/clients', [AnalyticsController::class, 'clients']);
             Route::get('/analytics/inventory', [AnalyticsController::class, 'inventory']);
             Route::get('/analytics/communications', [AnalyticsController::class, 'communications']);
+            Route::get('/analytics/intelligence', [AnalyticsController::class, 'intelligence']);
         });
 
         // Module 12B — Saved reports + export jobs (read + manage).
