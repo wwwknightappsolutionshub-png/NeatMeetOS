@@ -12,8 +12,11 @@ export const metadata: Metadata = {
     statusBarStyle: 'default',
   },
   icons: {
-    icon: '/admin-icons/icon-192.svg',
-    apple: '/admin-icons/icon-192.svg',
+    icon: [
+      { url: '/admin-icons/icon-192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/admin-icons/icon-512.png', sizes: '512x512', type: 'image/png' },
+    ],
+    apple: '/admin-icons/icon-192.png',
   },
 };
 

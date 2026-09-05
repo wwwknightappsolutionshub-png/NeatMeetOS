@@ -35,7 +35,7 @@ function useInViewOnce<T extends HTMLElement>(rootMargin = '0px 0px -10% 0px') {
   return { ref, inView };
 }
 
-function useCountUp(target: number, active: boolean, durationMs = 1200): number {
+function useCountUp(target: number, active: boolean, durationMs = 2600): number {
   const [value, setValue] = useState(0);
 
   useEffect(() => {
@@ -132,13 +132,13 @@ export function BpiProductPreview({
   className?: string;
 }) {
   const { ref, inView } = useInViewOnce<HTMLDivElement>();
-  const barWidth = useCountUp(68, inView, 1100);
+  const barWidth = useCountUp(68, inView, 2400);
 
   return (
     <div
       ref={ref}
       className={[
-        'overflow-hidden rounded-2xl border border-stone-200/90 bg-white',
+        'min-w-0 overflow-hidden rounded-2xl border border-stone-200/90 bg-white',
         elevated
           ? 'shadow-2xl shadow-stone-900/20 ring-1 ring-black/5'
           : 'shadow-xl shadow-stone-900/5',
@@ -146,19 +146,19 @@ export function BpiProductPreview({
       ].join(' ')}
       aria-label="Illustrative preview of Business Performance Intelligence"
     >
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-stone-100 bg-[#f8f7f4] px-4 py-3 sm:px-5">
-        <div>
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-stone-100 bg-[#f8f7f4] px-3 py-3 sm:px-5">
+        <div className="min-w-0">
           <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#2f5a45]">
             Business Performance Intelligence
           </p>
           <p className="text-sm font-semibold text-stone-900">Salon overview</p>
         </div>
-        <span className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-900">
+        <span className="shrink-0 rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-900">
           Illustrative preview
         </span>
       </div>
 
-      <div className="space-y-5 p-4 sm:p-5">
+      <div className="space-y-5 p-3 sm:p-5">
         <section>
           <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-500">
             Customers served
@@ -172,12 +172,12 @@ export function BpiProductPreview({
             ].map(([label, value]) => (
               <div
                 key={String(label)}
-                className="rounded-xl border border-stone-100 bg-[#f3f1ec]/70 px-3 py-3"
+                className="min-w-0 rounded-xl border border-stone-100 bg-[#f3f1ec]/70 px-2.5 py-3 sm:px-3"
               >
-                <p className="text-[10px] font-medium uppercase tracking-wide text-stone-500">
+                <p className="truncate text-[10px] font-medium uppercase tracking-wide text-stone-500">
                   {label}
                 </p>
-                <p className="mt-1 text-xl font-semibold tabular-nums text-stone-900">
+                <p className="mt-1 text-lg font-semibold tabular-nums text-stone-900 sm:text-xl">
                   <CountInt to={value as number} active={inView} />
                 </p>
               </div>
@@ -224,23 +224,23 @@ export function BpiProductPreview({
               />
             </div>
           </div>
-          <div className="mt-2 grid grid-cols-3 gap-2">
+          <div className="mt-2 grid grid-cols-1 gap-2 min-[420px]:grid-cols-3">
             <div className="rounded-lg border border-stone-100 px-2.5 py-2.5">
               <p className="text-[10px] text-stone-500">Returning %</p>
               <p className="text-sm font-semibold tabular-nums text-stone-900">
-                <CountPercent to={59} active={inView} durationMs={1100} />
+                <CountPercent to={59} active={inView} durationMs={2400} />
               </p>
             </div>
             <div className="rounded-lg border border-stone-100 px-2.5 py-2.5">
               <p className="text-[10px] text-stone-500">First-time %</p>
               <p className="text-sm font-semibold tabular-nums text-stone-900">
-                <CountPercent to={41} active={inView} durationMs={1100} />
+                <CountPercent to={41} active={inView} durationMs={2400} />
               </p>
             </div>
             <div className="rounded-lg border border-stone-100 px-2.5 py-2.5">
               <p className="text-[10px] text-stone-500">Unidentified gap</p>
               <p className="text-sm font-semibold tabular-nums text-stone-900">
-                <CountInt to={228} active={inView} durationMs={1100} />
+                <CountInt to={228} active={inView} durationMs={2400} />
               </p>
             </div>
           </div>
@@ -251,27 +251,27 @@ export function BpiProductPreview({
             Repeat-revenue opportunity
           </p>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <div className="rounded-xl border border-stone-100 bg-white px-3 py-3 shadow-sm">
+            <div className="min-w-0 rounded-xl border border-stone-100 bg-white px-2.5 py-3 shadow-sm sm:px-3">
               <p className="text-[10px] font-medium text-stone-500">Due soon</p>
-              <p className="mt-1 text-lg font-semibold tabular-nums text-stone-900">
+              <p className="mt-1 text-base font-semibold tabular-nums text-stone-900 sm:text-lg">
                 <CountInt to={63} active={inView} />
               </p>
             </div>
-            <div className="rounded-xl border border-stone-100 bg-white px-3 py-3 shadow-sm">
+            <div className="min-w-0 rounded-xl border border-stone-100 bg-white px-2.5 py-3 shadow-sm sm:px-3">
               <p className="text-[10px] font-medium text-stone-500">Overdue / at-risk</p>
-              <p className="mt-1 text-lg font-semibold tabular-nums text-stone-900">
+              <p className="mt-1 text-base font-semibold tabular-nums text-stone-900 sm:text-lg">
                 <CountInt to={41} active={inView} />
               </p>
             </div>
-            <div className="rounded-xl border border-stone-100 bg-white px-3 py-3 shadow-sm">
+            <div className="min-w-0 rounded-xl border border-stone-100 bg-white px-2.5 py-3 shadow-sm sm:px-3">
               <p className="text-[10px] font-medium text-stone-500">Est. opportunity</p>
-              <p className="mt-1 text-lg font-semibold tabular-nums text-stone-900">
-                <CountMoney to={2850} active={inView} durationMs={1400} />
+              <p className="mt-1 text-base font-semibold tabular-nums text-stone-900 sm:text-lg">
+                <CountMoney to={2850} active={inView} durationMs={2800} />
               </p>
             </div>
-            <div className="rounded-xl border border-stone-100 bg-white px-3 py-3 shadow-sm">
+            <div className="min-w-0 rounded-xl border border-stone-100 bg-white px-2.5 py-3 shadow-sm sm:px-3">
               <p className="text-[10px] font-medium text-stone-500">Joiners not visited</p>
-              <p className="mt-1 text-lg font-semibold tabular-nums text-stone-900">
+              <p className="mt-1 text-base font-semibold tabular-nums text-stone-900 sm:text-lg">
                 <CountInt to={17} active={inView} />
               </p>
             </div>

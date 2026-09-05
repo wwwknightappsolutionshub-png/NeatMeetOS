@@ -129,7 +129,7 @@ function notifyOnce(key: string, title: string, body: string): void {
   if (sessionStorage.getItem(key)) return;
   if (Notification.permission !== 'granted') return;
   try {
-    new Notification(title, { body, icon: '/member-icons/icon-192.svg' });
+    new Notification(title, { body, icon: '/member-icons/icon-192.png' });
     sessionStorage.setItem(key, '1');
   } catch {
     // Ignore

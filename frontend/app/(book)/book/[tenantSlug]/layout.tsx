@@ -19,8 +19,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       statusBarStyle: 'default',
     },
     icons: {
-      icon: '/member-icons/icon-192.svg',
-      apple: '/member-icons/icon-192.svg',
+      icon: [
+        { url: '/member-icons/icon-192.png', sizes: '192x192', type: 'image/png' },
+        { url: '/member-icons/icon-512.png', sizes: '512x512', type: 'image/png' },
+      ],
+      apple: '/member-icons/icon-192.png',
     },
     manifest: manifestPath,
   };

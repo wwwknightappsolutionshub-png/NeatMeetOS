@@ -11,6 +11,7 @@ import { BpiProductPreview } from '@/components/marketing/BpiProductPreview';
 import { CapabilitySwitcher } from '@/components/marketing/CapabilitySwitcher';
 import { JourneyPath } from '@/components/marketing/JourneyPath';
 import { LandingFaq } from '@/components/marketing/LandingFaq';
+import { RevealOnScroll } from '@/components/marketing/RevealOnScroll';
 import { trackMarketingEvent } from '@/lib/marketing-events';
 import { resolveReferralCode } from '@/lib/referral-cookie';
 import { optimizeUnsplashUrl } from '@/lib/remote-image';
@@ -307,7 +308,7 @@ export function MarketingLanding() {
   }, [openTrial]);
 
   return (
-    <div className="min-h-screen bg-[#f3f1ec] text-stone-900">
+    <div className="min-h-screen overflow-x-hidden bg-[#f3f1ec] text-stone-900">
       <header
         className={[
           'fixed inset-x-0 top-0 z-40 transition-colors duration-300',
@@ -316,10 +317,10 @@ export function MarketingLanding() {
             : 'bg-transparent',
         ].join(' ')}
       >
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-3.5 sm:px-8">
-          <a href="#top" className="shrink-0">
+        <div className="mx-auto flex max-w-6xl min-w-0 items-center justify-between gap-2 px-4 py-3.5 sm:gap-4 sm:px-8">
+          <a href="#top" className="min-w-0 shrink">
             <NeatMeetLogo
-              size={36}
+              size={32}
               withWordmark
               variant={navSolid ? 'color' : 'onDark'}
               wordmarkClassName={navSolid ? 'text-stone-900' : 'text-white'}
@@ -357,9 +358,10 @@ export function MarketingLanding() {
             </Link>
             <AssessmentLink
               eventLabel="nav_primary"
-              className="rounded-lg bg-[#2f5a45] px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-[#264a39]"
+              className="rounded-lg bg-[#2f5a45] px-2.5 py-2 text-xs font-semibold text-white transition hover:bg-[#264a39] sm:px-3.5 sm:text-sm"
             >
-              Get free assessment
+              <span className="sm:hidden">Assessment</span>
+              <span className="hidden sm:inline">Get free assessment</span>
             </AssessmentLink>
             <button
               type="button"
@@ -408,33 +410,37 @@ export function MarketingLanding() {
           priority
           fetchPriority="high"
           sizes="100vw"
-          className="object-cover"
+          className="object-cover object-center"
         />
         <div className="absolute inset-0 bg-stone-950/74" />
         <div className="absolute inset-0 bg-gradient-to-b from-stone-950/50 via-stone-950/45 to-stone-950/85" />
 
-        <div className="relative z-10 mx-auto flex min-h-[100svh] max-w-6xl flex-col justify-center gap-10 px-5 pb-24 pt-28 sm:px-8 lg:flex-row lg:items-center lg:gap-12">
-          <div className="max-w-xl text-center lg:text-left">
-            <NeatMeetLogo size={48} variant="color" className="mx-auto mb-5 shadow-lg shadow-black/30 lg:mx-0" />
-            <p className="text-[11px] font-semibold tracking-[0.2em] text-white/80 uppercase sm:text-xs">
+        <div className="relative z-10 mx-auto flex min-h-[100svh] max-w-3xl flex-col justify-center px-5 pb-28 pt-28 sm:px-8 sm:pb-24">
+          <div className="text-center">
+            <NeatMeetLogo
+              size={48}
+              variant="color"
+              className="mx-auto mb-5 shadow-lg shadow-black/30"
+            />
+            <p className="text-[11px] font-semibold tracking-[0.16em] text-white/80 uppercase sm:tracking-[0.2em] sm:text-xs">
               NeatMeet OS — The Salon Growth Operating System
             </p>
-            <h1 className="mt-4 text-[2.2rem] font-semibold leading-[1.08] tracking-tight text-white sm:text-5xl lg:text-[3.35rem]">
+            <h1 className="mt-4 text-[clamp(1.85rem,6.5vw,3.35rem)] font-semibold leading-[1.08] tracking-tight text-balance text-white">
               Grow Your Salon, Not Just Your Bookings.
             </h1>
-            <p className="mt-5 text-base leading-relaxed text-white/85 sm:text-lg">
+            <p className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-white/85 sm:text-lg">
               Most salon owners know how much they made today. Far fewer know how many customers
               came back, who may be due for another visit, which customers are drifting away, or how
               much repeat-revenue opportunity may be sitting inside their existing customer base.
             </p>
-            <p className="mt-3 text-sm leading-relaxed text-white/70 sm:text-base">
+            <p className="mx-auto mt-3 max-w-2xl text-sm leading-relaxed text-white/70 sm:text-base">
               NeatMeet OS brings bookings, customers, loyalty, payments, marketing and business
               performance intelligence together in one system built to help you grow.
             </p>
-            <div className="mt-8 flex flex-col items-center gap-3 lg:items-start">
+            <div className="mt-8 flex flex-col items-center gap-3">
               <AssessmentLink
                 eventLabel="hero_primary"
-                className="inline-flex w-full items-center justify-center rounded-lg bg-[#2f5a45] px-6 py-3.5 text-sm font-semibold text-white transition hover:bg-[#264a39] sm:w-auto"
+                className="inline-flex w-full max-w-md items-center justify-center rounded-lg bg-[#2f5a45] px-6 py-3.5 text-sm font-semibold text-white transition hover:bg-[#264a39] sm:w-auto"
               >
                 Get Your Free Salon Growth Assessment
               </AssessmentLink>
@@ -453,35 +459,22 @@ export function MarketingLanding() {
               </p>
             ) : null}
           </div>
-
-          <div className="relative mx-auto w-full max-w-md shrink-0 lg:mx-0 lg:max-w-lg">
-            <div
-              className="pointer-events-none absolute -inset-6 rounded-[2rem] bg-gradient-to-br from-[#2f5a45]/35 via-transparent to-white/10 blur-2xl"
-              aria-hidden
-            />
-            <div className="relative origin-center rotate-[-1.5deg] transition duration-700 hover:rotate-0">
-              <span className="absolute -left-2 -top-3 z-10 rounded-full bg-[#2f5a45] px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-white shadow-lg">
-                Growth intelligence
-              </span>
-              <BpiProductPreview elevated />
-            </div>
-          </div>
         </div>
       </section>
 
       {/* Problem */}
       <section id="how-it-works" className="border-b border-stone-200/70 bg-[#f3f1ec] px-5 py-16 sm:px-8 sm:py-24">
-        <div className="mx-auto max-w-6xl">
-          <div className="mx-auto max-w-2xl text-center">
+        <RevealOnScroll className="mx-auto max-w-6xl">
+          <div className="mx-auto max-w-4xl text-center">
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#2f5a45]">
               The real question
             </p>
-            <h2 className="mt-3 text-3xl font-semibold tracking-tight text-stone-900 sm:text-4xl">
+            <h2 className="mt-3 text-[clamp(1.35rem,4.5vw,2.25rem)] font-semibold tracking-tight text-balance text-stone-900 md:whitespace-nowrap">
               Do You Really Know How Your Salon Is Performing?
             </h2>
             <p className="mt-4 text-base leading-relaxed text-stone-600">
-              You can see today&apos;s sales. You can see tomorrow&apos;s appointments. But do you
-              know what happens to customers afterwards?
+              You can see today&apos;s sales. You can see tomorrow&apos;s appointments. But what
+              happens to same customers after first visit?
             </p>
           </div>
 
@@ -540,7 +533,7 @@ export function MarketingLanding() {
               Get my free growth assessment →
             </AssessmentLink>
           </p>
-        </div>
+        </RevealOnScroll>
       </section>
 
       {/* Assessment */}
@@ -549,13 +542,13 @@ export function MarketingLanding() {
           className="pointer-events-none absolute inset-y-0 right-0 hidden w-1/3 bg-gradient-to-l from-[#2f5a45]/8 to-transparent lg:block"
           aria-hidden
         />
-        <div className="relative mx-auto max-w-6xl">
-          <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-14">
-            <div>
+        <RevealOnScroll from="left" className="relative mx-auto max-w-6xl">
+          <div className="grid items-center gap-8 lg:grid-cols-2 lg:gap-14">
+            <div className="min-w-0">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#2f5a45]">
                 Free salon growth assessment
               </p>
-              <h2 className="mt-3 text-3xl font-semibold tracking-tight text-stone-900 sm:text-4xl">
+              <h2 className="mt-3 text-[clamp(1.5rem,4vw,2.25rem)] font-semibold tracking-tight text-balance text-stone-900 sm:text-4xl">
                 Find Out Where Your Salon Can Grow
               </h2>
               <p className="mt-4 text-base leading-relaxed text-stone-600">
@@ -563,14 +556,16 @@ export function MarketingLanding() {
                 perform across customer visibility, retention, re-engagement and repeat-revenue
                 opportunity.
               </p>
-              <div className="mt-8 flex flex-wrap items-center gap-4">
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
                 <AssessmentLink
                   eventLabel="assessment_section"
-                  className="rounded-lg bg-[#2f5a45] px-5 py-3 text-sm font-semibold text-white hover:bg-[#264a39]"
+                  className="inline-flex items-center justify-center rounded-lg bg-[#2f5a45] px-5 py-3 text-sm font-semibold text-white hover:bg-[#264a39]"
                 >
                   Start My Free Assessment
                 </AssessmentLink>
-                <span className="text-sm text-stone-500">Free · Takes 2–3 minutes · No obligation</span>
+                <span className="text-center text-sm text-stone-500 sm:text-left">
+                  Free · Takes 2–3 minutes · No obligation
+                </span>
               </div>
               <p className="mt-5 text-sm leading-relaxed text-stone-600">
                 Your assessment gives an indicative view of where you are performing well and where
@@ -581,19 +576,21 @@ export function MarketingLanding() {
                 . It is not guaranteed lost revenue.
               </p>
             </div>
-            <AssessmentScorePreview />
+            <RevealOnScroll from="right" delayMs={120}>
+              <AssessmentScorePreview />
+            </RevealOnScroll>
           </div>
-        </div>
+        </RevealOnScroll>
       </section>
 
       {/* BPI */}
       <section id="intelligence" className="border-b border-stone-200/70 bg-[#f3f1ec] px-5 py-16 sm:px-8 sm:py-24">
-        <div className="mx-auto max-w-6xl">
-          <div className="max-w-2xl">
+        <RevealOnScroll className="mx-auto max-w-6xl">
+          <div className="mx-auto max-w-2xl text-center lg:mx-0 lg:text-left">
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#2f5a45]">
               Business Performance Intelligence
             </p>
-            <h2 className="mt-3 text-3xl font-semibold tracking-tight text-stone-900 sm:text-4xl">
+            <h2 className="mt-3 text-[clamp(1.5rem,4vw,2.25rem)] font-semibold tracking-tight text-balance text-stone-900 sm:text-4xl">
               See What Is Really Happening Inside Your Salon
             </h2>
             <p className="mt-4 text-base leading-relaxed text-stone-600">
@@ -604,12 +601,12 @@ export function MarketingLanding() {
           </div>
 
           <div className="mt-10 lg:mt-14">
-            <div className="relative mx-auto max-w-4xl">
+            <div className="relative mx-auto w-full max-w-4xl">
               <div
-                className="pointer-events-none absolute -inset-4 rounded-[2rem] bg-[#2f5a45]/5 blur-xl sm:-inset-8"
+                className="pointer-events-none absolute -inset-2 rounded-[2rem] bg-[#2f5a45]/5 blur-xl sm:-inset-8"
                 aria-hidden
               />
-              <div className="relative">
+              <div className="relative min-w-0">
                 <BpiProductPreview elevated />
                 <p className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-xs font-medium uppercase tracking-[0.12em] text-stone-500">
                   {[
@@ -628,19 +625,19 @@ export function MarketingLanding() {
               </div>
             </div>
           </div>
-        </div>
+        </RevealOnScroll>
       </section>
 
       {/* Why NeatMeet */}
       <section className="border-b border-stone-200/70 bg-[#ebe8e1] px-5 py-16 sm:px-8 sm:py-24">
-        <div className="mx-auto max-w-6xl">
+        <RevealOnScroll className="mx-auto max-w-6xl">
           <div className="mx-auto max-w-3xl text-center">
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#2f5a45]">
               Why NeatMeet OS?
             </p>
-            <h2 className="mt-3 text-3xl font-semibold tracking-tight text-stone-900 sm:text-4xl">
-              Your Booking System Runs Appointments. NeatMeet Helps You Grow the Customer
-              Relationship.
+            <h2 className="mt-3 text-[clamp(1.4rem,4vw,2.25rem)] font-semibold tracking-tight text-balance text-stone-900 sm:text-4xl">
+              Your current Booking System Runs Appointments. but NeatMeet Helps You Grow the
+              Customer Relationship.
             </h2>
             <p className="mt-4 text-base leading-relaxed text-stone-600">
               Your existing software may already handle bookings. That&apos;s fine. NeatMeet OS is
@@ -695,12 +692,12 @@ export function MarketingLanding() {
             During setup you can import existing customers from a file — so you are not starting
             from an empty CRM.
           </p>
-        </div>
+        </RevealOnScroll>
       </section>
 
       {/* Journey */}
       <section className="border-b border-stone-200/70 bg-[#f3f1ec] px-5 py-16 sm:px-8 sm:py-24">
-        <div className="mx-auto max-w-6xl">
+        <RevealOnScroll className="mx-auto max-w-6xl">
           <div className="mx-auto max-w-2xl text-center">
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#2f5a45]">
               Customer journey
@@ -710,17 +707,17 @@ export function MarketingLanding() {
             </h2>
           </div>
           <JourneyPath steps={JOURNEY} />
-        </div>
+        </RevealOnScroll>
       </section>
 
       {/* Platform capabilities */}
       <section id="platform" className="border-b border-stone-200/70 bg-[#ebe8e1] px-5 py-16 sm:px-8 sm:py-24">
-        <div className="mx-auto max-w-6xl">
-          <div className="mx-auto max-w-2xl text-center">
+        <RevealOnScroll className="mx-auto max-w-6xl">
+          <div className="mx-auto max-w-5xl text-center">
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#2f5a45]">
               Platform
             </p>
-            <h2 className="mt-3 text-3xl font-semibold tracking-tight text-stone-900 sm:text-4xl">
+            <h2 className="mt-3 text-[clamp(1.25rem,4.2vw,2.25rem)] font-semibold tracking-tight text-balance text-stone-900 md:whitespace-nowrap">
               Everything You Need to Run and Grow Your Salon
             </h2>
             <p className="mt-3 text-base text-stone-600">
@@ -728,16 +725,18 @@ export function MarketingLanding() {
             </p>
           </div>
           <CapabilitySwitcher categories={[...CAPABILITY_CATEGORIES]} />
-        </div>
+        </RevealOnScroll>
       </section>
 
       {/* Retention */}
       <section className="border-b border-stone-200/70 bg-[#f3f1ec] px-5 py-16 sm:px-8 sm:py-24">
-        <div className="mx-auto max-w-6xl">
-          <div className="grid items-center gap-10 lg:grid-cols-[1.1fr_0.9fr]">
-            <div>
-              <h2 className="text-3xl font-semibold tracking-tight text-stone-900 sm:text-4xl">
-                The Next Visit Is Where Growth Happens
+        <RevealOnScroll from="left" className="mx-auto max-w-6xl">
+          <div className="grid items-center gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:gap-10">
+            <div className="min-w-0">
+              <h2 className="text-[clamp(1.5rem,4vw,2.25rem)] font-semibold tracking-tight text-balance text-stone-900 sm:text-4xl">
+                The{' '}
+                <span className="text-[#2f5a45]">Next Visit Is</span> Where{' '}
+                <span className="text-[#2f5a45]">Growth Happens</span>
               </h2>
               <p className="mt-4 text-base leading-relaxed text-stone-600">
                 Getting a customer through the door is only the beginning. NeatMeet helps you
@@ -772,38 +771,40 @@ export function MarketingLanding() {
                 </AssessmentLink>
               </p>
             </div>
-            <div className="relative overflow-hidden rounded-2xl border border-stone-200/90 bg-white shadow-lg">
-              <div className="grid grid-cols-2 divide-x divide-stone-100">
-                <div className="p-5 sm:p-6">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-400">
-                    Today
-                  </p>
-                  <p className="mt-3 text-sm font-semibold text-stone-900">Appointment complete</p>
-                  <p className="mt-2 text-xs leading-relaxed text-stone-500">
-                    Service paid. Chair free. Story ends if nothing follows.
-                  </p>
+            <RevealOnScroll from="right" delayMs={100}>
+              <div className="relative overflow-hidden rounded-2xl border border-stone-200/90 bg-white shadow-lg">
+                <div className="grid grid-cols-2 divide-x divide-stone-100">
+                  <div className="p-5 sm:p-6">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-400">
+                      Today
+                    </p>
+                    <p className="mt-3 text-sm font-semibold text-stone-900">Appointment complete</p>
+                    <p className="mt-2 text-xs leading-relaxed text-stone-500">
+                      Service paid. Chair free. Story ends if nothing follows.
+                    </p>
+                  </div>
+                  <div className="bg-[#2f5a45]/5 p-5 sm:p-6">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#2f5a45]">
+                      Next
+                    </p>
+                    <p className="mt-3 text-sm font-semibold text-stone-900">Return planned</p>
+                    <p className="mt-2 text-xs leading-relaxed text-stone-600">
+                      Next visit booked. Reminder queued. Loyalty recognised.
+                    </p>
+                  </div>
                 </div>
-                <div className="bg-[#2f5a45]/5 p-5 sm:p-6">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#2f5a45]">
-                    Next
-                  </p>
-                  <p className="mt-3 text-sm font-semibold text-stone-900">Return planned</p>
-                  <p className="mt-2 text-xs leading-relaxed text-stone-600">
-                    Next visit booked. Reminder queued. Loyalty recognised.
-                  </p>
+                <div className="border-t border-stone-100 px-5 py-3 text-center text-[11px] font-medium text-stone-500">
+                  Before the appointment → after the appointment
                 </div>
               </div>
-              <div className="border-t border-stone-100 px-5 py-3 text-center text-[11px] font-medium text-stone-500">
-                Before the appointment → after the appointment
-              </div>
-            </div>
+            </RevealOnScroll>
           </div>
-        </div>
+        </RevealOnScroll>
       </section>
 
       {/* Action centre */}
       <section className="border-b border-stone-200/70 bg-[#ebe8e1] px-5 py-16 sm:px-8 sm:py-24">
-        <div className="mx-auto max-w-6xl">
+        <RevealOnScroll className="mx-auto max-w-6xl">
           <div className="grid items-start gap-10 lg:grid-cols-[0.95fr_1.05fr]">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#2f5a45]">
@@ -860,12 +861,12 @@ export function MarketingLanding() {
               ))}
             </ul>
           </div>
-        </div>
+        </RevealOnScroll>
       </section>
 
       {/* Imagine your day */}
       <section className="border-b border-stone-200/70 bg-[#f3f1ec] px-5 py-16 sm:px-8 sm:py-24">
-        <div className="mx-auto max-w-6xl">
+        <RevealOnScroll className="mx-auto max-w-6xl">
           <div className="mx-auto max-w-2xl text-center">
             <h2 className="text-3xl font-semibold tracking-tight text-stone-900 sm:text-4xl">
               Run the Salon. Understand the Business. Grow the Customer Base.
@@ -911,7 +912,7 @@ export function MarketingLanding() {
               </ul>
             </div>
           </div>
-        </div>
+        </RevealOnScroll>
       </section>
 
       {/* Trust */}
@@ -940,7 +941,7 @@ export function MarketingLanding() {
 
       {/* Pricing */}
       <section id="pricing" className="border-b border-stone-200/70 bg-[#ebe8e1] px-5 py-16 sm:px-8 sm:py-24">
-        <div className="mx-auto max-w-6xl">
+        <RevealOnScroll className="mx-auto max-w-6xl">
           <div className="mx-auto max-w-2xl text-center">
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#2f5a45]">
               Pricing
@@ -954,14 +955,14 @@ export function MarketingLanding() {
             </p>
           </div>
 
-          <div className="mt-12 grid items-stretch gap-5 lg:grid-cols-3 lg:gap-4">
+          <div className="mt-12 grid items-stretch gap-5 md:grid-cols-2 lg:grid-cols-3 lg:gap-4">
             {PRICING.map((plan) => (
               <div
                 key={plan.slug}
                 className={[
                   'relative flex flex-col rounded-2xl border p-6 sm:p-7',
                   plan.featured
-                    ? 'z-10 border-[#2f5a45] bg-white shadow-xl shadow-[#2f5a45]/15 lg:-my-3 lg:scale-[1.03]'
+                    ? 'z-10 border-[#2f5a45] bg-white shadow-xl shadow-[#2f5a45]/15 md:col-span-2 lg:col-span-1 lg:-my-3 lg:scale-[1.03]'
                     : 'border-stone-200/80 bg-[#f3f1ec]/80',
                 ].join(' ')}
               >
@@ -1009,25 +1010,25 @@ export function MarketingLanding() {
               </div>
             ))}
           </div>
-        </div>
+        </RevealOnScroll>
       </section>
 
       {/* FAQ */}
       <section id="faqs" className="border-b border-stone-200/70 bg-[#f3f1ec] px-5 py-16 sm:px-8 sm:py-24">
-        <div className="mx-auto max-w-6xl">
+        <RevealOnScroll className="mx-auto max-w-6xl">
           <div className="mx-auto mb-10 max-w-2xl text-center">
             <h2 className="text-3xl font-semibold tracking-tight text-stone-900 sm:text-4xl">
               Frequently Asked Questions
             </h2>
           </div>
           <LandingFaq />
-        </div>
+        </RevealOnScroll>
       </section>
 
       {/* Trial */}
       <section id="trial" className="bg-[#2f5a45] px-5 py-16 text-white sm:px-8 sm:py-24">
-        <div className="mx-auto max-w-6xl">
-          <div className="max-w-2xl">
+        <RevealOnScroll className="mx-auto max-w-6xl text-center">
+          <div className="mx-auto max-w-2xl">
             <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">
               Ready to See What NeatMeet Can Do for Your Salon?
             </h2>
@@ -1036,7 +1037,7 @@ export function MarketingLanding() {
               30-day free trial and experience one connected system for running your salon,
               understanding your customers and building stronger repeat business.
             </p>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-5">
+            <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row sm:gap-5">
               <AssessmentLink
                 eventLabel="final_assessment"
                 className="inline-flex items-center justify-center rounded-lg bg-white px-5 py-3.5 text-sm font-semibold text-[#2f5a45] hover:bg-[#f3f1ec]"
@@ -1055,7 +1056,7 @@ export function MarketingLanding() {
               No card required to start · Cancel anytime · Import your clients
             </p>
           </div>
-          <ol className="mt-10 flex flex-col gap-3 border-t border-white/15 pt-8 text-sm text-white/85 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-6 sm:gap-y-2">
+          <ol className="mt-10 flex flex-col items-center justify-center gap-3 border-t border-white/15 pt-8 text-sm text-white/85 sm:flex-row sm:flex-wrap sm:gap-x-6 sm:gap-y-2">
             <li className="font-semibold text-white">1. Assess</li>
             <li className="hidden text-white/40 sm:inline" aria-hidden>
               →
@@ -1065,16 +1066,16 @@ export function MarketingLanding() {
               →
             </li>
             <li className="font-semibold text-white">3. Start a trial when ready</li>
-            <li className="sm:ml-auto">
+            <li>
               <Link href="/login" className="font-semibold text-white underline-offset-2 hover:underline">
                 Sign in
               </Link>
             </li>
           </ol>
-        </div>
+        </RevealOnScroll>
       </section>
 
-      <footer className="border-t border-stone-200 bg-[#f3f1ec] px-5 py-12 text-sm text-stone-500 sm:px-8">
+      <footer className="border-t border-stone-200 bg-[#f3f1ec] px-5 pb-24 pt-12 text-sm text-stone-500 sm:px-8 sm:pb-12">
         <div className="mx-auto max-w-6xl">
           <div className="flex flex-col gap-8 lg:flex-row lg:justify-between">
             <div>
@@ -1135,7 +1136,7 @@ export function MarketingLanding() {
       </footer>
 
       {stickyVisible && !modalOpen ? (
-        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-stone-200 bg-[#f3f1ec]/95 p-3 backdrop-blur sm:hidden">
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-stone-200 bg-[#f3f1ec]/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur sm:hidden">
           <AssessmentLink
             eventLabel="sticky_mobile"
             className="flex w-full items-center justify-center rounded-lg bg-[#2f5a45] py-3 text-center text-sm font-semibold text-white"

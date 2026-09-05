@@ -78,6 +78,138 @@ body {
   }
 }
 
+/* Landing section scroll reveals */
+.nm-reveal {
+  opacity: 0;
+  transition:
+    opacity 0.75s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.75s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: opacity, transform;
+}
+
+.nm-reveal-up {
+  transform: translateY(28px);
+}
+
+.nm-reveal-down {
+  transform: translateY(-28px);
+}
+
+.nm-reveal-left {
+  transform: translateX(-36px);
+}
+
+.nm-reveal-right {
+  transform: translateX(36px);
+}
+
+.nm-reveal-visible {
+  opacity: 1;
+  transform: translate(0, 0);
+}
+
+/* Customer journey line flash */
+@keyframes nm-journey-flash {
+  0% {
+    left: 0%;
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  92% {
+    opacity: 1;
+  }
+  100% {
+    left: calc(100% - 6rem);
+    opacity: 0;
+  }
+}
+
+@keyframes nm-journey-pulse {
+  0% {
+    left: 0%;
+    opacity: 0;
+    box-shadow: 0 0 0 0 rgba(47, 90, 69, 0.55);
+  }
+  10% {
+    opacity: 1;
+  }
+  50% {
+    box-shadow: 0 0 0 10px rgba(47, 90, 69, 0);
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    left: 100%;
+    opacity: 0;
+    box-shadow: 0 0 0 0 rgba(47, 90, 69, 0);
+  }
+}
+
+.nm-journey-flash {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(47, 90, 69, 0.15) 20%,
+    rgba(47, 90, 69, 0.95) 50%,
+    rgba(47, 90, 69, 0.15) 80%,
+    transparent 100%
+  );
+  opacity: 0;
+  filter: blur(0.5px);
+}
+
+.nm-journey-flash-run {
+  animation: nm-journey-flash 3.2s ease-in-out infinite;
+}
+
+.nm-journey-pulse {
+  opacity: 0;
+}
+
+.nm-journey-pulse-run {
+  animation: nm-journey-pulse 3.2s ease-in-out infinite;
+}
+
+.nm-journey-step {
+  opacity: 0;
+  transform: translateY(16px);
+  transition:
+    opacity 0.55s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.nm-journey-step-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nm-reveal,
+  .nm-reveal-up,
+  .nm-reveal-down,
+  .nm-reveal-left,
+  .nm-reveal-right {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+
+  .nm-journey-flash-run,
+  .nm-journey-pulse-run {
+    animation: none;
+    opacity: 0;
+  }
+
+  .nm-journey-step {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
 /* Platform ops console */
 .platform-ops-grid {
   background-color: var(--platform-ink);

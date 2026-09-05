@@ -26,15 +26,15 @@ export async function GET(request: Request, { params }: Params) {
     theme_color: '#2f5a45',
     icons: [
       {
-        src: '/member-icons/icon-192.svg',
+        src: '/member-icons/icon-192.png',
         sizes: '192x192',
-        type: 'image/svg+xml',
+        type: 'image/png',
         purpose: 'any',
       },
       {
-        src: '/member-icons/icon-512.svg',
+        src: '/member-icons/icon-512.png',
         sizes: '512x512',
-        type: 'image/svg+xml',
+        type: 'image/png',
         purpose: 'any maskable',
       },
     ],

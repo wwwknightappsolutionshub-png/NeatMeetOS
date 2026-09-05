@@ -1,6 +1,6 @@
 /* NeatMeet member PWA service worker — member routes only (not the whole site). */
-const CACHE = 'neatmeet-member-v2';
-const SHELL = ['/member-icons/icon-192.svg', '/member-icons/icon-512.svg'];
+const CACHE = 'neatmeet-member-v3';
+const SHELL = ['/member-icons/icon-192.png', '/member-icons/icon-512.png'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -57,5 +57,5 @@ self.addEventListener('push', (event) => {
   } catch {
     if (event.data) body = event.data.text();
   }
-  event.waitUntil(self.registration.showNotification(title, { body, icon: '/member-icons/icon-192.svg' }));
+  event.waitUntil(self.registration.showNotification(title, { body, icon: '/member-icons/icon-192.png' }));
 });

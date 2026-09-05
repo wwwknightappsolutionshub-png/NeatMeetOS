@@ -3,14 +3,17 @@ import Image from 'next/image';
 type Props = {
   size?: number;
   withWordmark?: boolean;
-  /** color = green mark; inverse = white mark for dark backgrounds */
+  /** color = green mark; inverse/onDark = mark on white tile for dark chrome */
   variant?: 'color' | 'inverse' | 'onDark';
   className?: string;
   wordmarkClassName?: string;
 };
 
+const MARK_SRC = '/brand/neatmeet-mark.png';
+
 /**
- * NeatMeet OS brand mark — shared across marketing, auth, admin, and platform.
+ * NeatMeet OS brand mark — shared across marketing, auth, admin, platform, and PWA.
+ * Always uses the canonical chair + calendar mark asset.
  */
 export function NeatMeetLogo({
   size = 32,
@@ -19,18 +22,30 @@ export function NeatMeetLogo({
   className = '',
   wordmarkClassName = '',
 }: Props) {
-  const useRaster = variant === 'color' && size >= 48;
-  const mark = useRaster ? (
+  const onDark = variant !== 'color';
+  const mark = onDark ? (
+    <span
+      className="inline-flex overflow-hidden rounded-[22%] bg-white"
+      style={{ width: size, height: size }}
+    >
+      <Image
+        src={MARK_SRC}
+        alt="NeatMeet OS"
+        width={size}
+        height={size}
+        className="object-contain p-[14%]"
+        priority={size >= 40}
+      />
+    </span>
+  ) : (
     <Image
-      src="/brand/neatmeet-mark.png"
+      src={MARK_SRC}
       alt="NeatMeet OS"
       width={size}
       height={size}
-      className="rounded-lg object-cover"
-      priority={size >= 48}
+      className="object-contain"
+      priority={size >= 40}
     />
-  ) : (
-    <NeatMeetMarkSvg size={size} inverse={variant !== 'color'} />
   );
 
   if (!withWordmark) {
@@ -41,10 +56,7 @@ export function NeatMeetLogo({
     );
   }
 
-  const textTone =
-    variant === 'color'
-      ? 'text-stone-900'
-      : 'text-white';
+  const textTone = onDark ? 'text-white' : 'text-stone-900';
 
   return (
     <span className={`inline-flex items-center gap-2.5 ${className}`}>
@@ -60,7 +72,7 @@ export function NeatMeetLogo({
   );
 }
 
-/** Crisp vector fallback / inverse mark for dark UI chrome */
+/** @deprecated Prefer NeatMeetLogo — kept for rare SVG-only needs */
 export function NeatMeetMarkSvg({
   size = 32,
   inverse = false,
@@ -70,33 +82,11 @@ export function NeatMeetMarkSvg({
   inverse?: boolean;
   className?: string;
 }) {
-  const bg = inverse ? '#ffffff' : '#2f5a45';
-  const fg = inverse ? '#2f5a45' : '#ffffff';
-
   return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 64 64"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
+    <NeatMeetLogo
+      size={size}
+      variant={inverse ? 'onDark' : 'color'}
       className={className}
-      aria-hidden={!className}
-      role="img"
-    >
-      <title>NeatMeet OS</title>
-      <rect width="64" height="64" rx="14" fill={bg} />
-      <path
-        d="M18 46V18h7.2l11.6 18.2V18H44v28h-7.2L25.2 27.8V46H18z"
-        fill={fg}
-      />
-      <path
-        d="M18 46c6.5-2.8 13.8-4.2 22-4.2 1.4 0 2.8.1 4.2.2"
-        stroke={fg}
-        strokeWidth="2.4"
-        strokeLinecap="round"
-        opacity="0.45"
-      />
-    </svg>
+    />
   );
 }
