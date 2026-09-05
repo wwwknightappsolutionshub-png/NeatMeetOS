@@ -227,12 +227,6 @@ export function MarketingLanding() {
     refCode ? `&ref=${encodeURIComponent(refCode)}` : ''
   }`;
 
-  const signupWithPlan = useCallback(
-    (slug: string) =>
-      `${signupHref}${signupHref.includes('?') ? '&' : '?'}plan=${encodeURIComponent(slug)}`,
-    [signupHref],
-  );
-
   const openTrial = useCallback((source: 'exit' | 'cta') => {
     setModalSource(source);
     setModalOpen(true);
@@ -308,7 +302,7 @@ export function MarketingLanding() {
   }, [openTrial]);
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[#f3f1ec] text-stone-900">
+    <div className="min-h-screen bg-[#f3f1ec] text-stone-900">
       <header
         className={[
           'fixed inset-x-0 top-0 z-40 transition-colors duration-300',
@@ -426,7 +420,7 @@ export function MarketingLanding() {
               NeatMeet OS — The Salon Growth Operating System
             </p>
             <h1 className="mt-4 text-[clamp(1.85rem,6.5vw,3.35rem)] font-semibold leading-[1.08] tracking-tight text-balance text-white">
-              Grow Your Salon, Not Just Your Bookings.
+              <span className="text-[#8fbf9f]">Grow Your Salon</span>, Not Just Your Bookings.
             </h1>
             <p className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-white/85 sm:text-lg">
               Most salon owners know how much they made today. Far fewer know how many customers
@@ -470,7 +464,8 @@ export function MarketingLanding() {
               The real question
             </p>
             <h2 className="mt-3 text-[clamp(1.35rem,4.5vw,2.25rem)] font-semibold tracking-tight text-balance text-stone-900 md:whitespace-nowrap">
-              Do You Really Know How Your Salon Is Performing?
+              Do You Really Know How <span className="text-[#2f5a45]">Your Salon</span> Is
+              Performing?
             </h2>
             <p className="mt-4 text-base leading-relaxed text-stone-600">
               You can see today&apos;s sales. You can see tomorrow&apos;s appointments. But what
@@ -549,7 +544,7 @@ export function MarketingLanding() {
                 Free salon growth assessment
               </p>
               <h2 className="mt-3 text-[clamp(1.5rem,4vw,2.25rem)] font-semibold tracking-tight text-balance text-stone-900 sm:text-4xl">
-                Find Out Where Your Salon Can Grow
+                Find Out Where <span className="text-[#2f5a45]">Your Salon</span> Can Grow
               </h2>
               <p className="mt-4 text-base leading-relaxed text-stone-600">
                 Answer a few simple questions about your salon and discover how you currently
@@ -591,7 +586,8 @@ export function MarketingLanding() {
               Business Performance Intelligence
             </p>
             <h2 className="mt-3 text-[clamp(1.5rem,4vw,2.25rem)] font-semibold tracking-tight text-balance text-stone-900 sm:text-4xl">
-              See What Is Really Happening Inside Your Salon
+              See What Is Really Happening Inside{' '}
+              <span className="text-[#2f5a45]">Your Salon</span>
             </h2>
             <p className="mt-4 text-base leading-relaxed text-stone-600">
               NeatMeet OS turns everyday salon activity into practical business intelligence. See
@@ -636,8 +632,9 @@ export function MarketingLanding() {
               Why NeatMeet OS?
             </p>
             <h2 className="mt-3 text-[clamp(1.4rem,4vw,2.25rem)] font-semibold tracking-tight text-balance text-stone-900 sm:text-4xl">
-              Your current Booking System Runs Appointments. but NeatMeet Helps You Grow the
-              Customer Relationship.
+              Your current Booking System Runs Appointments. but{' '}
+              <span className="text-[#2f5a45]">NeatMeet</span> Helps You{' '}
+              <span className="text-[#2f5a45]">Grow the Customer Relationship.</span>
             </h2>
             <p className="mt-4 text-base leading-relaxed text-stone-600">
               Your existing software may already handle bookings. That&apos;s fine. NeatMeet OS is
@@ -703,7 +700,8 @@ export function MarketingLanding() {
               Customer journey
             </p>
             <h2 className="mt-3 text-3xl font-semibold tracking-tight text-stone-900 sm:text-4xl">
-              From First Visit to Repeat Revenue
+              From <span className="text-[#2f5a45]">First Visit</span> to{' '}
+              <span className="text-[#2f5a45]">Repeat Revenue</span>
             </h2>
           </div>
           <JourneyPath steps={JOURNEY} />
@@ -718,7 +716,8 @@ export function MarketingLanding() {
               Platform
             </p>
             <h2 className="mt-3 text-[clamp(1.25rem,4.2vw,2.25rem)] font-semibold tracking-tight text-balance text-stone-900 md:whitespace-nowrap">
-              Everything You Need to Run and Grow Your Salon
+              Everything You Need to Run and{' '}
+              <span className="text-[#2f5a45]">Grow Your Salon</span>
             </h2>
             <p className="mt-3 text-base text-stone-600">
               Capabilities organised around outcomes — not a module catalogue.
@@ -869,7 +868,8 @@ export function MarketingLanding() {
         <RevealOnScroll className="mx-auto max-w-6xl">
           <div className="mx-auto max-w-2xl text-center">
             <h2 className="text-3xl font-semibold tracking-tight text-stone-900 sm:text-4xl">
-              Run the Salon. Understand the Business. Grow the Customer Base.
+              Run the Salon. Understand the Business.{' '}
+              <span className="text-[#2f5a45]">Grow the Customer Base.</span>
             </h2>
           </div>
           <div className="mt-12 overflow-hidden rounded-2xl border border-stone-200/90 shadow-sm lg:grid lg:grid-cols-2">
@@ -947,7 +947,8 @@ export function MarketingLanding() {
               Pricing
             </p>
             <h2 className="mt-3 text-3xl font-semibold tracking-tight text-stone-900 sm:text-4xl">
-              Simple Pricing. Built to Grow With Your Salon.
+              Simple Pricing. Built to Grow With{' '}
+              <span className="text-[#2f5a45]">Your Salon</span>.
             </h2>
             <p className="mt-4 text-base text-stone-600">
               Start with the tools you need today and move up as your salon grows. Billed monthly.
@@ -955,60 +956,73 @@ export function MarketingLanding() {
             </p>
           </div>
 
-          <div className="mt-12 grid items-stretch gap-5 md:grid-cols-2 lg:grid-cols-3 lg:gap-4">
-            {PRICING.map((plan) => (
-              <div
-                key={plan.slug}
-                className={[
-                  'relative flex flex-col rounded-2xl border p-6 sm:p-7',
-                  plan.featured
-                    ? 'z-10 border-[#2f5a45] bg-white shadow-xl shadow-[#2f5a45]/15 md:col-span-2 lg:col-span-1 lg:-my-3 lg:scale-[1.03]'
-                    : 'border-stone-200/80 bg-[#f3f1ec]/80',
-                ].join(' ')}
-              >
-                {plan.featured ? (
-                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-[#2f5a45] px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-white">
-                    Recommended
-                  </span>
-                ) : null}
-                <h3 className="text-lg font-semibold text-stone-900">{plan.name}</h3>
-                <p className="mt-1 text-sm text-stone-600">{plan.blurb}</p>
-                <p className="mt-5">
-                  <span className="text-4xl font-semibold tabular-nums text-stone-900">
-                    £{plan.price}
-                  </span>
-                  <span className="text-sm text-stone-500"> / month</span>
-                </p>
-                <ul className="mt-6 flex-1 space-y-2.5">
-                  {plan.outcomes.map((item) => (
-                    <li key={item} className="flex gap-2 text-sm text-stone-700">
-                      <span className="mt-0.5 text-[#2f5a45]" aria-hidden>
-                        ✓
-                      </span>
-                      {item}
-                    </li>
-                  ))}
-                </ul>
-                <Link
-                  href={signupWithPlan(plan.slug)}
+          <div className="relative mt-12">
+            <div
+              className="pointer-events-none select-none grid items-stretch gap-5 opacity-40 grayscale md:grid-cols-2 lg:grid-cols-3 lg:gap-4"
+              aria-hidden
+            >
+              {PRICING.map((plan) => (
+                <div
+                  key={plan.slug}
                   className={[
-                    'mt-8 inline-flex items-center justify-center rounded-lg px-4 py-3 text-sm font-semibold transition',
+                    'relative flex flex-col rounded-2xl border p-6 sm:p-7',
                     plan.featured
-                      ? 'bg-[#2f5a45] text-white hover:bg-[#264a39]'
-                      : 'border border-stone-300 bg-white text-stone-900 hover:bg-stone-50',
+                      ? 'z-10 border-[#2f5a45] bg-white shadow-xl shadow-[#2f5a45]/15 md:col-span-2 lg:col-span-1 lg:-my-3 lg:scale-[1.03]'
+                      : 'border-stone-200/80 bg-[#f3f1ec]/80',
                   ].join(' ')}
-                  onClick={() =>
-                    trackMarketingEvent('pricing_cta_clicked', {
-                      plan: plan.slug,
-                      label: plan.name,
-                    })
-                  }
                 >
-                  {plan.cta}
-                </Link>
-                <p className="mt-3 text-center text-xs text-stone-500">30-day free trial</p>
+                  {plan.featured ? (
+                    <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-[#2f5a45] px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-white">
+                      Recommended
+                    </span>
+                  ) : null}
+                  <h3 className="text-lg font-semibold text-stone-900">{plan.name}</h3>
+                  <p className="mt-1 text-sm text-stone-600">{plan.blurb}</p>
+                  <p className="mt-5">
+                    <span className="text-4xl font-semibold tabular-nums text-stone-900">
+                      £{plan.price}
+                    </span>
+                    <span className="text-sm text-stone-500"> / month</span>
+                  </p>
+                  <ul className="mt-6 flex-1 space-y-2.5">
+                    {plan.outcomes.map((item) => (
+                      <li key={item} className="flex gap-2 text-sm text-stone-700">
+                        <span className="mt-0.5 text-[#2f5a45]" aria-hidden>
+                          ✓
+                        </span>
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                  <div
+                    className={[
+                      'mt-8 inline-flex items-center justify-center rounded-lg px-4 py-3 text-sm font-semibold',
+                      plan.featured
+                        ? 'bg-[#2f5a45] text-white'
+                        : 'border border-stone-300 bg-white text-stone-900',
+                    ].join(' ')}
+                  >
+                    {plan.cta}
+                  </div>
+                  <p className="mt-3 text-center text-xs text-stone-500">30-day free trial</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="absolute inset-0 z-20 flex items-center justify-center rounded-2xl bg-[#ebe8e1]/55 backdrop-blur-[1px]">
+              <div className="mx-4 max-w-md rounded-2xl border border-stone-200/90 bg-white/95 px-6 py-8 text-center shadow-lg shadow-stone-900/10 sm:px-10">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#2f5a45]">
+                  Not Active Now
+                </p>
+                <p className="mt-3 text-2xl font-semibold tracking-tight text-stone-900 sm:text-3xl">
+                  We&apos;re Still in Demo Mode
+                </p>
+                <p className="mt-3 text-sm leading-relaxed text-stone-600">
+                  Pricing and checkout will open when we go live. Take the free growth assessment in
+                  the meantime.
+                </p>
               </div>
-            ))}
+            </div>
           </div>
         </RevealOnScroll>
       </section>
@@ -1030,7 +1044,8 @@ export function MarketingLanding() {
         <RevealOnScroll className="mx-auto max-w-6xl text-center">
           <div className="mx-auto max-w-2xl">
             <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-              Ready to See What NeatMeet Can Do for Your Salon?
+              Ready to See What <span className="text-[#c5e0cf]">NeatMeet</span> Can Do for{' '}
+              <span className="text-[#c5e0cf]">Your Salon</span>?
             </h2>
             <p className="mt-4 text-base leading-relaxed text-white/85">
               Start with a free Salon Growth Assessment to see where you stand — or begin your
