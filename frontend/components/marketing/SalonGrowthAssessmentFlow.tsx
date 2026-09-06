@@ -2,10 +2,11 @@
 
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { NeatMeetLogo } from '@/components/brand/NeatMeetLogo';
 import { TurnstileFormGate } from '@/components/security/TurnstileBootstrap';
 import { useTurnstileReady } from '@/hooks/useTurnstileReady';
+import { ApiRequestError } from '@/lib/api-client';
 import { resolveReferralCode } from '@/lib/referral-cookie';
 import type {
   SalonGrowthAssessmentAnswers,
@@ -47,6 +48,17 @@ const STEPS: StepId[] = [
   'contact',
   'results',
 ];
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i;
+
+function isValidEmail(value: string): boolean {
+  return EMAIL_RE.test(value.trim());
+}
+
+function isValidPhone(value: string): boolean {
+  const digits = value.replace(/\D+/g, '');
+  return digits.length >= 10 && digits.length <= 15;
+}
 
 function optionBtn(
   selected: boolean,
@@ -103,6 +115,7 @@ export function SalonGrowthAssessmentFlow() {
   const [consent, setConsent] = useState(false);
   const [sendWhatsApp, setSendWhatsApp] = useState(false);
   const [hpTrap, setHpTrap] = useState('');
+  const advanceTimer = useRef<number | null>(null);
 
   const step = STEPS[stepIndex] ?? 'business';
 
@@ -120,6 +133,14 @@ export function SalonGrowthAssessmentFlow() {
     if (idx < 0) return 0;
     return Math.round(((idx + 1) / visibleSteps.length) * 100);
   }, [step, visibleSteps]);
+
+  useEffect(() => {
+    return () => {
+      if (advanceTimer.current !== null) {
+        window.clearTimeout(advanceTimer.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const token = searchParams.get('token');
@@ -140,6 +161,31 @@ export function SalonGrowthAssessmentFlow() {
     value: SalonGrowthAssessmentAnswers[K],
   ) {
     setAnswers((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function advanceFromIndex(fromIndex: number, nextAnswers?: Partial<SalonGrowthAssessmentAnswers>) {
+    let next = fromIndex + 1;
+    const usesSoftware = nextAnswers?.uses_software ?? answers.uses_software;
+    if (STEPS[next] === 'software_detail' && usesSoftware !== 'yes') {
+      next += 1;
+    }
+    setStepIndex(next);
+  }
+
+  /** Single-choice: save answer and auto-advance for a faster flow. */
+  function pickAndAdvance<K extends keyof SalonGrowthAssessmentAnswers>(
+    key: K,
+    value: SalonGrowthAssessmentAnswers[K],
+  ) {
+    setError(null);
+    setAnswers((prev) => ({ ...prev, [key]: value }));
+    if (advanceTimer.current !== null) {
+      window.clearTimeout(advanceTimer.current);
+    }
+    const from = stepIndex;
+    advanceTimer.current = window.setTimeout(() => {
+      advanceFromIndex(from, { [key]: value } as Partial<SalonGrowthAssessmentAnswers>);
+    }, 160);
   }
 
   function toggleMulti(key: 'encourage_return_methods' | 'software_helps_with', value: string) {
@@ -213,15 +259,15 @@ export function SalonGrowthAssessmentFlow() {
       return;
     }
 
-    let next = stepIndex + 1;
-    if (STEPS[next] === 'software_detail' && answers.uses_software !== 'yes') {
-      next += 1;
-    }
-    setStepIndex(next);
+    advanceFromIndex(stepIndex);
   }
 
   function goBack() {
     setError(null);
+    if (advanceTimer.current !== null) {
+      window.clearTimeout(advanceTimer.current);
+      advanceTimer.current = null;
+    }
     if (stepIndex <= 0 || step === 'results') return;
     let prev = stepIndex - 1;
     if (STEPS[prev] === 'software_detail' && answers.uses_software !== 'yes') {
@@ -231,8 +277,16 @@ export function SalonGrowthAssessmentFlow() {
   }
 
   async function submit() {
-    if (!contactName.trim() || !email.trim() || !phone.trim()) {
-      setError('Name, email and mobile are required.');
+    if (!contactName.trim() || contactName.trim().length < 2) {
+      setError('Please enter your name.');
+      return;
+    }
+    if (!isValidEmail(email)) {
+      setError('Enter a valid email address.');
+      return;
+    }
+    if (!isValidPhone(phone)) {
+      setError('Enter a valid mobile / WhatsApp number (at least 10 digits).');
       return;
     }
     if (!consent) {
@@ -272,7 +326,7 @@ export function SalonGrowthAssessmentFlow() {
         staff_band: staffBand || undefined,
         customers_per_month_band: customersBand,
         contact_name: contactName.trim(),
-        email: email.trim(),
+        email: email.trim().toLowerCase(),
         phone: phone.trim(),
         postcode: postcode.trim() || undefined,
         marketing_consent: consent,
@@ -285,7 +339,15 @@ export function SalonGrowthAssessmentFlow() {
       setResult(data);
       setStepIndex(STEPS.indexOf('results'));
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Unable to complete assessment.');
+      if (e instanceof ApiRequestError) {
+        if (e.status === 429) {
+          setError('Too many attempts. Please wait a minute and try again.');
+        } else {
+          setError(e.message || 'Unable to complete assessment.');
+        }
+      } else {
+        setError(e instanceof Error ? e.message : 'Unable to complete assessment.');
+      }
     } finally {
       setSubmitting(false);
     }
@@ -446,7 +508,7 @@ export function SalonGrowthAssessmentFlow() {
                 ['no', 'No'],
               ]}
               value={answers.knows_last_month_visitors}
-              onPick={(v) => setAnswer('knows_last_month_visitors', v)}
+              onPick={(v) => pickAndAdvance('knows_last_month_visitors', v)}
             />
           ) : null}
 
@@ -460,7 +522,7 @@ export function SalonGrowthAssessmentFlow() {
                 ['no', 'No'],
               ]}
               value={answers.knows_how_many_returned}
-              onPick={(v) => setAnswer('knows_how_many_returned', v)}
+              onPick={(v) => pickAndAdvance('knows_how_many_returned', v)}
             />
           ) : null}
 
@@ -478,7 +540,7 @@ export function SalonGrowthAssessmentFlow() {
                 ['other', 'Other'],
               ]}
               value={answers.tracking_method}
-              onPick={(v) => setAnswer('tracking_method', v)}
+              onPick={(v) => pickAndAdvance('tracking_method', v)}
             />
           ) : null}
 
@@ -493,7 +555,7 @@ export function SalonGrowthAssessmentFlow() {
                 ['never', 'Never'],
               ]}
               value={answers.knows_when_due_return}
-              onPick={(v) => setAnswer('knows_when_due_return', v)}
+              onPick={(v) => pickAndAdvance('knows_when_due_return', v)}
             />
           ) : null}
 
@@ -510,7 +572,7 @@ export function SalonGrowthAssessmentFlow() {
                 ['not_sure', "I'm not sure"],
               ]}
               value={answers.return_percentage_band}
-              onPick={(v) => setAnswer('return_percentage_band', v)}
+              onPick={(v) => pickAndAdvance('return_percentage_band', v)}
             />
           ) : null}
 
@@ -561,7 +623,7 @@ export function SalonGrowthAssessmentFlow() {
                 ['not_sure', "I'm not sure"],
               ]}
               value={answers.avg_spend_band}
-              onPick={(v) => setAnswer('avg_spend_band', v)}
+              onPick={(v) => pickAndAdvance('avg_spend_band', v)}
             />
           ) : null}
 
@@ -575,7 +637,7 @@ export function SalonGrowthAssessmentFlow() {
                 ['not_sure', "I'm not sure"],
               ]}
               value={answers.knows_missed_revenue}
-              onPick={(v) => setAnswer('knows_missed_revenue', v)}
+              onPick={(v) => pickAndAdvance('knows_missed_revenue', v)}
             />
           ) : null}
 
@@ -588,7 +650,7 @@ export function SalonGrowthAssessmentFlow() {
                 ['no', 'No'],
               ]}
               value={answers.uses_software}
-              onPick={(v) => setAnswer('uses_software', v)}
+              onPick={(v) => pickAndAdvance('uses_software', v)}
             />
           ) : null}
 
@@ -673,6 +735,7 @@ export function SalonGrowthAssessmentFlow() {
                 <span className="mb-1.5 block font-semibold">Email</span>
                 <input
                   type="email"
+                  inputMode="email"
                   className="w-full rounded-xl border border-stone-200 px-3.5 py-3 outline-none focus:border-[#2f5a45]"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -682,6 +745,8 @@ export function SalonGrowthAssessmentFlow() {
               <label className="block text-sm">
                 <span className="mb-1.5 block font-semibold">Mobile / WhatsApp</span>
                 <input
+                  type="tel"
+                  inputMode="tel"
                   className="w-full rounded-xl border border-stone-200 px-3.5 py-3 outline-none focus:border-[#2f5a45]"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}

@@ -223,6 +223,33 @@ export function MarketingLanding() {
     trackMarketingEvent('landing_page_view');
   }, [searchParams]);
 
+  // Always land on the hero unless the URL has a section hash (e.g. #pricing).
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (hash && hash !== '#' && hash !== '#top') return;
+
+    const previous = window.history.scrollRestoration;
+    try {
+      window.history.scrollRestoration = 'manual';
+    } catch {
+      /* ignore */
+    }
+
+    window.scrollTo(0, 0);
+    const frame = window.requestAnimationFrame(() => window.scrollTo(0, 0));
+    const timer = window.setTimeout(() => window.scrollTo(0, 0), 50);
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(timer);
+      try {
+        window.history.scrollRestoration = previous;
+      } catch {
+        /* ignore */
+      }
+    };
+  }, []);
+
   const signupHref = `/login?tab=signup${
     refCode ? `&ref=${encodeURIComponent(refCode)}` : ''
   }`;
@@ -423,9 +450,10 @@ export function MarketingLanding() {
               <span className="text-[#8fbf9f]">Grow Your Salon</span>, Not Just Your Bookings.
             </h1>
             <p className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-white/85 sm:text-lg">
-              Most salon owners know how much they made today. Far fewer know how many customers
-              came back, who may be due for another visit, which customers are drifting away, or how
-              much repeat-revenue opportunity may be sitting inside their existing customer base.
+              Most salon owners like yourself know how much was made daily. Far fewer know how many
+              customers came back, who may be due for another visit, which customers are drifting
+              away, or how much repeat-revenue opportunity may be sitting inside their existing
+              customer base.
             </p>
             <p className="mx-auto mt-3 max-w-2xl text-sm leading-relaxed text-white/70 sm:text-base">
               NeatMeet OS brings bookings, customers, loyalty, payments, marketing and business
@@ -525,7 +553,7 @@ export function MarketingLanding() {
               eventLabel="problem_section"
               className="text-sm font-semibold text-[#2f5a45] underline-offset-4 hover:underline"
             >
-              Get my free growth assessment →
+              Get your free growth assessment →
             </AssessmentLink>
           </p>
         </RevealOnScroll>
@@ -1018,8 +1046,8 @@ export function MarketingLanding() {
                   We&apos;re Still in Demo Mode
                 </p>
                 <p className="mt-3 text-sm leading-relaxed text-stone-600">
-                  Pricing and checkout will open when we go live. Take the free growth assessment in
-                  the meantime.
+                  Pricing and checkout will open in few weeks. For now, enjoy the free growth
+                  assessment and signup for free trial.
                 </p>
               </div>
             </div>

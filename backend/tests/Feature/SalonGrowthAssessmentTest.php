@@ -103,6 +103,45 @@ class SalonGrowthAssessmentTest extends TestCase
             ->assertJsonPath('data.business_name', 'Northside Cuts');
     }
 
+    public function test_rejects_duplicate_email_or_phone(): void
+    {
+        $this->postJson('/api/v1/growth-assessments', $this->validPayload())->assertCreated();
+
+        $this->postJson('/api/v1/growth-assessments', $this->validPayload([
+            'business_name' => 'Other Salon',
+            'phone' => '07700900999',
+        ]))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['email']);
+
+        $this->postJson('/api/v1/growth-assessments', $this->validPayload([
+            'business_name' => 'Other Salon',
+            'email' => 'other@northside.test',
+            'phone' => '07700 900 111',
+        ]))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['email']);
+
+        $this->assertDatabaseCount('salon_growth_assessments', 1);
+    }
+
+    public function test_rejects_invalid_phone_and_email(): void
+    {
+        $this->postJson('/api/v1/growth-assessments', $this->validPayload([
+            'phone' => '123',
+        ]))->assertStatus(422);
+
+        $this->postJson('/api/v1/growth-assessments', $this->validPayload([
+            'email' => 'not-an-email',
+        ]))->assertStatus(422);
+
+        $this->postJson('/api/v1/growth-assessments', $this->validPayload([
+            'marketing_consent' => false,
+        ]))->assertStatus(422);
+
+        $this->assertDatabaseCount('salon_growth_assessments', 0);
+    }
+
     public function test_honeypot_rejects_bots(): void
     {
         $this->postJson('/api/v1/growth-assessments', $this->validPayload([

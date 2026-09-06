@@ -82,6 +82,21 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(6)->by($request->ip());
         });
 
+        // Dedicated limits for the public growth assessment (stricter than signup).
+        RateLimiter::for('growth-assessment', function (Request $request) {
+            $email = strtolower(trim((string) $request->input('email', '')));
+
+            return [
+                Limit::perMinute(3)->by($request->ip()),
+                Limit::perHour(12)->by($request->ip()),
+                Limit::perMinute(2)->by(($email !== '' ? $email : 'anon').'|'.$request->ip()),
+            ];
+        });
+
+        RateLimiter::for('growth-assessment-read', function (Request $request) {
+            return Limit::perMinute(30)->by($request->ip());
+        });
+
         RateLimiter::for('public-webhooks', function (Request $request) {
             return Limit::perMinute(120)->by($request->ip().'|'.($request->route('driver') ?? 'webhook'));
         });

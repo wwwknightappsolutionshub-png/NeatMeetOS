@@ -4,9 +4,12 @@ namespace App\Domains\GrowthAssessment\Services;
 
 use App\Domains\GrowthAssessment\Models\SalonGrowthAssessment;
 use App\Domains\Notifications\Services\PlatformWhatsAppSettingsService;
+use App\Jobs\DeliverSalonGrowthAssessmentResultsJob;
 use App\Shared\Audit\AuditLogger;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -32,6 +35,20 @@ class SalonGrowthAssessmentService
             ]);
         }
 
+        $email = strtolower(trim((string) ($data['email'] ?? '')));
+        $phone = trim((string) ($data['phone'] ?? ''));
+        $phoneNormalized = $this->normalizePhone($phone);
+
+        if ($email === '' || $phoneNormalized === null) {
+            throw ValidationException::withMessages([
+                'email' => $email === '' ? ['Enter a valid email address.'] : [],
+                'phone' => $phoneNormalized === null ? ['Enter a valid mobile / WhatsApp number.'] : [],
+            ]);
+        }
+
+        $this->hitSubmitAbuseGuards($email, $phoneNormalized, $ip);
+        $this->assertNotAlreadySubmitted($email, $phoneNormalized);
+
         $answers = is_array($data['answers'] ?? null) ? $data['answers'] : [];
         $answers['business_name'] = (string) ($data['business_name'] ?? $answers['business_name'] ?? '');
         $answers['business_type'] = (string) ($data['business_type'] ?? $answers['business_type'] ?? '');
@@ -39,51 +56,61 @@ class SalonGrowthAssessmentService
         $answers['customers_per_month_band'] = (string) ($data['customers_per_month_band'] ?? $answers['customers_per_month_band'] ?? '');
 
         $scored = $this->scoring->score($answers);
-        $phone = trim((string) ($data['phone'] ?? ''));
+        $sendWhatsApp = ! empty($data['send_whatsapp']);
 
-        $assessment = SalonGrowthAssessment::query()->create([
-            'public_token' => Str::random(48),
-            'business_name' => trim((string) $data['business_name']),
-            'business_type' => (string) $data['business_type'],
-            'staff_band' => $answers['staff_band'] !== '' ? $answers['staff_band'] : null,
-            'customers_per_month_band' => $answers['customers_per_month_band'] !== '' ? $answers['customers_per_month_band'] : null,
-            'contact_name' => trim((string) ($data['contact_name'] ?? '')),
-            'email' => strtolower(trim((string) ($data['email'] ?? ''))),
-            'phone' => $phone !== '' ? $phone : null,
-            'phone_normalized' => $this->normalizePhone($phone),
-            'postcode' => ($p = trim((string) ($data['postcode'] ?? ''))) !== '' ? $p : null,
-            'marketing_consent' => (bool) ($data['marketing_consent'] ?? false),
-            'answers' => $answers,
-            'score_overall' => $scored['score_overall'],
-            'score_visibility' => $scored['score_visibility'],
-            'score_retention' => $scored['score_retention'],
-            'score_revenue_visibility' => $scored['score_revenue_visibility'],
-            'score_reengagement' => $scored['score_reengagement'],
-            'estimated_opportunity_cents' => $scored['estimated_opportunity_cents'],
-            'primary_opportunity' => $scored['primary_opportunity'],
-            'primary_opportunity_label' => $scored['primary_opportunity_label'],
-            'sales_conversation_hint' => $scored['sales_conversation_hint'],
-            'uses_software' => (string) ($answers['uses_software'] ?? ''),
-            'software_helps_with' => is_array($answers['software_helps_with'] ?? null)
-                ? $answers['software_helps_with']
-                : null,
-            'software_satisfaction' => isset($answers['software_satisfaction'])
-                ? (string) $answers['software_satisfaction']
-                : null,
-            'tracking_methods' => (string) ($answers['tracking_method'] ?? ''),
-            'lead_status' => 'new',
-            'email_delivery_status' => 'pending',
-            'whatsapp_delivery_status' => ! empty($data['send_whatsapp']) ? 'pending' : 'not_requested',
-            'source' => (string) ($data['source'] ?? 'landing'),
-            'referral_code' => ($ref = trim((string) ($data['referral_code'] ?? ''))) !== '' ? $ref : null,
-            'ip_hash' => $ip ? hash('sha256', $ip) : null,
-            'user_agent' => $userAgent ? Str::limit($userAgent, 500) : null,
-        ]);
-
-        $this->deliverEmail($assessment);
-        if (! empty($data['send_whatsapp'])) {
-            $this->deliverWhatsApp($assessment);
+        try {
+            $assessment = SalonGrowthAssessment::query()->create([
+                'public_token' => Str::random(48),
+                'business_name' => trim((string) $data['business_name']),
+                'business_type' => (string) $data['business_type'],
+                'staff_band' => $answers['staff_band'] !== '' ? $answers['staff_band'] : null,
+                'customers_per_month_band' => $answers['customers_per_month_band'] !== '' ? $answers['customers_per_month_band'] : null,
+                'contact_name' => trim((string) ($data['contact_name'] ?? '')),
+                'email' => $email,
+                'phone' => $phone !== '' ? $phone : null,
+                'phone_normalized' => $phoneNormalized,
+                'postcode' => ($p = trim((string) ($data['postcode'] ?? ''))) !== '' ? $p : null,
+                'marketing_consent' => (bool) ($data['marketing_consent'] ?? false),
+                'answers' => $answers,
+                'score_overall' => $scored['score_overall'],
+                'score_visibility' => $scored['score_visibility'],
+                'score_retention' => $scored['score_retention'],
+                'score_revenue_visibility' => $scored['score_revenue_visibility'],
+                'score_reengagement' => $scored['score_reengagement'],
+                'estimated_opportunity_cents' => $scored['estimated_opportunity_cents'],
+                'primary_opportunity' => $scored['primary_opportunity'],
+                'primary_opportunity_label' => $scored['primary_opportunity_label'],
+                'sales_conversation_hint' => $scored['sales_conversation_hint'],
+                'uses_software' => (string) ($answers['uses_software'] ?? ''),
+                'software_helps_with' => is_array($answers['software_helps_with'] ?? null)
+                    ? $answers['software_helps_with']
+                    : null,
+                'software_satisfaction' => isset($answers['software_satisfaction'])
+                    ? (string) $answers['software_satisfaction']
+                    : null,
+                'tracking_methods' => (string) ($answers['tracking_method'] ?? ''),
+                'lead_status' => 'new',
+                'email_delivery_status' => 'pending',
+                'whatsapp_delivery_status' => $sendWhatsApp ? 'pending' : 'not_requested',
+                'source' => (string) ($data['source'] ?? 'landing'),
+                'referral_code' => ($ref = trim((string) ($data['referral_code'] ?? ''))) !== '' ? $ref : null,
+                'ip_hash' => $ip ? hash('sha256', $ip) : null,
+                'user_agent' => $userAgent ? Str::limit($userAgent, 500) : null,
+            ]);
+        } catch (QueryException $e) {
+            if ($this->isUniqueContactViolation($e)) {
+                throw ValidationException::withMessages([
+                    'email' => ['An assessment has already been completed with this email or phone number. Check your inbox for results, or contact us if you need help.'],
+                ]);
+            }
+            throw $e;
         }
+
+        // Email/WhatsApp after response so the user sees results immediately.
+        DeliverSalonGrowthAssessmentResultsJob::dispatchAfterResponse(
+            (string) $assessment->id,
+            $sendWhatsApp,
+        );
 
         $this->auditLogger->log('platform.growth_assessment.submitted', $assessment, null, [
             'business_type' => $assessment->business_type,
@@ -95,6 +122,66 @@ class SalonGrowthAssessmentService
             'assessment' => $assessment->fresh(),
             'result' => $this->publicResultPayload($assessment->fresh(), $scored),
         ];
+    }
+
+    /**
+     * Send result email and optional WhatsApp (called from after-response job).
+     */
+    public function deliverOutbound(SalonGrowthAssessment $assessment, bool $sendWhatsApp): void
+    {
+        $this->deliverEmail($assessment);
+        if ($sendWhatsApp) {
+            $this->deliverWhatsApp($assessment->fresh() ?? $assessment);
+        }
+    }
+
+    private function assertNotAlreadySubmitted(string $email, string $phoneNormalized): void
+    {
+        $exists = SalonGrowthAssessment::query()
+            ->where(function ($q) use ($email, $phoneNormalized) {
+                $q->where('email', $email)
+                    ->orWhere('phone_normalized', $phoneNormalized);
+            })
+            ->exists();
+
+        if ($exists) {
+            throw ValidationException::withMessages([
+                'email' => ['An assessment has already been completed with this email or phone number. Check your inbox for results, or contact us if you need help.'],
+            ]);
+        }
+    }
+
+    private function hitSubmitAbuseGuards(string $email, string $phoneNormalized, ?string $ip): void
+    {
+        $keys = [
+            'ga-email:'.$email => 2,
+            'ga-phone:'.$phoneNormalized => 2,
+        ];
+        if ($ip) {
+            $keys['ga-ip:'.$ip] = 8;
+        }
+
+        foreach ($keys as $key => $max) {
+            if (RateLimiter::tooManyAttempts($key, $max)) {
+                throw ValidationException::withMessages([
+                    'form' => ['Too many assessment attempts. Please wait and try again later.'],
+                ]);
+            }
+            RateLimiter::hit($key, 60 * 60);
+        }
+    }
+
+    private function isUniqueContactViolation(QueryException $e): bool
+    {
+        $sqlState = (string) ($e->errorInfo[0] ?? '');
+        $message = strtolower($e->getMessage());
+
+        if ($sqlState === '23505') {
+            return true;
+        }
+
+        return str_contains($message, 'unique')
+            && (str_contains($message, 'email') || str_contains($message, 'phone_normalized'));
     }
 
     public function findByPublicToken(string $token): ?SalonGrowthAssessment
@@ -434,20 +521,27 @@ class SalonGrowthAssessmentService
 
     public function normalizePhone(?string $phone): ?string
     {
-        $phone = preg_replace('/\s+/', '', trim((string) $phone)) ?? '';
-        if ($phone === '') {
+        $phone = preg_replace('/[^\d+]/', '', trim((string) $phone)) ?? '';
+        if ($phone === '' || $phone === '+') {
             return null;
         }
-        if (str_starts_with($phone, '+')) {
-            return $phone;
+        // Collapse accidental multiple leading pluses.
+        $phone = '+'.ltrim($phone, '+');
+        if ($phone === '+') {
+            return null;
         }
-        if (str_starts_with($phone, '00')) {
-            return '+'.substr($phone, 2);
+        if (str_starts_with($phone, '+00')) {
+            $phone = '+'.substr($phone, 3);
         }
-        if (str_starts_with($phone, '0')) {
-            return '+44'.substr($phone, 1);
+        // UK local numbers: 07xxx → +447xxx
+        if (preg_match('/^\+0(\d+)$/', $phone, $m)) {
+            $phone = '+44'.$m[1];
+        }
+        $digits = preg_replace('/\D+/', '', $phone) ?? '';
+        if (strlen($digits) < 10 || strlen($digits) > 15) {
+            return null;
         }
 
-        return '+'.$phone;
+        return $phone;
     }
 }

@@ -121,9 +121,26 @@ export async function api<T>(
   if (!payload || !response.ok || !('success' in payload) || !payload.success) {
     let message =
       payload && 'message' in payload ? payload.message : 'Request failed';
+    if (
+      payload &&
+      typeof payload === 'object' &&
+      'errors' in payload &&
+      payload.errors &&
+      typeof payload.errors === 'object'
+    ) {
+      const first = Object.values(payload.errors as Record<string, string[]>)
+        .flat()
+        .find((m) => typeof m === 'string' && m.trim() !== '');
+      if (first) message = first;
+    }
     if (response.status === 419) {
       message =
         'Session expired. Refresh the page and try again.';
+    } else if (response.status === 429) {
+      message =
+        message && message !== 'Request failed'
+          ? message
+          : 'Too many attempts. Please wait a minute and try again.';
     } else if (response.status === 404) {
       message =
         message && message !== 'Request failed'

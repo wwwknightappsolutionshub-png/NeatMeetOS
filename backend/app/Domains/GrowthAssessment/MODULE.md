@@ -4,9 +4,18 @@ Platform-owned, **pre-tenant** lead generation diagnostic. Not mixed into salon 
 
 ## Public API
 
-- `POST /api/v1/growth-assessments` — submit (Turnstile + honeypot + `throttle:public-signup` + `ip.ban`)
-- `GET /api/v1/growth-assessments/{publicToken}` — public results re-fetch
+- `POST /api/v1/growth-assessments` — submit (Turnstile + honeypot + `throttle:growth-assessment` + `ip.ban` + unique email/phone)
+- `GET /api/v1/growth-assessments/{publicToken}` — public results re-fetch (`throttle:growth-assessment-read`)
 - `POST /api/v1/growth-assessments/{publicToken}/whatsapp` — request WhatsApp delivery via platform Genius outbound
+
+Email/WhatsApp result delivery runs **after** the HTTP response (`DeliverSalonGrowthAssessmentResultsJob`) so scoring returns quickly.
+
+## Abuse controls
+
+- Route throttle: 3/min + 12/hour per IP; 2/min per email+IP
+- Service RateLimiter: 2/hour per email, 2/hour per phone, 8/hour per IP
+- Unique `email` + `phone_normalized` (one assessment per contact)
+- Turnstile + honeypot
 
 ## Platform API
 
@@ -32,4 +41,4 @@ Non-return rate derived from stated return % (e.g. under 20% return → 0.70 non
 
 - `AuthMailService`-style HTML via `SalonGrowthAssessmentMailService`
 - `PlatformWhatsAppSettingsService::sendOperational`
-- Turnstile / honeypot / public-signup throttle patterns
+- Turnstile / honeypot / dedicated growth-assessment throttle patterns

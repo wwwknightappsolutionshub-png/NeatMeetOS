@@ -143,10 +143,13 @@ Route::prefix('v1')->group(function () {
     Route::post('/auth/forgot-password', [AuthLinkController::class, 'requestPasswordReset'])->middleware(['ip.ban', 'throttle:public-signup', 'turnstile']);
     Route::post('/auth/reset-password', [AuthLinkController::class, 'resetPassword'])->middleware(['ip.ban', 'throttle:public-signup', 'turnstile']);
 
-    Route::middleware(['ip.ban', 'throttle:public-signup'])->group(function () {
-        Route::post('/growth-assessments', [PublicSalonGrowthAssessmentController::class, 'store'])->middleware('turnstile');
-        Route::get('/growth-assessments/{token}', [PublicSalonGrowthAssessmentController::class, 'show']);
-        Route::post('/growth-assessments/{token}/whatsapp', [PublicSalonGrowthAssessmentController::class, 'sendWhatsApp'])->middleware('turnstile');
+    Route::middleware(['ip.ban'])->group(function () {
+        Route::post('/growth-assessments', [PublicSalonGrowthAssessmentController::class, 'store'])
+            ->middleware(['throttle:growth-assessment', 'turnstile']);
+        Route::get('/growth-assessments/{token}', [PublicSalonGrowthAssessmentController::class, 'show'])
+            ->middleware('throttle:growth-assessment-read');
+        Route::post('/growth-assessments/{token}/whatsapp', [PublicSalonGrowthAssessmentController::class, 'sendWhatsApp'])
+            ->middleware(['throttle:growth-assessment', 'turnstile']);
     });
 
     Route::prefix('signup')->middleware(['ip.ban', 'throttle:public-signup'])->group(function () {

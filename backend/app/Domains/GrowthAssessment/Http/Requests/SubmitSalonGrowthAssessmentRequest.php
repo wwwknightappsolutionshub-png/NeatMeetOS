@@ -40,11 +40,11 @@ class SubmitSalonGrowthAssessmentRequest extends FormRequest
                 '501_1000',
                 '1000_plus',
             ])],
-            'contact_name' => ['required', 'string', 'max:120'],
+            'contact_name' => ['required', 'string', 'min:2', 'max:120'],
             'email' => ['required', 'email', 'max:190'],
-            'phone' => ['required', 'string', 'max:40'],
-            'postcode' => ['nullable', 'string', 'max:20'],
-            'marketing_consent' => ['required', 'boolean'],
+            'phone' => ['required', 'string', 'min:8', 'max:40', 'regex:/^[\d\s+().\-]{8,40}$/'],
+            'postcode' => ['nullable', 'string', 'max:20', 'regex:/^[A-Za-z0-9\s]{0,20}$/'],
+            'marketing_consent' => ['required', 'boolean', 'accepted'],
             'send_whatsapp' => ['sometimes', 'boolean'],
             'source' => ['sometimes', 'string', 'max:64'],
             'referral_code' => ['nullable', 'string', 'max:64'],
@@ -114,6 +114,18 @@ class SubmitSalonGrowthAssessmentRequest extends FormRequest
         ];
     }
 
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'marketing_consent.accepted' => 'Please confirm you are happy for NeatMeet to contact you about this assessment.',
+            'phone.regex' => 'Enter a valid mobile / WhatsApp number.',
+            'email.email' => 'Enter a valid email address.',
+        ];
+    }
+
     public function withValidator($validator): void
     {
         $validator->after(function ($validator) {
@@ -126,6 +138,16 @@ class SubmitSalonGrowthAssessmentRequest extends FormRequest
                 if (! $this->filled('answers.software_satisfaction')) {
                     $validator->errors()->add('answers.software_satisfaction', 'Please rate how satisfied you are with bringing customers back.');
                 }
+            }
+
+            $phone = trim((string) $this->input('phone'));
+            $digits = preg_replace('/\D+/', '', $phone) ?? '';
+            if (strlen($digits) < 10 || strlen($digits) > 15) {
+                $validator->errors()->add('phone', 'Enter a valid mobile / WhatsApp number (at least 10 digits).');
+            }
+
+            if ($this->filled('email') && ! filter_var(strtolower(trim((string) $this->input('email'))), FILTER_VALIDATE_EMAIL)) {
+                $validator->errors()->add('email', 'Enter a valid email address.');
             }
         });
     }

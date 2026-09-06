@@ -48,11 +48,20 @@ export function CapabilitySwitcher({
     };
   }, [categories.length]);
 
+  // Keep the active tab horizontally visible without scrollIntoView —
+  // that API scrolls the whole page on mobile and jumps past the hero on load.
   useEffect(() => {
     const scroller = scrollerRef.current;
     if (!scroller) return;
     const tab = scroller.querySelector<HTMLElement>(`#cap-tab-${active}`);
-    tab?.scrollIntoView({ behavior: 'smooth', inline: 'nearest', block: 'nearest' });
+    if (!tab) return;
+
+    const target =
+      tab.offsetLeft - Math.max(0, (scroller.clientWidth - tab.offsetWidth) / 2);
+    scroller.scrollTo({
+      left: Math.max(0, Math.min(target, scroller.scrollWidth - scroller.clientWidth)),
+      behavior: 'smooth',
+    });
   }, [active]);
 
   const scrollByAmount = (dir: -1 | 1) => {
