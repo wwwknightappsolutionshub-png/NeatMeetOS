@@ -43,6 +43,7 @@ class TenantSignupService
         private readonly PlatformReferralProgramService $platformReferrals,
         private readonly LookbookSeedService $lookbookSeed,
         private readonly AbuseGuard $abuse,
+        private readonly TenantSessionService $sessions,
     ) {}
 
     /**
@@ -410,12 +411,13 @@ class TenantSignupService
 
         // Drop tokens issued with the temporary password; issue a fresh session token.
         $user->tokens()->delete();
-        $sanctum = $user->createToken('neatmeet-os-web')->plainTextToken;
+        $issued = $this->sessions->issueToken($user);
 
         return [
             'tenant' => $tenant,
             'user' => $user->fresh(),
-            'token' => $sanctum,
+            'token' => $issued['plain_text_token'],
+            'expires_at' => $issued['expires_at'],
         ];
     }
 
@@ -656,12 +658,13 @@ class TenantSignupService
             'user_id' => $user->id,
         ], $user);
 
-        $sanctum = $user->createToken('neatmeet-os-web')->plainTextToken;
+        $issued = $this->sessions->issueToken($user);
 
         return [
-            'token' => $sanctum,
+            'token' => $issued['plain_text_token'],
             'user' => $user,
             'tenant' => $tenant,
+            'expires_at' => $issued['expires_at'],
         ];
     }
 

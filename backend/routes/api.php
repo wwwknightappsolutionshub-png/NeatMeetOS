@@ -247,7 +247,7 @@ Route::prefix('v1')->group(function () {
     Route::post('/integrations/webhooks/{driver}', [ProviderWebhookIngestController::class, 'store'])
         ->middleware('throttle:public-webhooks');
 
-    Route::middleware(['auth:sanctum', 'tenant.resolve'])->group(function () {
+    Route::middleware(['auth:sanctum', 'tenant.resolve', 'tenant.session'])->group(function () {
         Route::post('/auth/logout', [AuthController::class, 'logout']);
         Route::get('/auth/me', [AuthController::class, 'me']);
         Route::get('/shell', ShellController::class);
@@ -345,7 +345,7 @@ Route::prefix('v1')->group(function () {
         });
     });
 
-    Route::middleware(['auth:sanctum', 'tenant.resolve', 'team.member'])->prefix('admin')->group(function () {
+    Route::middleware(['auth:sanctum', 'tenant.resolve', 'team.member', 'tenant.session'])->prefix('admin')->group(function () {
         Route::middleware('permission:identity.view')->group(function () {
             Route::get('/organization', [OrganizationController::class, 'show']);
             Route::get('/branding', [BrandingController::class, 'show']);

@@ -28,7 +28,7 @@ use Illuminate\Validation\ValidationException;
  */
 class MemberPortalAuthService
 {
-    public const TOKEN_TTL_DAYS = 60;
+    public const TOKEN_TTL_DAYS = 90;
 
     public const OTP_TTL_MINUTES = 10;
 

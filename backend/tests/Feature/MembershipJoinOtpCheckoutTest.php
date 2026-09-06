@@ -72,7 +72,7 @@ class MembershipJoinOtpCheckoutTest extends TestCase
             ->count());
     }
 
-    public function test_member_otp_login_issues_sixty_day_token(): void
+    public function test_member_otp_login_issues_ninety_day_token(): void
     {
         $ctx = $this->seedTenantContext(['crm.view', 'crm.manage']);
         Client::withoutGlobalScopes()->create([

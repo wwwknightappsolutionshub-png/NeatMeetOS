@@ -41,6 +41,9 @@ class AuthLinkController extends Controller
         return ApiResponse::success([
             'token' => $result['token'],
             'token_type' => 'Bearer',
+            'expires_at' => isset($result['expires_at']) && $result['expires_at'] !== null
+                ? $result['expires_at']->toIso8601String()
+                : null,
             'user' => [
                 'id' => $user->id,
                 'name' => $user->name,

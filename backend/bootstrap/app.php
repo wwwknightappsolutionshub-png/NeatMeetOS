@@ -5,6 +5,7 @@ use App\Shared\Middleware\CorrelationId;
 use App\Shared\Middleware\EnsurePermission;
 use App\Shared\Middleware\EnsurePlatformAdmin;
 use App\Shared\Middleware\EnsurePlatformRole;
+use App\Shared\Middleware\ExtendTenantSession;
 use App\Shared\Middleware\LoadTeamMember;
 use App\Shared\Middleware\RequireTenant;
 use App\Shared\Middleware\ResolveTenant;
@@ -37,6 +38,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'platform.role' => EnsurePlatformRole::class,
             'ip.ban' => BlockBannedIp::class,
             'turnstile' => VerifyTurnstile::class,
+            'tenant.session' => ExtendTenantSession::class,
         ]);
 
         // API clients must get 401 JSON — never redirect to a missing named route('login').

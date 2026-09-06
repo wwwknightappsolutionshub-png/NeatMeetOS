@@ -16,6 +16,7 @@ class StaffAuthLinkService
         private readonly AuthMailService $mail,
         private readonly AuthWhatsAppService $whatsapp,
         private readonly AuditLogger $audit,
+        private readonly TenantSessionService $sessions,
     ) {}
 
     public function requestMagicLogin(string $email): void
@@ -49,13 +50,14 @@ class StaffAuthLinkService
             ]);
         }
 
-        $sanctum = $user->createToken($deviceName ?? 'neatmeet-os-web')->plainTextToken;
+        $issued = $this->sessions->issueToken($user, $deviceName);
         $this->audit->log('auth.magic_login', $user, null, ['user_id' => $user->id], $user);
 
         return [
-            'token' => $sanctum,
+            'token' => $issued['plain_text_token'],
             'user' => $user,
             'tenant' => $user->resolveActiveTeamMember()?->tenant,
+            'expires_at' => $issued['expires_at'],
         ];
     }
 

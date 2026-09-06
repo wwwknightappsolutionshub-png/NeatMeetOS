@@ -4,6 +4,7 @@ namespace App\Domains\Identity\Http\Controllers;
 
 use App\Domains\Identity\Models\TeamMember;
 use App\Domains\Identity\Models\User;
+use App\Domains\Identity\Services\TenantSessionService;
 use App\Shared\Services\AbuseGuard;
 use App\Shared\Support\ApiResponse;
 use Illuminate\Http\JsonResponse;
@@ -13,7 +14,7 @@ use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
-    public function login(Request $request, AbuseGuard $abuse): JsonResponse
+    public function login(Request $request, AbuseGuard $abuse, TenantSessionService $sessions): JsonResponse
     {
         $credentials = $request->validate([
             'email' => ['required', 'email'],
@@ -49,13 +50,14 @@ class AuthController extends Controller
             ]);
         }
 
-        $token = $user->createToken($credentials['device_name'] ?? 'neatmeet-os-web')->plainTextToken;
+        $issued = $sessions->issueToken($user, $credentials['device_name'] ?? null);
 
         $workspaceIncomplete = $user->needsWorkspace() && $tenant === null;
 
         return ApiResponse::success([
-            'token' => $token,
+            'token' => $issued['plain_text_token'],
             'token_type' => 'Bearer',
+            'expires_at' => $issued['expires_at']?->toIso8601String(),
             'user' => [
                 'id' => $user->id,
                 'name' => $user->name,
