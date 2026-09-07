@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { DashboardBookingCalendar } from '@/components/admin/DashboardBookingCalendar';
+import { DashboardGrowthHub } from '@/components/admin/DashboardGrowthHub';
 import { DashboardTrendChart } from '@/components/admin/DashboardTrendChart';
 import { AnalyticsSectionCard } from '@/components/admin/analytics/AnalyticsSectionCard';
 import { AnalyticsStatCard } from '@/components/admin/analytics/AnalyticsStatCard';
@@ -14,10 +15,15 @@ import {
   formatRangeLabel,
   type AnalyticsOverview,
   type BookingAnalytics,
+  type BusinessPerformanceIntelligence,
 } from '@/lib/analytics-types';
 import type { Appointment, BookingDayBoard, WaitlistEntry } from '@/lib/booking-types';
 import type { ShellStatus } from '@/lib/types';
-import { fetchAnalyticsOverview, fetchBookingAnalytics } from '@/services/analytics.service';
+import {
+  fetchAnalyticsOverview,
+  fetchBookingAnalytics,
+  fetchBusinessPerformanceIntelligence,
+} from '@/services/analytics.service';
 import { fetchShell } from '@/services/auth.service';
 import { fetchBookingDayBoard, fetchWaitlist } from '@/services/booking.service';
 import {
@@ -147,6 +153,7 @@ export default function AdminDashboardPage() {
   const [shell, setShell] = useState<ShellStatus | null>(null);
   const [overview, setOverview] = useState<AnalyticsOverview | null>(null);
   const [bookingsAnalytics, setBookingsAnalytics] = useState<BookingAnalytics | null>(null);
+  const [intelligence, setIntelligence] = useState<BusinessPerformanceIntelligence | null>(null);
   const [board, setBoard] = useState<BookingDayBoard | null>(null);
   const [waitlist, setWaitlist] = useState<WaitlistEntry[]>([]);
   const [sosAlerts, setSosAlerts] = useState<StaffSosAlert[]>([]);
@@ -195,6 +202,7 @@ export default function AdminDashboardPage() {
     if (!analyticsOn) {
       setOverview(null);
       setBookingsAnalytics(null);
+      setIntelligence(null);
     }
 
     const results = await Promise.allSettled([
@@ -204,14 +212,23 @@ export default function AdminDashboardPage() {
       analyticsOn
         ? fetchBookingAnalytics({ from: range.from, to: range.to })
         : Promise.resolve(null),
+      analyticsOn ? fetchBusinessPerformanceIntelligence() : Promise.resolve(null),
       fetchBookingDayBoard({ date: today }),
       fetchWaitlist({ status: 'waiting' }),
       fetchActiveStaffSosAlerts(),
     ]);
 
-    const [overviewResult, bookingsResult, boardResult, waitlistResult, sosResult] = results;
+    const [
+      overviewResult,
+      bookingsResult,
+      intelligenceResult,
+      boardResult,
+      waitlistResult,
+      sosResult,
+    ] = results;
     setOverview(settledValue(overviewResult));
     setBookingsAnalytics(settledValue(bookingsResult));
+    setIntelligence(settledValue(intelligenceResult));
     setBoard(settledValue(boardResult));
     setWaitlist(settledValue(waitlistResult) ?? []);
     const sos = settledValue(sosResult) ?? [];
@@ -234,6 +251,7 @@ export default function AdminDashboardPage() {
     const errors = [
       settledError(overviewResult),
       settledError(bookingsResult),
+      settledError(intelligenceResult),
       settledError(boardResult),
       settledError(waitlistResult),
       settledError(sosResult),
@@ -434,10 +452,12 @@ export default function AdminDashboardPage() {
         />
       ) : null}
 
-      {loading && !overview && !board ? (
+      {loading && !overview && !board && !intelligence ? (
         <LoadingState label="Loading operations…" />
       ) : (
         <>
+          {intelligence ? <DashboardGrowthHub data={intelligence} /> : null}
+
           {focusAppointment ? (
             <UpNextBanner appointment={focusAppointment} nowMs={nowMs} />
           ) : null}
